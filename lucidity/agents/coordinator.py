@@ -210,6 +210,7 @@ def build_snapshot(sessions, cache, now, tr, banner, opts, n_changed, n_skipped)
         "mode": opts.mode, "now": now.isoformat(), "refresh_id": tr.id,
         "changed": n_changed, "skipped": n_skipped,
         "sessions": rows, "banner": banner or (breaker.status().get("tripped") and
-                                              f"Lucidity's own budget cap is reached: {breaker.status()['tripped']}"),
+                                              f"Lucidity paused its own model calls ({breaker.status()['tripped']}). "
+                                              "Cards show the last results plus anything plain code can see."),
         "self_cost": breaker.status(), "trace": tr.to_dict(),
     }
