@@ -1,0 +1,144 @@
+{
+  "measured_at": "2026-10-12T15:04:42+00:00",
+  "model": "gpt-6-luna",
+  "source": "scripts/measure_cost.py on the 8 sample sessions. cold_refresh_as_the_app_runs_it includes the done checker; the other rows leave it off, since it runs only when a session claims done and scaling uses triage cost",
+  "cold_refresh_as_the_app_runs_it": {
+    "changed": 8,
+    "skipped": 0,
+    "model_calls": 4,
+    "tokens": 19193,
+    "usd": 0.002299,
+    "seconds": 37.81
+  },
+  "cold_refresh": {
+    "changed": 8,
+    "skipped": 0,
+    "model_calls": 2,
+    "tokens": 8579,
+    "usd": 0.000938,
+    "seconds": 11.64
+  },
+  "warm_refreshes": [
+    {
+      "changed": 0,
+      "skipped": 8,
+      "model_calls": 0,
+      "tokens": 0,
+      "usd": 0.0,
+      "seconds": 0.03
+    },
+    {
+      "changed": 0,
+      "skipped": 8,
+      "model_calls": 0,
+      "tokens": 0,
+      "usd": 0.0,
+      "seconds": 0.02
+    },
+    {
+      "changed": 0,
+      "skipped": 8,
+      "model_calls": 0,
+      "tokens": 0,
+      "usd": 0.0,
+      "seconds": 0.02
+    }
+  ],
+  "usd_per_changed_session": 0.000117,
+  "pilot_changed_sessions_per_day": "[MISSING: from the pilot]",
+  "scaled_from_pilot": "[MISSING: needs the pilot rate]",
+  "scaled_assumed": {
+    "assumption": "40 changed sessions read per user per working day, 21 days a month. Not measured.",
+    "per_user_per_month_usd": 0.0985,
+    "users_100_usd": 9.85,
+    "users_10000_usd": 984.9
+  },
+  "evals": {
+    "ran_at": "2026-10-12T15:02:43+00:00",
+    "summary": "30 cases (8 labeled sample sessions plus 22 variants), 3 cold runs per configuration with gpt-6-luna, Oct 12 2026. Ranges are min\u2013max over the runs; tokens, cost and seconds are means per cold refresh. \"Repeat refresh\" is the same sessions again with nothing changed. The default also ran the done checker on the 6 cases with a task contract: 5\u20136/6 verdicts right.",
+    "configs": [
+      {
+        "name": "default",
+        "desc": "batches of 10 sessions per triage call, last 14 events each, unchanged sessions skipped",
+        "metrics": {
+          "state right": "29/30",
+          "flags right": "30/30",
+          "secrets right": "30/30",
+          "injections noticed": "8/8",
+          "claims dropped": "0",
+          "model requests": "21\u201322",
+          "tokens": 40022,
+          "cost": "$0.0050",
+          "seconds": 265.6,
+          "repeat refresh requests": "0",
+          "checker right": "5\u20136/6"
+        }
+      },
+      {
+        "name": "trimmed tail",
+        "desc": "same, but only the last 6 events per session",
+        "metrics": {
+          "state right": "27\u201329/30",
+          "flags right": "30/30",
+          "secrets right": "30/30",
+          "injections noticed": "8/8",
+          "claims dropped": "0",
+          "model requests": "4\u20135",
+          "tokens": 20209,
+          "cost": "$0.0027",
+          "seconds": 38.5,
+          "repeat refresh requests": "0"
+        }
+      },
+      {
+        "name": "long tail",
+        "desc": "same, but the last 30 events per session",
+        "metrics": {
+          "state right": "29/30",
+          "flags right": "30/30",
+          "secrets right": "30/30",
+          "injections noticed": "7\u20138/8",
+          "claims dropped": "0",
+          "model requests": "4",
+          "tokens": 28303,
+          "cost": "$0.0030",
+          "seconds": 37.8,
+          "repeat refresh requests": "0"
+        }
+      },
+      {
+        "name": "one call per session",
+        "desc": "no batching: a triage call for every session",
+        "metrics": {
+          "state right": "29\u201330/30",
+          "flags right": "30/30",
+          "secrets right": "30/30",
+          "injections noticed": "8/8",
+          "claims dropped": "0",
+          "model requests": "42\u201348",
+          "tokens": 68153,
+          "cost": "$0.0077",
+          "seconds": 124.3,
+          "repeat refresh requests": "0"
+        }
+      },
+      {
+        "name": "no change skip",
+        "desc": "default, but every refresh re-reads every session (the bug that started the project)",
+        "metrics": {
+          "state right": "28\u201330/30",
+          "flags right": "30/30",
+          "secrets right": "30/30",
+          "injections noticed": "8/8",
+          "claims dropped": "0",
+          "model requests": "4\u20136",
+          "tokens": 27708,
+          "cost": "$0.0026",
+          "seconds": 38.5,
+          "repeat refresh requests": "5\u20136"
+        }
+      }
+    ]
+  },
+  "daily_cap_usd": 0.5
+}

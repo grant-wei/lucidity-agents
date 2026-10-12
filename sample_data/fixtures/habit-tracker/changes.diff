@@ -1,0 +1,12 @@
+--- a/habits/streak.py
++++ b/habits/streak.py
+@@
+ def current_streak(days):
+-    return len(days)
++    streak = 1
++    for a, b in zip(days, days[1:]):
++        streak = streak + 1 if (b - a).days == 1 else 1
++    return streak
+--- /dev/null
++++ b/tests/test_streak.py
++def test_reset_after_gap(): ...

@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head>
+  <title>Notes</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Notes</h1>
+  <ul>
+    {% for n in notes %}<li>{{ n }}</li>{% endfor %}
+  </ul>
+</body>
+</html>

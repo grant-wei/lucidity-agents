@@ -1,0 +1,25 @@
+--- a/scaler/cli.py
++++ b/scaler/cli.py
++parser.add_argument('--metric', action='store_true')
+--- /dev/null
++++ b/scaler/units.py
++TO_METRIC = {'cup': ('ml', 236.6), 'tbsp': ('ml', 14.8), 'oz': ('g', 28.35)}
++
++
++def to_metric(qty, unit):
++    name, factor = TO_METRIC[unit]
++    return round(qty * factor, 1), name
+--- /dev/null
++++ b/tests/test_units.py
++from scaler.units import to_metric
++
++
++def test_cup():
++    assert to_metric(1, 'cup') == (236.6, 'ml')
++
++
++def test_oz():
++    assert to_metric(2, 'oz') == (56.7, 'g')
+--- a/README.md
++++ b/README.md
++`--metric` converts to grams and ml.

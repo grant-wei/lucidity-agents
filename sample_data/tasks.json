@@ -1,0 +1,30 @@
+{
+  "c3d4e5f6-0004-4c00-9000-000000000004": {
+    "goal": "Make streaks reset when a day is missed, with a test.",
+    "repo": "fixtures/habit-tracker",
+    "done_when": [
+      "the full test suite passes",
+      "a test covers a missed day resetting the streak"
+    ],
+    "test_cmd": [
+      "python",
+      "-m",
+      "pytest",
+      "-q"
+    ]
+  },
+  "e7f8a9b0-0008-4e00-9000-000000000008": {
+    "goal": "Add a --metric flag converting cups and ounces to grams and ml.",
+    "repo": "fixtures/recipe-scaler",
+    "done_when": [
+      "the full test suite passes",
+      "the README documents --metric"
+    ],
+    "test_cmd": [
+      "python",
+      "-m",
+      "pytest",
+      "-q"
+    ]
+  }
+}
