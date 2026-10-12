@@ -106,7 +106,7 @@ in the output) are decided in plain code and override the model.
 ## Tests and evals
 
 ```
-python -m pytest -q                 # safety tests, offline, no key needed
+python -m pytest -q                 # 98 tests, offline, no key needed (~10 s)
 python evals/run_evals.py           # 30 cases x 5 configurations x 3 runs, about $0.07 and 15 minutes
 python scripts/run_refresh.py       # one refresh from the command line, state vs label per session
 python scripts/record_replay.py     # re-record the planner replay (needs requirements-dev.txt)
@@ -121,7 +121,7 @@ lucidity/agents/        coordinator, triage, watchdog, checker, planner, worker
 static/index.html       the whole UI, one file
 sample_data/            synthetic sessions, labels, task contracts, fixtures, the recorded replay
 evals/                  eval cases, runner, results.json
-tests/                  safety tests
+tests/                  readers, cost, watchdog, server and safety tests
 ```
 
 Lucidity started as a personal tool I used before this course. This repo is a clean rebuild for MGT 409.

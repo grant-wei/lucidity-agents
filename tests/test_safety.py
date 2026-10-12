@@ -9,51 +9,16 @@ from datetime import datetime, timezone
 
 import pytest
 from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 
 from lucidity import config, guard, llm, trace
 from lucidity.agents import checker, coordinator, triage
 from lucidity.readers import clock, load_sessions
 from lucidity.redact import PATTERNS
 
+from conftest import FakeModel, use_fake
+
 INJECTION = "019a0b1c-0005-7000-8000-000000000005"
 SECRET_LEAK = "d5e6f7a8-0006-4d00-9000-000000000006"
-
-
-class FakeModel:
-    """Answers every triage call with the given state for every session and records every
-    message the model was sent."""
-
-    def __init__(self, state="finished", cite="e1"):
-        self.state, self.cite, self.seen, self.calls = state, cite, [], 0
-
-    def __call__(self, messages, info):
-        self.calls += 1
-        self.seen.append(repr(messages))
-        text = repr(messages)
-        ids = sorted(set(re.findall(r"session_id[\"']?\s*[:=]\s*[\"']?([0-9a-f-]{36})", text))
-                     | set(re.findall(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", text)))
-        tool = info.output_tools[0].name
-        args = {"items": [{"session_id": i, "state": self.state, "warning": "",
-                           "claims": [{"field": "doing_now", "text": "real claim", "event_ids": [self.cite]},
-                                      {"field": "done_so_far", "text": "made-up claim", "event_ids": ["e99999"]}]}
-                          for i in ids]}
-        return ModelResponse(parts=[ToolCallPart(tool, args)])
-
-
-@pytest.fixture
-def sandbox(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
-    monkeypatch.setattr(config, "STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(config, "DATA_MODE", "sample")
-    monkeypatch.setattr(llm, "USAGE_LOG", tmp_path / "logs" / "usage.jsonl")
-    monkeypatch.setattr(trace, "TRACE_DIR", tmp_path / "logs" / "traces")
-    return tmp_path
-
-
-def use_fake(monkeypatch, fake):
-    monkeypatch.setattr(llm, "model", lambda: FunctionModel(fake))
-    return fake
 
 
 def session(sid):
