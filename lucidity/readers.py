@@ -401,6 +401,47 @@ def sample_paths():
     return out
 
 
+def history_paths():
+    """Older finished sample sessions that only the map reads (outside the monitor's window)."""
+    out = []
+    for tool in ("claude", "codex"):
+        for p in sorted((config.SAMPLE_DIR / "history" / tool).glob("*.jsonl")):
+            out.append((tool, p))
+    return out
+
+
+_read_cache = {}   # path -> ((mtime, size), Session); transcripts only grow, so this skips re-parsing
+
+
+def _read(tool, path):
+    st = path.stat()
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _read_cache.get(str(path))
+    if hit and hit[0] == key:
+        return hit[1]
+    s = read_claude(path) if tool == "claude" else read_codex(path)
+    _read_cache[str(path)] = (key, s)
+    return s
+
+
+MAP_DAYS, MAP_LIMIT = 7, 80
+
+
+def map_sessions(mode=None):
+    """Sessions the architecture map draws from: a wider window than the monitor's."""
+    mode = mode or config.DATA_MODE
+    pairs = local_paths(MAP_LIMIT, days=MAP_DAYS) if mode == "local" else sample_paths() + history_paths()
+    out = []
+    for tool, path in pairs:
+        try:
+            s = _read(tool, path)
+        except (OSError, ValueError):
+            continue
+        if s.touches:
+            out.append(s)
+    return out
+
+
 def load_sessions(mode=None, limit=25):
     mode = mode or config.DATA_MODE
     pairs = local_paths(limit) if mode == "local" else sample_paths()
@@ -412,7 +453,7 @@ def load_sessions(mode=None, limit=25):
     sessions = []
     for tool, path in pairs:
         try:
-            s = read_claude(path) if tool == "claude" else read_codex(path)
+            s = _read(tool, path)
         except (OSError, ValueError) as e:
             print(f"skipped {path.name}: {e}")
             continue

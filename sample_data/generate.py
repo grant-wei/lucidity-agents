@@ -10,6 +10,8 @@ import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import storefront
+
 HERE = Path(__file__).resolve().parent
 SAMPLE_NOW = datetime(2026, 10, 20, 15, 0, 0, tzinfo=timezone.utc)
 CLAUDE_MODEL = "claude-sonnet-5"
@@ -113,6 +115,27 @@ class CodexWriter:
         self.tick(gap)
         self._rec("response_item", {"type": "function_call_output", "call_id": cid,
                                     "output": json.dumps({"output": output, "metadata": {"exit_code": exit_code}})})
+        self.tick(3)
+
+    def patch(self, files, gap=12):
+        """An apply_patch call, the way Codex edits files. files: [(op, path, plus_lines, minus_lines)]."""
+        self.n += 1
+        cid = f"call_{self.sid[:6]}{self.n:04d}"
+        body = ["*** Begin Patch"]
+        for op, path, plus, minus in files:
+            body.append(f"*** {op} File: {path}")
+            if op == "Update":
+                body.append("@@")
+            body += ["-" + x for x in minus] + ["+" + x for x in plus]
+        body.append("*** End Patch")
+        self._rec("response_item", {"type": "custom_tool_call", "name": "apply_patch", "call_id": cid,
+                                    "input": "\n".join(body) + "\n"})
+        self._tokens(out=40 * sum(len(f[2]) for f in files) + 100)
+        self.tick(gap)
+        self._rec("response_item", {"type": "custom_tool_call_output", "call_id": cid,
+                                    "output": json.dumps({"output": "Success. Updated the following files:\n"
+                                                          + "\n".join(f"M {f[1]}" for f in files),
+                                                          "metadata": {"exit_code": 0}})})
         self.tick(3)
 
     def ask(self, question, options):
@@ -378,7 +401,16 @@ def main():
     (HERE / "labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
     (HERE / "tasks.json").write_text(json.dumps(TASKS, indent=2), encoding="utf-8")
     write_fixtures()
-    print(f"wrote {len(SCENARIOS)} sessions, labels.json, tasks.json, fixtures/")
+    storefront.write_repo(HERE / "fixtures")
+    hist = HERE / "history"
+    for tool in ("claude", "codex"):
+        if (hist / tool).exists():
+            shutil.rmtree(hist / tool)
+        (hist / tool).mkdir(parents=True)
+    older = storefront.sessions(ClaudeWriter, CodexWriter, SAMPLE_NOW)
+    for w in older:
+        w.save(hist / ("claude" if isinstance(w, ClaudeWriter) else "codex") / f"{w.sid}.jsonl")
+    print(f"wrote {len(SCENARIOS)} sessions, labels.json, tasks.json, fixtures/, {len(older)} history sessions")
 
 
 if __name__ == "__main__":

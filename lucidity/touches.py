@@ -3,7 +3,7 @@ import lines the edit added. Plain code; the architecture map is built from thes
 import re
 
 _PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+?)\s*$", re.M)
-_PY_IMPORT = re.compile(r"^\s*(?:from\s+([.\w]+)\s+import\b|import\s+([\w.]+))", re.M)
+_PY_IMPORT = re.compile(r"^\s*(?:from\s+([.\w]+)\s+import\b|import\s+([\w.]+)(?=[ \t]*(?:$|,|as\b|#)))", re.M)
 _JS_IMPORT = re.compile(r"""(?:^\s*import\s[^'"\n]*?from\s*|^\s*import\s*|require\(\s*)['"]([^'"]+)['"]""", re.M)
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}

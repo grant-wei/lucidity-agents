@@ -105,6 +105,34 @@ td.num{white-space:nowrap;overflow-wrap:normal}
   table.stack td[data-h="Configuration"]{display:block;min-width:0!important}
   table.stack td[data-h="Configuration"]::before{display:none}
 }
+/* map */
+.maptop{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:none;border-radius:0;padding:3px 9px}
+.seg button.on{background:var(--chip);font-weight:600}
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:12px;align-items:start}
+@media (max-width:900px){.mapwrap{grid-template-columns:1fr}}
+.agents{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.agent{display:flex;gap:6px;align-items:center;max-width:100%;font-size:12px;text-align:left;padding:3px 9px;border-radius:999px}
+.agent.on{border-color:var(--ink);background:var(--chip)}
+.agent span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.mod rect.b{fill:var(--panel);stroke:var(--line);stroke-width:1.2;cursor:pointer}
+.mod rect.h{fill:var(--accent);pointer-events:none}
+.mod.sel rect.b{stroke:var(--ink);stroke-width:2.5}
+.mod.dim{opacity:.28}
+.mod.gone rect.b{stroke-dasharray:4 3}
+.mod text{fill:var(--ink);font-size:12.5px;font-weight:600;pointer-events:none}
+.mod text.r{fill:var(--muted);font-size:10.5px;font-weight:400}
+.mod text.n{fill:var(--muted);font-size:10px;font-weight:400}
+.dep{stroke:var(--muted);stroke-width:1;fill:none;opacity:.45}
+.dep.hot{stroke:var(--accent);opacity:.9;stroke-width:1.6}
+.legend{font-size:11.5px;color:var(--muted);margin-top:6px}
+.touch{padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.touch:last-child{border:none}
+.touch code{font-size:11.5px;overflow-wrap:anywhere}
+.plus{color:var(--done)}.minus{color:var(--bad)}
+.role{font-size:13.5px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -113,7 +141,8 @@ td.num{white-space:nowrap;overflow-wrap:normal}
     <h1>Lucidity</h1>
     <span class="pill" id="mode">…</span>
     <nav>
-      <button data-tab="sessions" class="on">Sessions</button>
+      <button data-tab="map" class="on">Map</button>
+      <button data-tab="sessions">Sessions</button>
       <button data-tab="flow">How it decided</button>
       <button data-tab="replay">Planner replay</button>
       <button data-tab="evals">Evals</button>
@@ -125,7 +154,8 @@ td.num{white-space:nowrap;overflow-wrap:normal}
 </header>
 <main>
   <div id="banners"></div>
-  <section id="tab-sessions"></section>
+  <section id="tab-map"></section>
+  <section id="tab-sessions" hidden></section>
   <section id="tab-flow" hidden></section>
   <section id="tab-replay" hidden></section>
   <section id="tab-evals" hidden></section>
@@ -137,12 +167,13 @@ const money = n => n == null ? "–" : (n < 0.01 && n > 0 ? "$" + n.toFixed(4) :
 const mins = m => m == null ? "–" : m < 1 ? "just now" : m < 60 ? Math.round(m) + " min ago" : (m / 60).toFixed(1) + " h ago";
 const LABEL = {needs_you: "needs you", working: "working", finished: "finished", unknown: "unknown"};
 const FIELD = {doing_now: "now", done_so_far: "done", needs_from_you: "needs"};
-let snap = null, tab = "sessions", traceSel = null, traceData = null, nodeSel = null;
+let snap = null, tab = "map", traceSel = null, traceData = null, nodeSel = null;
 
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   tab = b.dataset.tab;
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  for (const t of ["sessions", "flow", "replay", "evals"]) $("#tab-" + t).hidden = t !== tab;
+  for (const t of ["map", "sessions", "flow", "replay", "evals"]) $("#tab-" + t).hidden = t !== tab;
+  if (tab === "map") loadMap();
   if (tab === "replay") loadReplay();
   if (tab === "flow") loadTraces();
   if (tab === "evals") loadEvals();
@@ -151,6 +182,7 @@ $("#refresh").onclick = async () => {
   $("#refresh").disabled = true; $("#refresh").textContent = "Refreshing…";
   await fetch("/api/refresh", {method: "POST"});
   setTimeout(poll, 1500);
+  if (tab === "map") setTimeout(loadMap, 4000);
 };
 
 async function poll() {
@@ -262,6 +294,177 @@ async function act(sid, action, btn) {
   await fetch("/api/action", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({session_id: sid, action})});
   btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("primary"));
   btn.classList.add("primary"); btn.textContent = "✓ " + btn.textContent.replace(/^✓ /, "");
+}
+
+/* ---------- map ---------- */
+const PALETTE = ["#3a5bd9", "#c2410c", "#15803d", "#a21caf", "#0e7490", "#b45309", "#be123c", "#4d7c0f", "#7c3aed", "#0369a1"];
+const WINDOWS = {"24h": 24, "3 days": 72, "7 days": 168};
+let mapData = null, repoSel = null, modSel = null, sessSel = null, win = "7 days", allChips = false;
+const short = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "…" : s;
+const ago = (t, now) => { const m = (now - Date.parse(t)) / 60000; return m >= 2880 ? Math.round(m / 1440) + " days ago" : mins(m); };
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+async function loadMap() {
+  try { mapData = await (await fetch("/api/map")).json(); } catch (e) { return; }
+  if (tab === "map") drawMap();
+}
+
+function mapView() {
+  const repo = (mapData.repos || []).find(r => r.name === repoSel) || (mapData.repos || [])[0];
+  if (!repo) return null;
+  repoSel = repo.name;
+  const now = Date.parse(mapData.now), cut = now - WINDOWS[win] * 3600e3;
+  const touches = repo.touches.filter(t => Date.parse(t.t) >= cut);
+  const ids = new Set(touches.map(t => t.session));
+  const sessions = repo.sessions.filter(s => ids.has(s.id)).sort((a, b) => Date.parse(b.last_edit) - Date.parse(a.last_edit));
+  const color = {}; repo.sessions.forEach((s, i) => color[s.id] = PALETTE[i % PALETTE.length]);
+  const byMod = {};
+  for (const t of touches) {
+    const m = byMod[t.module] = byMod[t.module] || {edits: 0, lines: 0, usd: 0, sessions: new Set()};
+    m.edits++; m.lines += t.added + t.removed; m.usd += t.usd; m.sessions.add(t.session);
+  }
+  return {repo, now, touches, sessions, color, byMod, roles: (repo.architect || {}).roles || {}};
+}
+
+function drawMap() {
+  const el = $("#tab-map");
+  if (mapData && mapData.error) { el.innerHTML = `<div class="banner bad">${esc(mapData.error)}</div>`; return; }
+  if (!mapData || !mapData.repos) {
+    el.innerHTML = `<div class="empty"><b>Drawing the map…</b>Lucidity is reading which files your agents changed and how the code fits together. The first pass over a big repo can take a minute or two.</div>`;
+    return;
+  }
+  const v = mapView();
+  if (!v) {
+    el.innerHTML = `<div class="empty"><b>No file edits from your agents in the last 7 days.</b>The map is built from the files Claude Code and Codex sessions changed. Once an agent edits a file in a git repo, the repo shows up here.</div>`;
+    return;
+  }
+  const {repo, touches, sessions, color} = v;
+  const repoOpts = mapData.repos.map(r => `<option value="${esc(r.name)}"${r.name === repo.name ? " selected" : ""}>${esc(r.name)} · ${r.edits} edits</option>`).join("");
+  const usd = sessions.reduce((a, s) => a + s.usd, 0);
+  let h = `<p class="intro"><b>What your agents are building, drawn as the system they're building it in.</b> Each box is a part of the repo and arrows are imports, both read from the code. Shading shows how much agents changed a part; each dot is one agent session. Click a box or a session.</p>
+    <div class="maptop"><select id="repo" aria-label="Repository">${repoOpts}</select>
+    <div class="seg">${Object.keys(WINDOWS).map(w => `<button data-w="${w}"${w === win ? ' class="on"' : ""}>${w}</button>`).join("")}</div>
+    <span class="note" style="margin:0">${plural(sessions.length, "session")} · ${plural(touches.length, "file edit")} · ${money(usd)} of agent spend</span></div>`;
+  if (mapData.banner) h += `<div class="banner">${esc(mapData.banner)}</div>`;
+  const MAXCHIPS = 8, shownSess = allChips || sessions.length <= MAXCHIPS + 1 ? sessions : sessions.slice(0, MAXCHIPS);
+  h += `<div class="agents">` + (sessions.length ? shownSess.map(s =>
+    `<button class="agent${s.id === sessSel ? " on" : ""}" data-sess="${esc(s.id)}" title="${esc(s.first_prompt)}"><span class="dot" style="background:${color[s.id]}"></span><span class="t">${esc(s.tool)}: ${esc(short(s.first_prompt, 60) || "(no prompt)")}</span><span class="note" style="margin:0">${money(s.usd)}</span></button>`).join("")
+    : `<span class="note">No agent edited this repo in the last ${esc(win)}.</span>`) +
+    (shownSess.length < sessions.length ? `<button class="agent" id="morechips">+${sessions.length - shownSess.length} more</button>` : "") + `</div>`;
+  h += `<div class="mapwrap"><div class="svgbox" id="msvg"></div><div class="detail" id="mdetail"></div></div>`;
+  el.innerHTML = h;
+  $("#repo").onchange = e => { repoSel = e.target.value; modSel = sessSel = null; allChips = false; drawMap(); };
+  if ($("#morechips")) $("#morechips").onclick = () => { allChips = true; drawMap(); };
+  el.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { win = b.dataset.w; drawMap(); });
+  el.querySelectorAll("[data-sess]").forEach(b => b.onclick = () => { sessSel = sessSel === b.dataset.sess ? null : b.dataset.sess; modSel = null; drawMap(); });
+  drawModules(v);
+  drawModDetail(v);
+}
+
+function drawModules(v) {
+  const {repo, byMod, color, roles} = v;
+  const W = 196, H = 78, GX = 18, GY = 46, PER = $("#msvg").clientWidth < 600 ? 2 : $("#msvg").clientWidth < 900 ? 4 : 5;
+  const rows = {};
+  repo.modules.forEach(m => (rows[m.layer] = rows[m.layer] || []).push(m));
+  // top row = code that imports the rest; bottom row = what everything else is built on
+  const layersDesc = Object.keys(rows).map(Number).sort((a, b) => b - a);
+  const sorted = l => rows[l].sort((a, b) => (byMod[b.id] ? 1 : 0) - (byMod[a.id] ? 1 : 0) || a.id.localeCompare(b.id));
+  let lines = [];
+  for (const l of layersDesc) { const ms = sorted(l); for (let i = 0; i < ms.length; i += PER) lines.push(ms.slice(i, i + PER)); }
+  if (lines.length > 6) {
+    // a long import chain would draw one small box per row; share rows, keeping the top-to-bottom order
+    lines = [[]];
+    for (const l of layersDesc) for (const m of rows[l]) {
+      if (lines[lines.length - 1].length >= PER) lines.push([]);
+      lines[lines.length - 1].push(m);
+    }
+  }
+  const cols = Math.max(...lines.map(r => r.length));
+  const width = cols * W + (cols - 1) * GX + 20, height = lines.length * (H + GY) - GY + 20, pos = {};
+  lines.forEach((r, ri) => {
+    const off = (width - (r.length * W + (r.length - 1) * GX)) / 2;
+    r.forEach((m, i) => pos[m.id] = {x: off + i * (W + GX), y: 10 + ri * (H + GY)});
+  });
+  const maxLines = Math.max(1, ...Object.values(byMod).map(m => m.lines));
+  const sessMods = sessSel ? new Set(v.touches.filter(t => t.session === sessSel).map(t => t.module)) : null;
+  const lit = id => sessMods ? sessMods.has(id)
+    : modSel ? id === modSel || repo.edges.some(e => (e.from === modSel && e.to === id) || (e.to === modSel && e.from === id)) : true;
+  let s = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Map of ${esc(repo.name)}">
+    <defs><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>`;
+  for (const e of repo.edges) {
+    const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue;
+    const hot = modSel && (e.from === modSel || e.to === modSel);
+    let x1 = a.x + W / 2, y1 = a.y + H, x2 = b.x + W / 2, y2 = b.y;
+    if (b.y <= a.y) { y1 = a.y + H / 2; y2 = b.y + H / 2; x1 = a.x + (b.x > a.x ? W : 0); x2 = b.x + (b.x > a.x ? 0 : W); }
+    const my = (y1 + y2) / 2;
+    s += `<path class="dep${hot ? " hot" : ""}" d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2 - 2}" marker-end="url(#ma)"><title>${esc(e.from)} imports ${esc(e.to)} (${plural(e.count, "file")})</title></path>`;
+  }
+  for (const m of repo.modules) {
+    const p = pos[m.id], act = byMod[m.id], role = (roles[m.id] || {}).role || "";
+    const heat = act ? 0.1 + 0.4 * Math.sqrt(act.lines / maxLines) : 0;
+    const dots = act ? [...act.sessions] : [];
+    // wrap the role over two lines at a word break
+    let r1 = role, r2 = "";
+    if (role.length > 33) { const cut = role.lastIndexOf(" ", 33); r1 = role.slice(0, cut > 0 ? cut : 33); r2 = short(role.slice(r1.length).trim(), 34); }
+    s += `<g class="mod${m.id === modSel ? " sel" : ""}${lit(m.id) ? "" : " dim"}${m.gone ? " gone" : ""}" data-m="${esc(m.id)}" tabindex="0">
+      <rect class="b" x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="8"/>
+      ${heat ? `<rect class="h" x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="8" opacity="${heat.toFixed(2)}"/>` : ""}
+      <text x="${p.x + 10}" y="${p.y + 19}">${esc(short(m.id, 26))}</text>
+      <text class="r" x="${p.x + 10}" y="${p.y + 36}">${esc(r1)}</text>
+      <text class="r" x="${p.x + 10}" y="${p.y + 49}">${esc(r2)}</text>
+      <text class="n" x="${p.x + 10}" y="${p.y + 68}">${plural(m.files, "file")}${act ? " · " + plural(act.edits, "edit") : ""}</text>
+      ${dots.slice(0, 6).map((d, i) => `<circle cx="${p.x + W - 12 - i * 12}" cy="${p.y + 65}" r="4.5" fill="${color[d]}"/>`).join("")}
+      <title>${esc(m.id)}${role ? ": " + esc(role) : ""}</title></g>`;
+  }
+  $("#msvg").innerHTML = s + `</svg><div class="legend">Parts higher up (and further left in a shared row) import from the ones below them. Darker means more lines changed by agents in the last ${esc(win)}.${repo.hidden_modules ? ` ${plural(repo.hidden_modules, "smaller untouched part")} not shown.` : ""}${repo.truncated ? " Very large repo, so only the first files were read." : ""}</div>`;
+  document.querySelectorAll(".mod").forEach(g => {
+    const pick = () => { modSel = modSel === g.dataset.m ? null : g.dataset.m; sessSel = null; drawMap(); };
+    g.onclick = pick; g.onkeydown = e => { if (e.key === "Enter") pick(); };
+  });
+}
+
+function touchRows(ts, v) {
+  const groups = {};
+  for (const t of ts) (groups[t.session] = groups[t.session] || []).push(t);
+  return Object.entries(groups).map(([sid, list]) => {
+    const s = v.repo.sessions.find(x => x.id === sid) || {};
+    const add = list.reduce((a, t) => a + t.added, 0), rem = list.reduce((a, t) => a + t.removed, 0);
+    const files = [...new Set(list.map(t => t.file))], imps = [...new Set(list.flatMap(t => t.imports_added))];
+    return `<div class="touch"><span class="dot" style="background:${v.color[sid]}"></span> <b>${esc(s.tool || "")}</b> · ${ago(list[list.length - 1].t, v.now)} · <span class="plus">+${add}</span> <span class="minus">−${rem}</span> · about ${money(list.reduce((a, t) => a + t.usd, 0))}
+      <div class="note" style="margin:2px 0">“${esc(short(s.first_prompt, 140))}”</div>
+      ${files.slice(0, 6).map(f => `<code>${esc(f)}</code>`).join("<br>")}${files.length > 6 ? `<div class="note">and ${files.length - 6} more</div>` : ""}
+      ${imps.length ? `<div class="note">new imports: ${esc(imps.slice(0, 6).join(", "))}</div>` : ""}</div>`;
+  }).join("");
+}
+
+function drawModDetail(v) {
+  const {repo, touches, roles} = v;
+  let h;
+  if (sessSel) {
+    const s = repo.sessions.find(x => x.id === sessSel), mine = touches.filter(t => t.session === sessSel);
+    const mods = [...new Set(mine.map(t => t.module))];
+    h = `<h3><span class="dot" style="background:${v.color[sessSel]}"></span> ${esc(s.tool)} session</h3><div class="note">${esc(s.model || "")} · ${money(s.usd)} in all · last edit ${ago(s.last_edit, v.now)}</div>
+      <p class="role">“${esc(short(s.first_prompt, 300))}”</p><b style="font-size:12px">Changed ${plural(mods.length, "part")} of the system</b>` +
+      mods.map(m => `<div class="touch"><b>${esc(m)}</b>${roles[m] ? ` <span class="note">${esc(roles[m].role)}</span>` : ""}<br>` +
+        [...new Set(mine.filter(t => t.module === m).map(t => t.file))].map(f => `<code>${esc(f)}</code>`).join("<br>") + `</div>`).join("");
+  } else if (modSel) {
+    const m = repo.modules.find(x => x.id === modSel), r = roles[modSel], mine = touches.filter(t => t.module === modSel);
+    const out = repo.edges.filter(e => e.from === modSel).map(e => e.to), inn = repo.edges.filter(e => e.to === modSel).map(e => e.from);
+    h = `<h3>${esc(m.id)}</h3><div class="note">${plural(m.files, "file")} · ${m.lines.toLocaleString("en-US")} lines${m.gone ? " · no longer in the repo" : ""}</div>` +
+      (r ? `<p class="role">${esc(r.role)}</p><div class="note">Written by the architect agent from ${r.cites.map(c => `<code>${esc(c)}</code>`).join(", ")}${repo.architect.stale ? ". Files have changed since; a new description is queued." : ""}</div>`
+         : `<p class="note">No description yet. The architect agent writes one when a model key is set.</p>`) +
+      (out.length ? `<div class="note">uses ${esc(out.join(", "))}</div>` : "") + (inn.length ? `<div class="note">used by ${esc(inn.join(", "))}</div>` : "") +
+      `<h3 style="font-size:13px;margin:12px 0 2px">Agent changes, last ${esc(win)}</h3>` + (mine.length ? touchRows(mine, v) : `<div class="note">None.</div>`) +
+      `<details><summary>biggest files</summary>${m.top_files.map(f => `<div class="touch"><code>${esc(f.path)}</code> <span class="note">${f.lines} lines${f.doc ? " · " + esc(short(f.doc, 90)) : ""}</span></div>`).join("")}</details>`;
+  } else {
+    const ranked = Object.entries(v.byMod).sort((a, b) => b[1].lines - a[1].lines);
+    h = `<h3>${esc(repo.name)}</h3><div class="note">${repo.file_count.toLocaleString("en-US")} files · ${plural(repo.modules.length, "part")} shown</div>` +
+      (repo.architect && repo.architect.summary ? `<p class="role">${esc(repo.architect.summary)}</p>` : "") +
+      `<h3 style="font-size:13px;margin:12px 0 2px">Where agents worked, last ${esc(win)}</h3>` +
+      (ranked.length ? ranked.map(([id, a]) => `<div class="touch"><b>${esc(id)}</b> · ${plural(a.edits, "edit")} · ${a.lines} lines · ${plural(a.sessions.size, "session")} · about ${money(a.usd)}${roles[id] ? `<div class="note">${esc(roles[id].role)}</div>` : ""}</div>`).join("") : `<div class="note">Nothing in this window.</div>`) +
+      `<div class="legend">Cost per part splits each session's spend by the lines it changed, so it's an estimate.</div>`;
+  }
+  $("#mdetail").innerHTML = h;
 }
 
 /* ---------- flow view ---------- */
@@ -385,7 +588,9 @@ async function loadEvals() {
 }
 poll();
 const start = location.hash.slice(1);
-if (["flow", "replay", "evals"].includes(start)) document.querySelector(`nav button[data-tab="${start}"]`).click();
+loadMap();
+setInterval(() => { if (tab === "map") loadMap(); }, 30000);
+if (["sessions", "flow", "replay", "evals"].includes(start)) document.querySelector(`nav button[data-tab="${start}"]`).click();
 </script>
 </body>
 </html>

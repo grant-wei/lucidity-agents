@@ -25,6 +25,7 @@ def server(sandbox, monkeypatch):
     monkeypatch.setattr(app, "refresh", lambda opts: coordinator.refresh(
         coordinator.Options(mode=opts.mode, run_checker=False)))
     monkeypatch.setattr(app, "_state", {"snapshot": None, "error": None, "refreshing": False, "last_refresh": None})
+    monkeypatch.setattr(app, "do_map", lambda: None)   # the map has its own tests; a stray thread would outlive the sandbox
     srv = ThreadingHTTPServer(("127.0.0.1", 0), app.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"

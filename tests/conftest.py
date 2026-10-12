@@ -22,6 +22,8 @@ class FakeModel:
         ids = sorted(set(re.findall(r"session_id[\"']?\s*[:=]\s*[\"']?([0-9a-f-]{36})", text))
                      | set(re.findall(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", text)))
         tool = info.output_tools[0].name
+        if "cites" in repr(info.output_tools[0].parameters_json_schema):
+            return ModelResponse(parts=[ToolCallPart(tool, architect_answer(messages))])
         if tool_wants_explanations(info):
             args = {"items": [{"session_id": i, "why": "it keeps polling a server that never started",
                                "recommendation": "stop", "next_step": "read the server log"} for i in ids]}
@@ -31,6 +33,21 @@ class FakeModel:
                                       {"field": "done_so_far", "text": "made-up claim", "event_ids": ["e99999"]}]}
                           for i in ids]}
         return ModelResponse(parts=[ToolCallPart(tool, args)])
+
+
+def architect_answer(messages):
+    """A role for every module, citing its first listed file, plus one role citing a made-up file."""
+    text = "\n".join(p.content for m in messages for p in m.parts if isinstance(getattr(p, "content", None), str))
+    mods, cur = {}, None
+    for line in text.splitlines():
+        if line.startswith("module "):
+            cur = line[len("module "):].split(":")[0]
+            mods[cur] = []
+        elif cur and line.startswith("  ") and " (" in line and "->" not in line:
+            mods[cur].append(line.strip().split(" (")[0])
+    items = [{"module": m, "role": f"does the {m} work", "cites": fs[:1]} for m, fs in mods.items() if fs]
+    items.append({"module": next(iter(mods), "x"), "role": "made up", "cites": ["nowhere/fake.py"]})
+    return {"summary": "a test repo", "modules": items}
 
 
 def tool_wants_explanations(info):

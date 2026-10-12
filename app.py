@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 
 from lucidity import config
 from lucidity.agents.coordinator import Options, refresh
+from lucidity.agents.mapper import refresh_map
 from lucidity.guard import breaker
 from lucidity.trace import TRACE_DIR
 
@@ -26,6 +27,8 @@ ACTIONS_LOG = config.LOG_DIR / "actions.jsonl"
 
 _lock = threading.Lock()
 _state = {"snapshot": None, "error": None, "refreshing": False, "last_refresh": None}
+_map_lock = threading.Lock()
+_map = {"map": None, "error": None, "building": False}
 
 
 def do_refresh():
@@ -47,10 +50,31 @@ def do_refresh():
         _lock.release()
 
 
+def do_map():
+    if not _map_lock.acquire(blocking=False):
+        return
+    _map["building"] = True
+    try:
+        _map["map"] = refresh_map(config.DATA_MODE)
+        _map["error"] = None
+    except Exception as e:  # the monitor keeps working when the map fails
+        _map["error"] = f"Map failed: {type(e).__name__}: {str(e)[:300]}"
+        traceback.print_exc()
+    finally:
+        _map["building"] = False
+        _map_lock.release()
+
+
 def loop():
     while True:
         do_refresh()
         time.sleep(config.REFRESH_SECONDS)
+
+
+def map_loop():
+    while True:
+        do_map()
+        time.sleep(max(config.REFRESH_SECONDS, 120))
 
 
 def list_traces(limit=30):
@@ -97,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
                                     "self_cost": breaker.status(), "model": config.MODEL,
                                     "caps": {"daily_usd": config.DAILY_USD_CAP, "calls_per_hour": config.CALLS_PER_HOUR_CAP,
                                              "refresh_seconds": config.REFRESH_SECONDS}})
+        if u.path == "/api/map":
+            return self._send(200, {**(_map["map"] or {}), "error": _map["error"], "building": _map["building"]})
         if u.path == "/api/traces":
             return self._send(200, list_traces())
         if u.path == "/api/trace":
@@ -117,6 +143,7 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/api/refresh":
             threading.Thread(target=do_refresh, daemon=True).start()
+            threading.Thread(target=do_map, daemon=True).start()
             return self._send(202, {"ok": True})
         if u.path == "/api/action":
             # Lucidity never stops an agent itself. It records what the owner decided so the
@@ -148,6 +175,7 @@ def main():
         sys.exit(f"Port {config.PORT} is already in use. Pick another one, for example:\n"
                  f"  LUCIDITY_PORT=8800 python app.py        (Windows PowerShell: $env:LUCIDITY_PORT=\"8800\"; python app.py)")
     threading.Thread(target=loop, daemon=True).start()
+    threading.Thread(target=map_loop, daemon=True).start()
     url = f"http://127.0.0.1:{config.PORT}"
     print(f"Lucidity on {url}  (data: {config.DATA_MODE}, model: {config.MODEL}, env: {config.ENV_PATH})")
     if not os.environ.get("LUCIDITY_NO_BROWSER"):
