@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import config
+from . import touches
 from .cost import model_cost
 
 TAIL_BYTES = 6_000_000
@@ -50,6 +51,9 @@ class Session:
     usd: float = 0.0
     tool_call_times: list = field(default_factory=list)  # every tool call timestamp (for rate detectors)
     tool_call_keys: list = field(default_factory=list)   # "name|args" per call (for repeat detectors)
+    cost_points: list = field(default_factory=list)      # [timestamp, usd] per model turn (for recent spend)
+    touches: list = field(default_factory=list)          # file edits, see touches.py, each with t and event id
+    cwd: str | None = None
     event_count: int = 0
     scenario: str | None = None    # sample data only: what the generator built it to be
 
@@ -57,6 +61,8 @@ class Session:
         d = asdict(self)
         d.pop("tool_call_times")
         d.pop("tool_call_keys")
+        d.pop("cost_points")
+        d.pop("touches")
         if not events:
             d.pop("events")
         return d
@@ -147,8 +153,8 @@ def read_claude(path):
         if ts:
             s.started = s.started or ts
             s.last_activity = ts
-        if d.get("cwd") and not s.project:
-            s.project = Path(d["cwd"].replace("\\", "/")).name or d["cwd"]
+        if d.get("cwd") and not s.cwd:
+            s.cwd = d["cwd"]
         msg = d.get("message") or {}
         if typ == "user":
             text = _human_prompt(d)
@@ -175,7 +181,9 @@ def read_claude(path):
                 s.tokens["cached"] += cr
                 s.tokens["cache_write"] += cw
                 s.tokens["output"] += u.get("output_tokens", 0) or 0
-                s.usd += model_cost(s.model, fresh + cr + cw, cr, u.get("output_tokens", 0) or 0, cw)
+                usd = model_cost(s.model, fresh + cr + cw, cr, u.get("output_tokens", 0) or 0, cw)
+                s.usd += usd
+                s.cost_points.append([ts, usd])
             for blk in msg.get("content") or []:
                 if not isinstance(blk, dict):
                     continue
@@ -187,6 +195,8 @@ def read_claude(path):
                     hint = _tool_hint(blk)
                     kind = "question" if blk.get("name") == "AskUserQuestion" else "ran"
                     events.append(Event(f"e{n}", ts, kind, hint, tool=blk.get("name")))
+                    for tch in touches.from_claude(blk.get("name"), blk.get("input")):
+                        s.touches.append({**tch, "t": ts, "event": f"e{n}"})
                     open_calls[blk.get("id")] = blk.get("name")
                     s.tool_call_times.append(ts)
                     s.tool_call_keys.append(f"{blk.get('name')}|{json.dumps(blk.get('input'), sort_keys=True)[:300]}")
@@ -201,6 +211,7 @@ def read_claude(path):
             q = next((e.text for e in reversed(events) if e.kind == "question"), None)
             s.pending_question = q
     s.usd = round(s.usd, 4)
+    s.project = project_name(s)
     return s
 
 
@@ -216,11 +227,15 @@ def _codex_user_text(payload):
 
 def read_codex(path):
     path = Path(path)
-    lines, _ = _read_lines(path)
+    lines, truncated = _read_lines(path)
     s = Session(id=path.stem, tool="codex", project="", path=str(path))
+    if truncated:  # session_meta is the first line, which a tail read skips
+        meta = _first_human(path, lambda d: d.get("payload") if d.get("type") == "session_meta" else None)
+        if isinstance(meta, dict):
+            s.id, s.cwd = meta.get("id") or s.id, meta.get("cwd")
     events, open_calls, asked = [], {}, {}
     n = 0
-    last_total = None
+    last_total, last_usd = None, 0.0
     for line in lines:
         try:
             rec = json.loads(line)
@@ -234,14 +249,18 @@ def read_codex(path):
         typ = rec.get("type")
         if typ == "session_meta":
             s.id = p.get("id") or s.id
-            cwd = p.get("cwd") or ""
-            s.project = Path(cwd.replace("\\", "/")).name or cwd
+            s.cwd = p.get("cwd") or s.cwd
         elif typ == "turn_context":
             s.model = p.get("model") or s.model
+            s.cwd = s.cwd or p.get("cwd")
         elif typ == "event_msg" and p.get("type") == "token_count":
             tot = (p.get("info") or {}).get("total_token_usage")
             if tot:
-                last_total = tot
+                usd_now = model_cost(s.model, tot.get("input_tokens", 0) or 0, tot.get("cached_input_tokens", 0) or 0,
+                                     tot.get("output_tokens", 0) or 0)
+                if last_total is not None and usd_now > last_usd:
+                    s.cost_points.append([ts, usd_now - last_usd])
+                last_total, last_usd = tot, usd_now
         elif typ == "response_item":
             kind = p.get("type")
             if kind == "message" and p.get("role") == "user":
@@ -280,6 +299,8 @@ def read_codex(path):
                         hint = str(parsed or "")
                     n += 1
                     events.append(Event(f"e{n}", ts, "ran", f"{name} {' '.join(hint.split())[:200]}", tool=name))
+                for tch in touches.from_patch_text(args if isinstance(args, str) else json.dumps(args)):
+                    s.touches.append({**tch, "t": ts, "event": f"e{n}"})
                 open_calls[p.get("call_id")] = name
                 s.tool_call_times.append(ts)
                 s.tool_call_keys.append(f"{name}|{str(args)[:300]}")
@@ -314,7 +335,45 @@ def read_codex(path):
         s.pending_question = str(list(asked.values())[-1])
     if open_calls:
         s.open_tool_call = list(open_calls.values())[-1]
+    s.project = project_name(s)
     return s
+
+
+# ---------- naming ----------
+
+_ROOTS = {}
+
+
+def git_root(path):
+    """The folder holding .git above a file, or None. Cached; only looks at the local disk."""
+    p = Path(str(path).replace("\\", "/"))
+    for folder in [p, *p.parents]:
+        key = str(folder)
+        if key in _ROOTS:
+            return _ROOTS[key]
+        try:
+            if (folder / ".git").exists():
+                _ROOTS[key] = folder
+                return folder
+        except OSError:
+            return None
+    return None
+
+
+def project_name(s):
+    """The repo a session works on: where most of its edits landed, else its working folder.
+    A session started from the home folder or a folder of many repos is named after the repo it edited."""
+    roots = [git_root(t["path"]) for t in s.touches]
+    roots = [r for r in roots if r]
+    if roots:
+        best = max(set(roots), key=roots.count)
+        return best.name
+    if s.cwd:
+        cwd = Path(s.cwd.replace("\\", "/"))
+        if cwd == Path.home():
+            return "~"
+        return cwd.name or s.cwd
+    return "(unknown)"
 
 
 # ---------- discovery ----------

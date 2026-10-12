@@ -90,7 +90,7 @@ To check the setup with one tiny model call: `python smoke.py`.
 | Collector | no | Reads the session logs, counts tokens and dollars |
 | Coordinator | no | Skips sessions whose change signature hasn't moved; batches the rest |
 | Triage | yes | needs you / working / finished, with claims that must cite event ids |
-| Watchdog detectors | no | Runaway loops, call-rate spikes, per-session spend, the same failure repeating |
+| Watchdog detectors | no | Runaway loops and spend in the last hour (active sessions only), the same failure repeating |
 | Watchdog explainer | yes | Only for newly flagged sessions: why, and pause / stop / let it run |
 | Done checker | yes | Runs the task's tests (allowlisted runners only) and grades its done-when list |
 | Planner | yes | Goal to task graph with contracts; plain code validates the graph |

@@ -5,24 +5,29 @@ from .readers import age_minutes, parse_ts
 from .redact import redact
 
 TAIL_EVENTS = 14
+WAIT_TOOLS = {"sleep", "wait"}   # polling while a job runs: repeats that cost nothing
 
 
 def facts(s, now):
     """Numbers a program can compute without a model."""
     idle = age_minutes(s.last_activity, now)
     recent = [t for t in s.tool_call_times if (a := age_minutes(t, now)) is not None and a <= 10]
-    repeats = Counter(s.tool_call_keys).most_common(1)
+    hour = [k for k, t in zip(s.tool_call_keys, s.tool_call_times)
+            if (a := age_minutes(t, now)) is not None and a <= 60 and k.split("|")[0].lower() not in WAIT_TOOLS]
+    repeats = Counter(hour).most_common(1)
+    usd_hour = sum(u for t, u in s.cost_points if (a := age_minutes(t, now)) is not None and a <= 60)
     return {
         "minutes_since_last_activity": round(idle, 1) if idle is not None else None,
         "tool_calls_total": len(s.tool_call_times),
         "tool_calls_last_10_min": len(recent),
-        "most_repeated_tool_call_count": repeats[0][1] if repeats else 0,
+        "most_repeated_tool_call_last_hour": repeats[0][1] if repeats else 0,
         "open_tool_call": s.open_tool_call,
         "open_tool_call_waiting_min": round(idle, 1) if s.open_tool_call and idle is not None else 0,
         "last_event_kind": s.events[-1].kind if s.events else None,
         "pending_question": redact(s.pending_question),
         "tokens_total": s.tokens["input"] + s.tokens["output"],
         "usd": s.usd,
+        "usd_last_hour": round(usd_hour, 4),
     }
 
 

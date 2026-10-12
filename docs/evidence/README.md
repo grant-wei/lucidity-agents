@@ -6,7 +6,7 @@ Screenshots come from the app running on the sample data with gpt-6-luna on 2026
 | File | Shows |
 |---|---|
 | `needs_you.png` | The Needs you box: two sessions waiting on an answer or approval, plus four flagged by rules |
-| `runaway_explained.png` | A runaway session (321 repeated calls, $12.06 against a $5 cap), with the watchdog's explanation and suggested fix |
+| `runaway_explained.png` | A runaway session (321 repeated calls, $12.06 in one hour), with the watchdog's explanation and suggested fix |
 | `checker_not_verified.png` | The done checker running the tests and refusing a "done" claim: 2 tests failing and a placeholder test |
 | `checker_verified.png` | The done checker confirming a real "done" |
 | `secret_redacted.png` | Secrets in a transcript, named by kind only and redacted before any model call |

@@ -36,7 +36,7 @@ def test_sample_sessions_get_their_labelled_flags(s):
 def test_runaway_sample_says_why():
     s = next(x for x in load_sessions("sample") if x.scenario == "runaway")
     reason = watchdog.detect(s, clock("sample"))[0]["reason"]
-    assert "same tool call ran" in reason and "per-session cap" in reason
+    assert "same tool call ran" in reason and "$12.06 in the last hour" in reason
     name, n = watchdog.repeated_call(s)
     assert name == "Bash" and n >= watchdog.REPEAT_CALLS
 
@@ -54,18 +54,38 @@ def test_different_arguments_are_not_repeats():
     assert kinds(make(tool_call_keys=keys, tool_call_times=[ago(60)] * 50)) == []
 
 
-def test_call_rate_threshold():
-    n = int(watchdog.CALLS_PER_MIN * 10)
+def test_a_fast_agent_alone_is_not_a_runaway():
+    n = int(watchdog.CALLS_PER_MIN * 10) * 3
     keys = [f"Read|{i}" for i in range(n)]
-    assert kinds(make(tool_call_keys=keys[:-1], tool_call_times=[ago(5)] * (n - 1))) == []
-    assert kinds(make(tool_call_keys=keys, tool_call_times=[ago(5)] * n)) == ["runaway"]
-    # the same calls more than 10 minutes ago don't count
-    assert kinds(make(tool_call_keys=keys, tool_call_times=[ago(11)] * n)) == []
+    assert kinds(make(tool_call_keys=keys, tool_call_times=[ago(5)] * n)) == []
 
 
-def test_spend_cap():
-    assert kinds(make(usd=watchdog.SESSION_USD_CAP - 0.01)) == []
-    assert kinds(make(usd=watchdog.SESSION_USD_CAP)) == ["runaway"]
+def test_polling_sleeps_are_not_repeats():
+    n = watchdog.REPEAT_CALLS + 5
+    assert kinds(make(tool_call_keys=['sleep|{"duration_ms":45000}'] * n, tool_call_times=[ago(30)] * n)) == []
+
+
+def test_hourly_spend_cap():
+    cap = watchdog.HOURLY_USD_CAP
+    assert kinds(make(cost_points=[[ago(30), cap - 0.01]])) == []
+    assert kinds(make(cost_points=[[ago(30), cap / 2], [ago(5), cap / 2]])) == ["runaway"]
+
+
+def test_lifetime_spend_alone_is_not_a_runaway():
+    # a long session that spent a lot over the day, but little in the last hour
+    big = make(usd=40.0, cost_points=[[ago(300), 39.0], [ago(20), 1.0]])
+    assert kinds(big) == []
+
+
+def test_finished_sessions_are_never_runaways():
+    quiet = make(last_activity=ago(watchdog.ACTIVE_MIN + 1),
+                 cost_points=[[ago(20), 50.0]], tool_call_keys=["Bash|curl"] * 50, tool_call_times=[ago(20)] * 50)
+    assert kinds(quiet) == []
+
+
+def test_old_repeats_do_not_count():
+    times = [ago(90)] * watchdog.REPEAT_CALLS
+    assert kinds(make(tool_call_keys=["Bash|curl"] * watchdog.REPEAT_CALLS, tool_call_times=times)) == []
 
 
 # ---------- stalled ----------
@@ -117,7 +137,7 @@ def test_ending_on_a_pass_is_never_stalled():
 
 def test_runaway_takes_precedence_over_stalled():
     evs = [fail(i) for i in range(watchdog.SAME_FAILURE)]
-    assert kinds(make(events=evs, usd=watchdog.SESSION_USD_CAP)) == ["runaway"]
+    assert kinds(make(events=evs, cost_points=[[ago(5), watchdog.HOURLY_USD_CAP]])) == ["runaway"]
 
 
 def test_healthy_empty_session():

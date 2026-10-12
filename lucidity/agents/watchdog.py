@@ -13,9 +13,14 @@ from ..digest import facts, render_events, session_block
 from ..llm import run_agent
 
 # thresholds, in one place so the report can quote them
-REPEAT_CALLS = 20          # the same tool call with the same arguments this many times
-CALLS_PER_MIN = 3.0        # sustained over the last 10 minutes
-SESSION_USD_CAP = 5.00     # one session's spend
+# A runaway is something burning money now, so these only apply to a session active in the last
+# ACTIVE_MIN minutes, and count the last hour, not the session's lifetime. Tuned on the author's own
+# 60 sessions: a lifetime $5 cap flagged 9 of 25, most already finished; busiest hour p90 was $11,
+# and normal work hits 28-55 calls per 10 minutes, so a fast agent alone is not a runaway.
+ACTIVE_MIN = 15
+REPEAT_CALLS = 20          # the same tool call with the same arguments this many times in the last hour
+CALLS_PER_MIN = 3.0        # reported alongside another reason, never a reason by itself
+HOURLY_USD_CAP = 20.00     # one session's spend in the last hour
 SAME_FAILURE = 4           # the same error text this many times with no success since
 
 _NUM = re.compile(r"\d+(\.\d+)?")
@@ -31,14 +36,16 @@ def detect(s, now):
     f = facts(s, now)
     flags = []
     reasons = []
-    if f["most_repeated_tool_call_count"] >= REPEAT_CALLS:
-        reasons.append(f"the same tool call ran {f['most_repeated_tool_call_count']} times")
-    rate = f["tool_calls_last_10_min"] / 10
-    if rate >= CALLS_PER_MIN:
+    idle = f["minutes_since_last_activity"]
+    active = idle is not None and idle <= ACTIVE_MIN
+    if active and f["most_repeated_tool_call_last_hour"] >= REPEAT_CALLS:
+        reasons.append(f"the same tool call ran {f['most_repeated_tool_call_last_hour']} times in the last hour")
+    if active and f["usd_last_hour"] >= HOURLY_USD_CAP:
+        reasons.append(f"${f['usd_last_hour']:.2f} spent in the last hour, over the ${HOURLY_USD_CAP:.2f} hourly cap")
+    if reasons and f["tool_calls_last_10_min"] / 10 >= CALLS_PER_MIN:
         reasons.append(f"{f['tool_calls_last_10_min']} tool calls in the last 10 minutes")
-    if s.usd >= SESSION_USD_CAP:
-        reasons.append(f"${s.usd:.2f} spent, over the ${SESSION_USD_CAP:.2f} per-session cap")
     if reasons:
+        reasons.append(f"${f['usd_last_hour']:.2f} in the last hour, ${s.usd:.2f} in all")
         flags.append({"kind": "runaway", "reason": "; ".join(reasons)})
         return flags
     # outcomes only: failures, and test runs that passed. Edits in between don't count as progress.
@@ -52,7 +59,6 @@ def detect(s, now):
             elif not e.is_error:
                 break
         if streak >= SAME_FAILURE:
-            idle = f["minutes_since_last_activity"]
             first_fail = next((e.t for e in results if e.is_error and _shape(e.text) == last), None)
             flags.append({"kind": "stalled", "reason": f"the same failure repeated {streak} times with no passing run in between",
                           "first_seen": first_fail, "idle_min": idle})

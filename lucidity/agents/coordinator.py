@@ -123,7 +123,7 @@ def refresh(opts=None, sessions=None):
                 output=f"{len(flagged)} flagged: " + ", ".join(f"{s.project} ({f[0]['kind']})" for s, f in flagged)
                 + f"; secrets seen in {sum(1 for s in sessions if cache[s.id].get('secrets'))} session(s)",
                 note=f"repeat >= {watchdog.REPEAT_CALLS}, rate >= {watchdog.CALLS_PER_MIN}/min, "
-                     f"${watchdog.SESSION_USD_CAP:.0f}/session, same failure x{watchdog.SAME_FAILURE}")
+                     f"${watchdog.HOURLY_USD_CAP:.0f}/hour, active within {watchdog.ACTIVE_MIN} min, same failure x{watchdog.SAME_FAILURE}")
         if explain_needed:
             tr.node("watchdog", "Watchdog agent", "agent", parent="detectors",
                     note=f"explains {len(explain_needed)} flagged session(s)")
