@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -12,10 +12,20 @@ SAMPLE_DIR = ROOT / "sample_data"
 STATE_DIR = ROOT / "state"
 
 
+PLACEHOLDER_KEY = "your-openai-key-here"
+
+
+def _real_key(value):
+    value = (value or "").strip().strip("'\"")
+    return bool(value) and value != PLACEHOLDER_KEY
+
+
 def _load_env():
+    # A copied .env.example in the repo still holds the placeholder key; skip it so a real
+    # .env one folder up (where the course staff keep theirs) is used instead.
     for folder in (ROOT, ROOT.parent):
         path = folder / ".env"
-        if path.exists():
+        if path.exists() and _real_key(dotenv_values(path).get("OPENAI_API_KEY")):
             load_dotenv(path, override=False)
             return path
     return None
@@ -34,4 +44,4 @@ REFRESH_SECONDS = int(os.environ.get("LUCIDITY_REFRESH_SECONDS") or 60)
 
 
 def has_key():
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    return _real_key(os.environ.get("OPENAI_API_KEY"))

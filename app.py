@@ -7,6 +7,7 @@ Standard library server, local only. A background thread refreshes every REFRESH
 unchanged sessions cost nothing, so leaving it open all day is cheap by design."""
 import json
 import os
+import sys
 import threading
 import time
 import traceback
@@ -134,8 +135,18 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
 
+class Server(ThreadingHTTPServer):
+    # On Windows, address reuse lets a second server bind a port that is already serving,
+    # so the browser could show some other program's page. Fail loudly instead.
+    allow_reuse_address = os.name != "nt"
+
+
 def main():
-    srv = ThreadingHTTPServer(("127.0.0.1", config.PORT), Handler)
+    try:
+        srv = Server(("127.0.0.1", config.PORT), Handler)
+    except OSError:
+        sys.exit(f"Port {config.PORT} is already in use. Pick another one, for example:\n"
+                 f"  LUCIDITY_PORT=8800 python app.py        (Windows PowerShell: $env:LUCIDITY_PORT=\"8800\"; python app.py)")
     threading.Thread(target=loop, daemon=True).start()
     url = f"http://127.0.0.1:{config.PORT}"
     print(f"Lucidity on {url}  (data: {config.DATA_MODE}, model: {config.MODEL}, env: {config.ENV_PATH})")

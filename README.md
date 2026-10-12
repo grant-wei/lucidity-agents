@@ -14,18 +14,20 @@ You need Python 3.10 or newer and an OpenAI API key.
 1. Clone the repo and enter it.
 
    ```
-   git clone <this repo's URL> lucidity-agents
+   git clone https://github.com/grant-wei/lucidity-agents
    cd lucidity-agents
    ```
 
-2. Put your key in a `.env` file. Lucidity looks in the repo folder first, then the folder above it,
-   so a `.env` one level up works too. Copy the example and fill in the key:
+2. Put your key in a `.env` file. Lucidity looks in the repo folder first, then the folder above it.
+   **If your `.env` is already one folder above the repo, skip this step.** Otherwise copy the
+   example and fill in the key:
 
    ```
    cp .env.example .env        # Windows PowerShell: copy .env.example .env
    ```
 
    `.env` needs `OPENAI_API_KEY=...`. `OPENAI_MODEL` is optional and defaults to `gpt-6-luna`.
+   A `.env` that still holds the placeholder key is ignored, so a copied example never hides a real key one folder up.
 
 3. Make a virtual environment and install.
 
@@ -43,14 +45,21 @@ You need Python 3.10 or newer and an OpenAI API key.
    pip install -r requirements.txt
    ```
 
+   If PowerShell blocks `Activate.ps1`, skip activation and call the venv's Python directly:
+   `.venv\Scripts\python -m pip install -r requirements.txt`, then `.venv\Scripts\python app.py` in step 4.
+
 4. Start it.
 
    ```
    python app.py
    ```
 
-   It opens http://127.0.0.1:8765 in your browser. The first refresh takes 20 to 40 seconds and costs
+   It opens http://127.0.0.1:8765 in your browser. The page says "Reading your sessions…" until the
+   first refresh finishes. That takes 20 to 40 seconds and costs
    a tenth to a fifth of a cent (two measured runs on the sample data). After that, unchanged sessions are skipped, so leaving it open is nearly free.
+
+   If port 8765 is taken, it stops and says so. Pick another port:
+   `LUCIDITY_PORT=8800 python app.py` (Windows PowerShell: `$env:LUCIDITY_PORT="8800"; python app.py`).
 
 5. Optional: point it at your own sessions instead of the sample data.
 
@@ -106,7 +115,7 @@ in the output) are decided in plain code and override the model.
 ## Tests and evals
 
 ```
-python -m pytest -q                 # 98 tests, offline, no key needed (~10 s)
+python -m pytest -q                 # 101 tests, offline, no key needed (~10 s)
 python evals/run_evals.py           # 30 cases x 5 configurations x 3 runs, about $0.07 and 15 minutes
 python scripts/run_refresh.py       # one refresh from the command line, state vs label per session
 python scripts/record_replay.py     # re-record the planner replay (needs requirements-dev.txt)
