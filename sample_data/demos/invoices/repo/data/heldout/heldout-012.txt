@@ -1,0 +1,17 @@
+Orchard Lane Bakery
+20 Elm Avenue, Riverton
+
+INVOICE
+Invoice No: A-18320
+Invoice Date: Jun 13 2026
+Terms: Due on receipt
+
+Bill To:
+Juniper Yoga Studio
+
+Storage, monthly           3   $929.97
+Printer toner              4   $2,516.00
+
+Subtotal: $3,445.97
+Tax: $275.68
+Total Due: USD 3,721.65

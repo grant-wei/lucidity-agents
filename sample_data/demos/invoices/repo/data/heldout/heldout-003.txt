@@ -1,0 +1,16 @@
+Bill To: Juniper Yoga Studio
+470 Industrial Way
+
+Remit to: Saltmarsh Design Studio
+445 Market Square, Springfield
+
+Invoice number 4379
+Date of issue 08/07/2026
+Terms: NET45
+
+Delivery                   9   USD 173.25
+Cable installation         6   $4,968.00
+
+Subtotal $5,141.25
+Tax $1,028.25
+Grand total $6,169.50

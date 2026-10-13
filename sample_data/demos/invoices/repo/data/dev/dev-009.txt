@@ -1,0 +1,16 @@
+INVOICE
+From: Northwind Office Supply
+228 Station Lane, Springfield
+Bill to: Oakridge Schools
+
+Number: PO1241-B    Date: 03/08/2026
+Terms: Net 45 days
+
+Delivery                   7   $4,942.00
+Software licence           8   USD 2,840.00
+Design revisions           4   $881.00
+Cable installation         3   $861.00
+
+Subtotal $9,524.00
+VAT $571.44
+TOTAL $10,095.44

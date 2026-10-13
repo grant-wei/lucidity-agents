@@ -1,0 +1,322 @@
+{
+ "heldout-001": {
+  "vendor": "Thistle & Co. Ltd",
+  "invoice_number": "9959",
+  "invoice_date": "2026-04-29",
+  "due_date": "2026-05-20",
+  "total": "6868.80",
+  "currency": "GBP"
+ },
+ "heldout-002": {
+  "vendor": "Brightwater Analytics BV",
+  "invoice_number": "INV-1029",
+  "invoice_date": "2026-02-15",
+  "due_date": "2026-04-01",
+  "total": "2956.50",
+  "currency": "EUR"
+ },
+ "heldout-003": {
+  "vendor": "Saltmarsh Design Studio",
+  "invoice_number": "4379",
+  "invoice_date": "2026-08-07",
+  "due_date": "2026-09-21",
+  "total": "6169.50",
+  "currency": "USD"
+ },
+ "heldout-004": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "INV-6277",
+  "invoice_date": "2026-05-31",
+  "due_date": "2026-07-15",
+  "total": "6987.06",
+  "currency": "USD"
+ },
+ "heldout-005": {
+  "vendor": "Albion Courier Services",
+  "invoice_number": "INV-1359",
+  "invoice_date": "2026-07-27",
+  "due_date": "2026-09-25",
+  "total": "10924.26",
+  "currency": "GBP"
+ },
+ "heldout-006": {
+  "vendor": "Kestrel Software GmbH",
+  "invoice_number": "A-34148",
+  "invoice_date": "2026-01-23",
+  "due_date": "2026-02-13",
+  "total": "862.84",
+  "currency": "EUR"
+ },
+ "heldout-007": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "2025-9809",
+  "invoice_date": "2026-01-26",
+  "due_date": "2026-02-09",
+  "total": "755.25",
+  "currency": "USD"
+ },
+ "heldout-008": {
+  "vendor": "Fenwick Joinery Ltd",
+  "invoice_number": "INV-3578",
+  "invoice_date": "2026-01-08",
+  "due_date": "2026-02-07",
+  "total": "3055.20",
+  "currency": "GBP"
+ },
+ "heldout-009": {
+  "vendor": "Copperfield Electrical",
+  "invoice_number": "8399",
+  "invoice_date": "2026-07-17",
+  "due_date": "2026-08-07",
+  "total": "12005.05",
+  "currency": "USD"
+ },
+ "heldout-010": {
+  "vendor": "Kestrel Software GmbH",
+  "invoice_number": "A-30374",
+  "invoice_date": "2026-05-15",
+  "due_date": "2026-06-14",
+  "total": "827.25",
+  "currency": "EUR"
+ },
+ "heldout-011": {
+  "vendor": "Orchard Lane Bakery",
+  "invoice_number": "INV-6117",
+  "invoice_date": "2026-06-10",
+  "due_date": "2026-07-01",
+  "total": "3032.50",
+  "currency": "USD"
+ },
+ "heldout-012": {
+  "vendor": "Orchard Lane Bakery",
+  "invoice_number": "A-18320",
+  "invoice_date": "2026-06-13",
+  "due_date": "2026-06-13",
+  "total": "3721.65",
+  "currency": "USD"
+ },
+ "heldout-013": {
+  "vendor": "Fenwick Joinery Ltd",
+  "invoice_number": "7374",
+  "invoice_date": "2026-04-12",
+  "due_date": "2026-04-27",
+  "total": "5883.00",
+  "currency": "GBP"
+ },
+ "heldout-014": {
+  "vendor": "Northwind Office Supply",
+  "invoice_number": "2026-3058",
+  "invoice_date": "2026-03-13",
+  "due_date": "2026-04-12",
+  "total": "11676.91",
+  "currency": "USD"
+ },
+ "heldout-015": {
+  "vendor": "Lumen Print Works",
+  "invoice_number": "INV-1880",
+  "invoice_date": "2026-08-30",
+  "due_date": "2026-10-29",
+  "total": "10663.13",
+  "currency": "USD"
+ },
+ "heldout-016": {
+  "vendor": "Blue Heron Catering",
+  "invoice_number": "PO7073-B",
+  "invoice_date": "2026-06-04",
+  "due_date": "2026-06-18",
+  "total": "12306.50",
+  "currency": "USD"
+ },
+ "heldout-017": {
+  "vendor": "Kestrel Software GmbH",
+  "invoice_number": "9802",
+  "invoice_date": "2026-02-28",
+  "due_date": "2026-02-28",
+  "total": "963.00",
+  "currency": "EUR"
+ },
+ "heldout-018": {
+  "vendor": "Lumen Print Works",
+  "invoice_number": "6419",
+  "invoice_date": "2026-05-11",
+  "due_date": "2026-07-10",
+  "total": "511.11",
+  "currency": "USD"
+ },
+ "heldout-019": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "PO8646-B",
+  "invoice_date": "2026-05-11",
+  "due_date": "2026-06-10",
+  "total": "2178.30",
+  "currency": "USD"
+ },
+ "heldout-020": {
+  "vendor": "Blue Heron Catering",
+  "invoice_number": "A-46650",
+  "invoice_date": "2026-02-15",
+  "due_date": "2026-03-02",
+  "total": "10278.65",
+  "currency": "USD"
+ },
+ "heldout-021": {
+  "vendor": "Orchard Lane Bakery",
+  "invoice_number": "INV-4975",
+  "invoice_date": "2026-07-15",
+  "due_date": "2026-07-30",
+  "total": "2770.84",
+  "currency": "USD"
+ },
+ "heldout-022": {
+  "vendor": "Harbor & Pine Legal",
+  "invoice_number": "INV-2807",
+  "invoice_date": "2026-06-17",
+  "due_date": "2026-08-01",
+  "total": "6586.47",
+  "currency": "USD"
+ },
+ "heldout-023": {
+  "vendor": "Kestrel Software GmbH",
+  "invoice_number": "PO5698-B",
+  "invoice_date": "2026-05-25",
+  "due_date": "2026-06-24",
+  "total": "5487.75",
+  "currency": "EUR"
+ },
+ "heldout-024": {
+  "vendor": "Saltmarsh Design Studio",
+  "invoice_number": "A-99040",
+  "invoice_date": "2026-04-29",
+  "due_date": "2026-04-29",
+  "total": "704.70",
+  "currency": "USD"
+ },
+ "heldout-025": {
+  "vendor": "Northwind Office Supply",
+  "invoice_number": "INV-8807",
+  "invoice_date": "2026-04-22",
+  "due_date": "2026-05-13",
+  "total": "3617.39",
+  "currency": "USD"
+ },
+ "heldout-026": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "INV-9220",
+  "invoice_date": "2026-03-23",
+  "due_date": "2026-05-22",
+  "total": "25362.60",
+  "currency": "USD"
+ },
+ "heldout-027": {
+  "vendor": "Blue Heron Catering",
+  "invoice_number": "INV-2561",
+  "invoice_date": "2026-04-11",
+  "due_date": "2026-05-11",
+  "total": "5014.65",
+  "currency": "USD"
+ },
+ "heldout-028": {
+  "vendor": "Copperfield Electrical",
+  "invoice_number": "A-41607",
+  "invoice_date": "2026-06-11",
+  "due_date": "2026-07-11",
+  "total": "4104.11",
+  "currency": "USD"
+ },
+ "heldout-029": {
+  "vendor": "Fenwick Joinery Ltd",
+  "invoice_number": "PO3915-B",
+  "invoice_date": "2026-09-07",
+  "due_date": "2026-10-07",
+  "total": "13173.12",
+  "currency": "GBP"
+ },
+ "heldout-030": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "INV-2323",
+  "invoice_date": "2026-03-13",
+  "due_date": "2026-04-12",
+  "total": "6124.85",
+  "currency": "USD"
+ },
+ "heldout-031": {
+  "vendor": "Brightwater Analytics BV",
+  "invoice_number": "6095",
+  "invoice_date": "2026-06-06",
+  "due_date": "2026-07-06",
+  "total": "3306.08",
+  "currency": "EUR"
+ },
+ "heldout-032": {
+  "vendor": "Granite Peak Logistics",
+  "invoice_number": "INV-6047",
+  "invoice_date": "2026-02-24",
+  "due_date": "2026-02-24",
+  "total": "7029.96",
+  "currency": "USD"
+ },
+ "heldout-033": {
+  "vendor": "Atelier Moreau SARL",
+  "invoice_number": "PO2450-B",
+  "invoice_date": "2026-06-07",
+  "due_date": "2026-06-22",
+  "total": "17126.87",
+  "currency": "EUR"
+ },
+ "heldout-034": {
+  "vendor": "Lumen Print Works",
+  "invoice_number": "2522",
+  "invoice_date": "2026-09-12",
+  "due_date": "2026-10-03",
+  "total": "6799.08",
+  "currency": "USD"
+ },
+ "heldout-035": {
+  "vendor": "Copperfield Electrical",
+  "invoice_number": "INV-8659",
+  "invoice_date": "2026-03-28",
+  "due_date": "2026-05-27",
+  "total": "546.00",
+  "currency": "USD"
+ },
+ "heldout-036": {
+  "vendor": "Kestrel Software GmbH",
+  "invoice_number": "2025-2680",
+  "invoice_date": "2026-06-19",
+  "due_date": "2026-07-10",
+  "total": "3222.72",
+  "currency": "EUR"
+ },
+ "heldout-037": {
+  "vendor": "Atelier Moreau SARL",
+  "invoice_number": "INV-8676",
+  "invoice_date": "2026-04-17",
+  "due_date": "2026-04-17",
+  "total": "8402.30",
+  "currency": "EUR"
+ },
+ "heldout-038": {
+  "vendor": "Vela Componenti Srl",
+  "invoice_number": "INV-4547",
+  "invoice_date": "2026-07-08",
+  "due_date": "2026-08-07",
+  "total": "6237.96",
+  "currency": "EUR"
+ },
+ "heldout-039": {
+  "vendor": "Fenwick Joinery Ltd",
+  "invoice_number": "2025-8713",
+  "invoice_date": "2026-09-01",
+  "due_date": "2026-10-01",
+  "total": "10446.83",
+  "currency": "GBP"
+ },
+ "heldout-040": {
+  "vendor": "Albion Courier Services",
+  "invoice_number": "PO1304-B",
+  "invoice_date": "2026-04-28",
+  "due_date": "2026-06-12",
+  "total": "7658.20",
+  "currency": "GBP"
+ }
+}

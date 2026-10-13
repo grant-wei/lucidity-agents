@@ -1,0 +1,13 @@
+*** ORCHARD LANE BAKERY ***
+283 Station Lane, Springfield
+Tax invoice
+
+Inv #: INV-6117
+Issued: June 10, 2026
+Payment due: July 01, 2026
+
+Catering for 20            5   USD 3,032.50
+
+Sub-total: USD 3,032.50
+Tax: $0.00
+Amount due: $3,032.50

@@ -1,0 +1,16 @@
+Bill To: Riverside Dental Group
+476 Station Lane
+
+Remit to: Lumen Print Works
+112 Harbour Street, Springfield
+
+Invoice number INV-1880
+Date of issue 08/30/2026
+Terms: Net 60
+
+Consulting hours          11   $4,950.00
+Design revisions           6   USD 3,935.94
+
+Subtotal $8,885.94
+Tax $1,777.19
+Grand total USD 10,663.13

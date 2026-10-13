@@ -1,0 +1,15 @@
+INVOICE
+From: Kestrel Software GmbH
+27 Harbour Street, Lyon
+Bill to: Larkspur Architects
+
+Number: INV-7714    Date: 2026-01-13
+Terms: Payable upon receipt
+
+Catering for 20           10   6.665,00 €
+Delivery                   4   €649,00
+Printer toner             12   1.611,00 €
+
+Subtotal €8.925,00
+VAT €714,00
+TOTAL 9.639,00 €

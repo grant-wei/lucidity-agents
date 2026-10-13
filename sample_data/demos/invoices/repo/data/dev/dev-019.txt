@@ -1,0 +1,14 @@
+INVOICE
+From: Harbor & Pine Legal
+275 Harbour Street, Springfield
+Bill to: Tidewater Clinic
+
+Number: INV-3533    Date: 02/14/2026
+Terms: Net 30 days
+
+Catering for 20           12   $8,507.88
+Consulting hours           5   $3,715.00
+
+Subtotal $12,222.88
+VAT $733.37
+TOTAL USD 12,956.25

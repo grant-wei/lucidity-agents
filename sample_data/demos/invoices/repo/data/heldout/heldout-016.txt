@@ -1,0 +1,18 @@
+Bill To: Riverside Dental Group
+30 Mill Road
+
+Remit to: Blue Heron Catering
+292 Harbour Street, Fairview
+
+Invoice number PO7073-B
+Date of issue 06/04/2026
+Payment due: 06/18/2026
+
+Design revisions           1   USD 521.25
+Consulting hours           5   $3,291.25
+Cable installation         8   USD 1,284.00
+Design revisions          10   $7,210.00
+
+Subtotal $12,306.50
+Tax USD 0.00
+Grand total $12,306.50

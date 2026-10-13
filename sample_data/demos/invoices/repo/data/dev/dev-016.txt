@@ -1,0 +1,14 @@
+*** ORCHARD LANE BAKERY ***
+201 Mill Road, Springfield
+Tax invoice
+
+Inv #: 2203
+Issued: Feb 03 2026
+Terms: Net 30
+
+Design revisions           8   USD 1,648.00
+Design revisions           7   USD 4,066.93
+
+Sub-total: USD 5,714.93
+Tax: $457.19
+Amount due: USD 6,172.12

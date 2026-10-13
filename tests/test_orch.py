@@ -46,7 +46,7 @@ def node(run, nid):
 
 
 def test_plan_waits_for_approval(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0))
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0))
     assert run.d["state"] == "plan_ready"
     assert [n["id"] for n in run.d["nodes"]] == ["t1", "t2", "t3", "t4", "t5", "t6"]
     assert all(n["state"] == "queued" for n in run.d["nodes"]) and run.d["integration"] is None
@@ -56,7 +56,7 @@ def test_plan_waits_for_approval(orch):
 
 
 def test_demo_run_end_to_end(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0, auto_run=True))
     # t4 spends its whole budget on a wrong first round and waits for you; everything it doesn't block finishes
     assert run.d["state"] == "needs_you"
     t3, t4 = node(run, "t3"), node(run, "t4")
@@ -86,8 +86,91 @@ def test_demo_run_end_to_end(orch):
     assert all(s["end"] is not None for n in run.d["nodes"] for s in n["spans"])
 
 
+def test_invoice_demo_catches_a_regression_the_agent_called_done(orch):
+    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    assert run.d["demo"] == "invoices" and run.d["eval_command"] == "python evals/score.py --split heldout"
+    t2 = node(run, "t2")
+    # round 1: the agent reports both its targets met; they are, but invoice numbers broke, so no merge
+    first = t2["checks"][0]
+    assert first["verdict"] == "fail" and first["by"] == "program" and "done" in t2["reports"][0]["text"]
+    by_kind = {c["label"]: c for c in first["conditions"]}
+    assert by_kind["total.f1 ≥ 0.90"]["met"] is True and by_kind["currency.f1 ≥ 0.90"]["met"] is True
+    reg = by_kind["no *.f1 drops more than 0.01"]
+    assert reg["met"] is False and [d["metric"] for d in reg["drops"]] == ["invoice_number.f1"]
+    assert reg["drops"][0]["before"] == 1.0 and reg["drops"][0]["after"] < 0.5
+    assert [c["verdict"] for c in t2["checks"]] == ["fail", "pass"] and t2["state"] == "done"
+    # the due-date task spent its budget short of the bar and waits for you
+    t3 = node(run, "t3")
+    assert run.d["state"] == "needs_you" and t3["needs_kind"] == "budget"
+    assert "due_date.f1" in t3["checks"][0]["reasons"][0]
+    run.act("add_budget", node="t3", amount=0.15)
+    wait(run, ("done", "needs_you", "failed", "stopped"))
+    assert run.d["state"] == "done", run.d["reason"]
+    # the merged branch was scored at the start and after every merge; nothing ever dropped
+    scores = run.d["scores"]
+    assert scores[0]["label"] == "start" and len(scores) == 6 and all(s["metrics"] for s in scores)
+    assert scores[0]["metrics"]["vendor.f1"] < 0.5
+    final = scores[-1]["metrics"]
+    assert all(final[f"{f}.f1"] >= 0.9 for f in ("vendor", "invoice_number", "invoice_date", "due_date", "total", "currency"))
+    assert final["invoice_number.f1"] == 1.0
+    targets = run.view()["targets"]
+    assert set(targets) == {"invoice_date.f1", "total.f1", "currency.f1", "due_date.f1", "vendor.f1"}
+
+
+def test_metric_conditions(tmp_path):
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "s.py").write_text(
+        "import json\nprint('noise')\nprint(json.dumps({'metrics': {'a': {'f1': 0.8}, 'b': {'f1': 0.5}, 'cost': 0.002}}))\n",
+        encoding="utf-8")
+    cmd = "python evals/s.py"
+    before = {cmd: {"metrics": {"a.f1": 0.6, "b.f1": 0.7, "cost": 0.002}}}
+    conds = [{"kind": "metric", "command": cmd, "metric": "a.f1", "op": ">=", "value": 0.75},
+             {"kind": "metric", "command": cmd, "metric": "a.f1", "op": ">=", "value": 0.9},
+             {"kind": "metric", "command": cmd, "metric": "cost", "op": "<=", "value": 0.0025},
+             {"kind": "metric", "command": cmd, "metric": "missing", "op": ">=", "value": 0.1},
+             {"kind": "no_regression", "command": cmd, "metric": "*.f1", "value": 0.01},
+             {"kind": "no_regression", "command": cmd, "metric": "*.f1", "value": 0.25}]
+    scores = {}
+    got = contracts.evaluate(conds, tmp_path, before=before, scores=scores)
+    assert [g["met"] for g in got] == [True, False, True, False, False, True]
+    assert got[0]["evidence"] == "0.60 → 0.80" and "needs ≥ 0.90" in got[1]["evidence"]
+    assert got[4]["drops"] == [{"metric": "b.f1", "before": 0.7, "after": 0.5}]
+    assert scores[cmd]["metrics"]["a.f1"] == 0.8          # the eval ran once for all six
+    assert contracts.evaluate(conds[4:5], tmp_path)[0]["met"] is False   # nothing to compare with
+    for bad in ("python evals/../../x.py", "python other/s.py", "bash evals/s.py", "python evals/s.py; rm -rf /",
+                "python evals/s.py --out ../x", "python evals/s.txt"):
+        r = contracts.evaluate([dict(conds[0], command=bad)], tmp_path)[0]
+        assert r["met"] is False and "refused" in r["evidence"], bad
+    (tmp_path / "evals" / "s.py").write_text("print('no scores here')\n", encoding="utf-8")
+    assert "no JSON" in contracts.evaluate(conds[:1], tmp_path)[0]["evidence"]
+
+
+def test_planner_validates_metric_conditions():
+    from lucidity.agents import planner
+    plan = planner.Plan.model_validate({"summary": "s", "nodes": [
+        {"id": "t1", "title": "a", "prompt": "p", "budget_usd": 0.5, "done_when": [
+            {"kind": "metric", "command": "python evals/score.py", "metric": "x.f1", "value": 0.9},
+            {"kind": "metric", "command": "curl evil.example", "metric": "x.f1", "value": 0.9},
+            {"kind": "no_regression", "command": "python evals/score.py", "metric": "", "value": 0.01}]}]})
+    clean, problems = planner.validate_plan(plan, 1.0)
+    kinds = [c["kind"] for c in clean["nodes"][0]["done_when"]]
+    assert kinds == ["metric", "rubric"]
+    assert any("eval command refused" in p for p in problems) and any("needs a metric" in p for p in problems)
+
+
+def test_live_run_rejects_a_bad_eval_command(orch, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "has_key", lambda: True)
+    with pytest.raises(runs.RunError, match="eval command"):
+        runs.create("make the scores better", worker="builtin", repo=tmp_path, eval_command="rm -rf /")
+
+
+def test_unknown_demo(orch):
+    with pytest.raises(runs.RunError, match="no demo"):
+        runs.create("", worker="demo", demo_name="nope")
+
+
 def test_run_budget_cap_stops_new_tasks(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True, budget_usd=0.3))
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0, auto_run=True, budget_usd=0.3))
     assert run.d["state"] == "needs_you" and run.d["needs_kind"] == "run_budget"
     assert run.view()["needs"][0]["actions"] == ["raise_budget", "stop"]
     assert run.d["spent_usd"] >= 0.3 and any(n["state"] == "queued" for n in run.d["nodes"])
@@ -102,7 +185,7 @@ def test_run_budget_cap_stops_new_tasks(orch):
 
 
 def test_skip_and_stop(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0, auto_run=True))
     run.act("skip", node="t4")
     assert node(run, "t4")["state"] == "skipped"
     wait(run, ("done", "needs_you", "stopped"))
@@ -125,7 +208,7 @@ def test_bad_requests(orch, tmp_path):
 
 
 def test_restart_marks_running_runs_stopped(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0))
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0))
     data = dict(run.d, state="running")
     data["nodes"] = [dict(n, state="running") if n["id"] == "t1" else n for n in run.d["nodes"]]
     p = config.STATE_DIR / "runs" / f"{run.id}.json"

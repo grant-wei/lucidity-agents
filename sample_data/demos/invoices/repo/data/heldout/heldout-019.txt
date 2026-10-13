@@ -1,0 +1,15 @@
+*** GRANITE PEAK LOGISTICS ***
+468 Harbour Street, Fairview
+Tax invoice
+
+Inv #: PO8646-B
+Issued: 05/11/2026
+Terms: NET30
+
+Printer toner              9   $333.00
+Catering for 20            1   $542.00
+Catering for 20            5   $1,180.00
+
+Sub-total: $2,055.00
+Tax: $123.30
+Amount due: $2,178.30

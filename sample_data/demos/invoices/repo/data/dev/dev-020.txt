@@ -1,0 +1,19 @@
+Lumen Print Works
+262 Market Square, Fairview
+
+INVOICE
+Invoice No: PO3346-B
+Invoice Date: August 18, 2026
+Payment due: 09/08/2026
+
+Bill To:
+Riverside Dental Group
+
+Pastry tray                5   $116.25
+Cable installation        12   $6,075.00
+Software licence           1   USD 335.00
+Legal review               5   USD 1,476.25
+
+Subtotal: USD 8,002.50
+Tax: $640.20
+Total Due: $8,642.70

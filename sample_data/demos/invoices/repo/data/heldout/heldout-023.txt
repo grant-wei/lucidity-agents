@@ -1,0 +1,16 @@
+Bill To: Larkspur Architects
+435 Harbour Street
+
+Remit to: Kestrel Software GmbH
+225 Elm Avenue, Rotterdam
+
+Invoice number PO5698-B
+Date of issue 25/05/2026
+Terms: Net 30
+
+Legal review               4   EUR 1.930,00
+Software licence           5   EUR 3.151,25
+
+Subtotal €5.081,25
+Tax €406,50
+Grand total EUR 5.487,75

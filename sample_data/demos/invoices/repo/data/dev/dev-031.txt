@@ -1,0 +1,16 @@
+Bill To: Juniper Yoga Studio
+426 Station Lane
+
+Remit to: Orchard Lane Bakery
+475 Mill Road, Fairview
+
+Invoice number 2025-5385
+Date of issue 02/02/2026
+Terms: NET15
+
+Pastry tray                5   USD 1,931.25
+Printer toner             12   $1,143.00
+
+Subtotal $3,074.25
+Tax $0.00
+Grand total USD 3,074.25

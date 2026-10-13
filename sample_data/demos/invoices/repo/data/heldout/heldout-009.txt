@@ -1,0 +1,16 @@
+INVOICE
+From: Copperfield Electrical
+190 Elm Avenue, Riverton
+Bill to: Riverside Dental Group
+
+Number: 8399    Date: 07/17/2026
+Payment due: August 07, 2026
+
+Legal review               4   USD 3,109.00
+Legal review               3   $1,272.75
+Pastry tray                9   USD 4,054.50
+Consulting hours           4   USD 1,567.96
+
+Subtotal $10,004.21
+VAT $2,000.84
+TOTAL USD 12,005.05

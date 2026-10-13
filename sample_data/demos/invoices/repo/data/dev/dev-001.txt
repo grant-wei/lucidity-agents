@@ -1,0 +1,16 @@
+INVOICE
+From: Fenwick Joinery Ltd
+182 Mill Road, Leeds
+Bill to: Riverside Dental Group
+
+Number: 1695    Date: 17/05/2026
+Payment due: 31 May 2026
+
+Printer toner              7   GBP 5,806.50
+Legal review               2   £1,103.98
+Catering for 20            4   GBP 1,138.00
+Legal review              10   GBP 1,485.00
+
+Subtotal GBP 9,533.48
+VAT £1,906.70
+TOTAL GBP 11,440.18

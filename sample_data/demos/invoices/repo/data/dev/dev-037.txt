@@ -1,0 +1,16 @@
+INVOICE
+From: Orchard Lane Bakery
+95 Mill Road, Fairview
+Bill to: Juniper Yoga Studio
+
+Number: INV-3011    Date: August 20, 2026
+Payment due: Aug 30 2026
+
+Legal review               1   $372.99
+Pastry tray                8   $6,855.92
+Printer toner              5   $3,969.95
+Legal review              11   $8,901.75
+
+Subtotal $20,100.61
+VAT USD 1,608.05
+TOTAL $21,708.66

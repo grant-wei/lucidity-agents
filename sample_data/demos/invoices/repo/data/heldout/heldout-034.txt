@@ -1,0 +1,17 @@
+Lumen Print Works
+468 Harbour Street, Springfield
+
+INVOICE
+Invoice No: 2522
+Invoice Date: Sep 12 2026
+Payment due: 10/03/2026
+
+Bill To:
+Maple Street Cafe
+
+Consulting hours           6   $2,093.94
+Delivery                   4   $3,571.96
+
+Subtotal: USD 5,665.90
+Tax: USD 1,133.18
+Total Due: USD 6,799.08

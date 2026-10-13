@@ -1,0 +1,15 @@
+INVOICE
+From: Orchard Lane Bakery
+223 Station Lane, Springfield
+Bill to: Summit Climbing Gym
+
+Number: INV-4956    Date: 2026-06-18
+Terms: Net 60 days
+
+Consulting hours           9   $4,846.50
+Consulting hours           6   $5,172.00
+Software licence           6   USD 1,283.94
+
+Subtotal $11,302.44
+VAT USD 678.15
+TOTAL USD 11,980.59

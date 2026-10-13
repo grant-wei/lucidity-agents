@@ -1,0 +1,15 @@
+*** FENWICK JOINERY LTD ***
+47 Mill Road, Bristol
+Tax invoice
+
+Inv #: 2025-8713
+Issued: 01/09/2026
+Payment due: 2026-10-01
+
+Delivery                   8   £6,500.00
+Delivery                   8   GBP 396.00
+Storage, monthly           6   GBP 2,959.50
+
+Sub-total: £9,855.50
+Tax: GBP 591.33
+Amount due: GBP 10,446.83

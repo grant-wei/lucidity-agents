@@ -1,0 +1,13 @@
+*** FENWICK JOINERY LTD ***
+6 Industrial Way, Leeds
+Tax invoice
+
+Inv #: INV-3578
+Issued: 2026-01-08
+Terms: NET30
+
+Storage, monthly           8   £2,546.00
+
+Sub-total: £2,546.00
+Tax: GBP 509.20
+Amount due: GBP 3,055.20

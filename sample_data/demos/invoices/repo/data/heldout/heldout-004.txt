@@ -1,0 +1,16 @@
+*** GRANITE PEAK LOGISTICS ***
+284 Mill Road, Fairview
+Tax invoice
+
+Inv #: INV-6277
+Issued: 2026-05-31
+Terms: NET45
+
+Legal review               5   USD 3,335.00
+Printer toner              2   USD 614.50
+Design revisions           4   $968.00
+Cable installation         2   $1,552.00
+
+Sub-total: $6,469.50
+Tax: USD 517.56
+Amount due: $6,987.06

@@ -1,0 +1,16 @@
+Copperfield Electrical
+65 Market Square, Riverton
+
+INVOICE
+Invoice No: INV-8659
+Invoice Date: 03/28/2026
+Terms: Net 60
+
+Bill To:
+Maple Street Cafe
+
+Consulting hours          12   $546.00
+
+Subtotal: $546.00
+Tax: USD 0.00
+Total Due: USD 546.00

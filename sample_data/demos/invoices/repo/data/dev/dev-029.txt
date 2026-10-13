@@ -1,0 +1,16 @@
+Lumen Print Works
+181 Market Square, Fairview
+
+INVOICE
+Invoice No: 1015
+Invoice Date: 2026-04-25
+Payment due: 2026-05-09
+
+Bill To:
+Oakridge Schools
+
+Software licence           4   $2,141.00
+
+Subtotal: $2,141.00
+Tax: USD 0.00
+Total Due: USD 2,141.00

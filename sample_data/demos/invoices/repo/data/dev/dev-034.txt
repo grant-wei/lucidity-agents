@@ -1,0 +1,15 @@
+INVOICE
+From: Orchard Lane Bakery
+388 Station Lane, Fairview
+Bill to: Maple Street Cafe
+
+Number: 8529    Date: 2026-09-03
+Terms: NET15
+
+Storage, monthly           8   $4,412.00
+Design revisions          11   USD 1,364.00
+Storage, monthly          10   $1,200.00
+
+Subtotal $6,976.00
+VAT USD 0.00
+TOTAL $6,976.00

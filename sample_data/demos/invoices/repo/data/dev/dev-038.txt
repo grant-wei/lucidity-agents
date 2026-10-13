@@ -1,0 +1,15 @@
+INVOICE
+From: Brightwater Analytics BV
+10 Market Square, Munich
+Bill to: Larkspur Architects
+
+Number: INV-7379    Date: 21.04.2026
+Terms: NET30
+
+Design revisions           2   1.576,00 €
+Catering for 20            1   €586,99
+Software licence          12   EUR 6.107,88
+
+Subtotal €8.270,87
+VAT €661,67
+TOTAL 8.932,54 €

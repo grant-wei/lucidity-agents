@@ -1,0 +1,13 @@
+*** KESTREL SOFTWARE GMBH ***
+284 Mill Road, Lyon
+Tax invoice
+
+Inv #: A-34148
+Issued: 2026-01-23
+Payment due: 13 February 2026
+
+Software licence           1   814,00 €
+
+Sub-total: €814,00
+Tax: 48,84 €
+Amount due: EUR 862,84

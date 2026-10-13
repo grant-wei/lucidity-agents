@@ -1,0 +1,14 @@
+INVOICE
+From: Blue Heron Catering
+148 Harbour Street, Riverton
+Bill to: Pinecrest Hotel
+
+Number: 3246    Date: 2026-02-14
+Payment due: February 24, 2026
+
+Printer toner             10   USD 1,790.00
+Catering for 20            6   $4,321.50
+
+Subtotal USD 6,111.50
+VAT USD 0.00
+TOTAL $6,111.50

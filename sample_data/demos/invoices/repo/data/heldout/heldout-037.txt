@@ -1,0 +1,14 @@
+INVOICE
+From: Atelier Moreau SARL
+42 Harbour Street, Bologna
+Bill to: Tidewater Clinic
+
+Number: INV-8676    Date: 17.04.2026
+Terms: Payable upon receipt
+
+Delivery                   8   EUR 3.058,00
+Pastry tray                8   €3.943,92
+
+Subtotal EUR 7.001,92
+VAT 1.400,38 €
+TOTAL EUR 8.402,30

@@ -1,0 +1,16 @@
+Thistle & Co. Ltd
+64 Mill Road, York
+
+INVOICE
+Invoice No: PO5341-B
+Invoice Date: 2026-04-20
+Terms: NET30
+
+Bill To:
+Riverside Dental Group
+
+Consulting hours           4   GBP 1,998.00
+
+Subtotal: GBP 1,998.00
+Tax: £399.60
+Total Due: £2,397.60

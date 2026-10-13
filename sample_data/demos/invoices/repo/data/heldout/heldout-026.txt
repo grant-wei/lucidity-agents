@@ -1,0 +1,19 @@
+Granite Peak Logistics
+263 Elm Avenue, Riverton
+
+INVOICE
+Invoice No: INV-9220
+Invoice Date: 03/23/2026
+Terms: NET60
+
+Bill To:
+Larkspur Architects
+
+Printer toner             10   $3,522.50
+Software licence           6   $5,208.00
+Design revisions          12   $5,526.00
+Cable installation        12   USD 6,879.00
+
+Subtotal: $21,135.50
+Tax: $4,227.10
+Total Due: USD 25,362.60

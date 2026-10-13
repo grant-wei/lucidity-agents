@@ -1,0 +1,14 @@
+*** GRANITE PEAK LOGISTICS ***
+277 Elm Avenue, Riverton
+Tax invoice
+
+Inv #: INV-2323
+Issued: 03/13/2026
+Payment due: Apr 12 2026
+
+Delivery                  10   USD 5,519.90
+Consulting hours           5   $604.95
+
+Sub-total: $6,124.85
+Tax: USD 0.00
+Amount due: $6,124.85

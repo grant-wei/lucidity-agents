@@ -141,8 +141,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/runs":
             return self._send(200, {"runs": runs.list_runs(), "workers": workers.choices(), "has_key": config.has_key(),
                                     "model": config.MODEL, "max_run_usd": config.MAX_RUN_USD,
-                                    "demo": {"goal": runs.demo.Scenario().goal, "budget_usd": runs.demo.Scenario().budget_usd,
-                                             "repo_name": runs.demo.REPO_NAME},
+                                    "demos": runs.demo.cards(),
                                     "self_cost": breaker.status()})
         if u.path.startswith("/api/runs/"):
             run, what = self._run_route(u.path)
@@ -198,7 +197,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 run = runs.create(body.get("goal"), repo=body.get("repo"), budget_usd=body.get("budget_usd"),
                                   worker=body.get("worker") or "demo", max_parallel=body.get("max_parallel") or 3,
-                                  auto_run=bool(body.get("auto_run")))
+                                  auto_run=bool(body.get("auto_run")), demo_name=body.get("demo"),
+                                  eval_command=body.get("eval_command"))
             except (runs.RunError, runs.worktrees.GitError) as e:
                 return self._send(400, {"error": str(e)})
             return self._send(201, run.view())

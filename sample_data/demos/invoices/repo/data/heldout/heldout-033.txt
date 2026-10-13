@@ -1,0 +1,14 @@
+INVOICE
+From: Atelier Moreau SARL
+198 Harbour Street, Munich
+Bill to: Larkspur Architects
+
+Number: PO2450-B    Date: 07.06.2026
+Terms: Net 15 days
+
+Cable installation         6   5.329,50 €
+Design revisions          11   8.942,89 €
+
+Subtotal 14.272,39 €
+VAT EUR 2.854,48
+TOTAL EUR 17.126,87

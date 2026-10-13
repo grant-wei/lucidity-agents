@@ -1,0 +1,17 @@
+Bill To: Juniper Yoga Studio
+89 Mill Road
+
+Remit to: Northwind Office Supply
+195 Elm Avenue, Fairview
+
+Invoice number 2026-3058
+Date of issue 03/13/2026
+Terms: Net 30
+
+Software licence           2   $1,740.50
+Pastry tray                9   $6,880.50
+Software licence           5   $2,394.95
+
+Subtotal $11,015.95
+Tax USD 660.96
+Grand total $11,676.91

@@ -1,0 +1,14 @@
+*** THISTLE & CO. LTD ***
+376 Harbour Street, York
+Tax invoice
+
+Inv #: 9959
+Issued: 2026-04-29
+Payment due: 20 May 2026
+
+Storage, monthly           5   GBP 3,037.50
+Printer toner              9   GBP 3,442.50
+
+Sub-total: GBP 6,480.00
+Tax: GBP 388.80
+Amount due: GBP 6,868.80

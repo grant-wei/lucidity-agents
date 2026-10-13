@@ -1,0 +1,19 @@
+Kestrel Software GmbH
+358 Industrial Way, Bologna
+
+INVOICE
+Invoice No: 5987
+Invoice Date: 13 August 2026
+Terms: Net 60
+
+Bill To:
+Juniper Yoga Studio
+
+Pastry tray                6   EUR 367,50
+Pastry tray                4   EUR 1.888,00
+Catering for 20            6   EUR 3.043,50
+Delivery                  12   €9.870,00
+
+Subtotal: €15.169,00
+Tax: EUR 0,00
+Total Due: 15.169,00 €

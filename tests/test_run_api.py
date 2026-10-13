@@ -32,29 +32,32 @@ def poll(url, states, timeout=90):
 def test_demo_over_http(api):
     code, runs_list, _ = get(api + "/api/runs")
     assert code == 200 and runs_list["runs"] == []
-    assert runs_list["demo"]["repo_name"] == "tinyshop" and runs_list["max_run_usd"] == config.MAX_RUN_USD
+    assert [d["name"] for d in runs_list["demos"]] == ["invoices", "shop"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
     assert {w["name"] for w in runs_list["workers"]} >= {"demo", "builtin", "claude", "codex"}
 
-    code, made = post(api + "/api/runs", {"worker": "demo", "auto_run": False})
-    assert code == 201 and made["mode"] == "demo"
+    code, made = post(api + "/api/runs", {"worker": "demo", "auto_run": False})   # the invoice demo by default
+    assert code == 201 and made["mode"] == "demo" and made["repo_name"] == "invoicekit"
     url = api + "/api/runs/" + made["id"]
     v = poll(url, ("plan_ready",))
-    assert len(v["nodes"]) == 6 and v["spend_by"]["planner"] > 0 and v["samples"]
+    assert len(v["nodes"]) == 5 and v["spend_by"]["planner"] > 0 and v["samples"]
+    assert v["targets"]["vendor.f1"]["value"] == 0.9
 
     code, m, _ = get(url + "/map")
     assert code == 200 and m["modules"] and all("tasks" in x for x in m["modules"])
 
     assert post(url + "/action", {"action": "approve"})[0] == 200
     v = poll(url, ("needs_you", "done"))
-    assert v["state"] == "needs_you" and v["needs"][0]["node"] == "t4"   # the scripted budget overrun
-    assert status_of(url + "/action", {"action": "add_budget", "node": "t4"}) == 400   # no amount
-    assert post(url + "/action", {"action": "add_budget", "node": "t4", "amount": 0.15})[0] == 200
+    assert v["state"] == "needs_you" and v["needs"][0]["node"] == "t3"   # the scripted budget overrun
+    assert status_of(url + "/action", {"action": "add_budget", "node": "t3"}) == 400   # no amount
+    assert post(url + "/action", {"action": "add_budget", "node": "t3", "amount": 0.15})[0] == 200
     v = poll(url, ("done", "needs_you", "failed"))
     assert v["state"] == "done" and v["merged_commit"] and v["files_changed"]
     assert all(n["state"] == "done" for n in v["nodes"])
+    final = v["scores"][-1]["metrics"]
+    assert all(final[f"{f}.f1"] >= 0.9 for f in ("vendor", "invoice_date", "due_date", "total", "currency"))
 
     listed = get(api + "/api/runs")[1]["runs"]
-    assert listed[0]["id"] == made["id"] and listed[0]["done"] == 6
+    assert listed[0]["id"] == made["id"] and listed[0]["done"] == 5
 
     assert post(url + "/delete", {})[0] == 200
     assert status_of(url) == 404

@@ -1,0 +1,19 @@
+Kestrel Software GmbH
+279 Elm Avenue, Munich
+
+INVOICE
+Invoice No: A-48819
+Invoice Date: 15/06/2026
+Payment due: 25.06.2026
+
+Bill To:
+Juniper Yoga Studio
+
+Consulting hours           5   1.426,25 €
+Cable installation         7   €1.359,75
+Cable installation         9   EUR 2.749,50
+Consulting hours           5   €2.095,00
+
+Subtotal: EUR 7.630,50
+Tax: EUR 610,44
+Total Due: €8.240,94

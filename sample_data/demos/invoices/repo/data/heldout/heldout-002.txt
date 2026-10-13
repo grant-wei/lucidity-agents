@@ -1,0 +1,13 @@
+INVOICE
+From: Brightwater Analytics BV
+23 Mill Road, Bologna
+Bill to: Pinecrest Hotel
+
+Number: INV-1029    Date: 15/02/2026
+Terms: Net 45
+
+Pastry tray                6   EUR 2.737,50
+
+Subtotal €2.737,50
+VAT EUR 219,00
+TOTAL EUR 2.956,50

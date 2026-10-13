@@ -1,5 +1,10 @@
 {
- "about": "The demo run. The plan and the worker edits are scripted; the tests, the checker, the merges and the budget caps are real and run on a fresh copy of sample_data/demo/repo.",
+ "about": "A demo run. The plan and the worker edits are scripted; the tests, the checker, the merges and the budget caps are real and run on a fresh copy of repo/.",
+ "title": "Discount codes",
+ "blurb": "A toy shop gets discount codes. Done means the unit and acceptance tests pass.",
+ "repo_name": "tinyshop",
+ "about_repo": "bundled toy shop, copied fresh for each run",
+ "commit_message": "tinyshop: catalog, cart, tax, checkout, api; spec/ holds acceptance tests",
  "goal": "Add discount codes to checkout: percent and flat codes, an expiry date, applied before tax, accepted by the API.",
  "budget_usd": 1.5,
  "planner": {

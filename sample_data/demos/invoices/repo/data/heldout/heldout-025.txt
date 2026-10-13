@@ -1,0 +1,14 @@
+*** NORTHWIND OFFICE SUPPLY ***
+146 Harbour Street, Riverton
+Tax invoice
+
+Inv #: INV-8807
+Issued: April 22, 2026
+Payment due: 05/13/2026
+
+Delivery                   5   $2,917.50
+Pastry tray                1   USD 96.99
+
+Sub-total: $3,014.49
+Tax: $602.90
+Amount due: $3,617.39

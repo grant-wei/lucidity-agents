@@ -1,0 +1,13 @@
+INVOICE
+From: Fenwick Joinery Ltd
+97 Market Square, Leeds
+Bill to: Maple Street Cafe
+
+Number: 2025-2022    Date: 24/07/2026
+Terms: Net 60 days
+
+Consulting hours          11   GBP 2,378.75
+
+Subtotal GBP 2,378.75
+VAT £475.75
+TOTAL £2,854.50

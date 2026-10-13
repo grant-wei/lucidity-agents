@@ -1,0 +1,18 @@
+Copperfield Electrical
+294 Station Lane, Riverton
+
+INVOICE
+Invoice No: 7003
+Invoice Date: 08/10/2026
+Terms: NET30
+
+Bill To:
+Riverside Dental Group
+
+Delivery                   6   $1,271.94
+Consulting hours           8   $6,799.92
+Cable installation         3   $2,502.75
+
+Subtotal: $10,574.61
+Tax: $845.97
+Total Due: $11,420.58

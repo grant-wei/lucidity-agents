@@ -1,0 +1,18 @@
+Atelier Moreau SARL
+162 Mill Road, Munich
+
+INVOICE
+Invoice No: 6686
+Invoice Date: 30 July 2026
+Terms: Due on receipt
+
+Bill To:
+Tidewater Clinic
+
+Consulting hours           5   2.981,25 €
+Design revisions           6   2.271,00 €
+Catering for 20            4   EUR 2.394,00
+
+Subtotal: 7.646,25 €
+Tax: 611,70 €
+Total Due: €8.257,95

@@ -1,0 +1,14 @@
+INVOICE
+From: Kestrel Software GmbH
+370 Market Square, Lyon
+Bill to: Riverside Dental Group
+
+Number: 2025-2680    Date: 19/06/2026
+Payment due: 2026-07-10
+
+Storage, monthly           9   EUR 2.272,50
+Pastry tray                1   711,50 €
+
+Subtotal €2.984,00
+VAT €238,72
+TOTAL €3.222,72
