@@ -3,13 +3,16 @@
 - **Live runs with a real key.** The loop is tested end to end with the demo worker and with fake
   models (planner, checker, built-in worker) in temp git repos. A live run against a real repo with
   the course model, Claude Code and Codex hasn't been recorded yet; do one small run per worker and
-  note the cost.
+  note the cost. The same goes for a live run with an eval command: metric conditions are tested
+  with the invoice demo and fake planners, not yet with a real planner choosing the bars.
+- **Eval cost.** The eval runs when each task starts, once per round, and once per merge. A slow eval (minutes)
+  slows the whole run; there's no caching of scores for an unchanged tree yet.
 - **Codex budget.** The Codex CLI has no hard budget flag, so its spend is estimated from token
   counts (`LUCIDITY_CODEX_MODEL` sets the price) and enforced at the end of a round, not mid-round.
 - **Resume after restart.** A run that was in progress when the server stopped is marked stopped,
   with its worktrees and branch kept. There is no "resume" button yet; start a new run.
 - **Merge back.** The run ends with its work on `lucidity/<run-id>`. A button to open a PR or merge
-  into your branch is not built; the page shows the `git diff` command instead.
+  into your branch is not built; **What merged** shows each task's diff for review.
 - **Report.** `report.html` still describes the earlier monitor-first version (the planner as a
   recorded replay, the old Planner tab). It was left as is on purpose.
 - **Leftovers from the old Planner tab.** `/api/replay`, `sample_data/replays/` and

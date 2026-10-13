@@ -7,11 +7,19 @@ merges without a pass. While it runs you see the task graph, progress and spend 
 the budget, and a map of the repo showing which agents changed which modules. When a check keeps
 failing or a budget hits its cap, the run stops that task and asks you.
 
-![A demo run waiting on a decision: one task hit its budget](docs/screenshots/run-needs-you.png)
+"Done" can be a test passing, or a score clearing a bar. Point Lucidity at an eval script and a task
+can be "done when `total.f1` ≥ 0.90 on the held-out set and no other field drops". That makes it CI
+for LLM pipelines: an agent can say it's finished and still get sent back because a number moved
+the wrong way.
 
-The demo above needs no API key: a bundled toy shop repo, a recorded plan and scripted agent edits.
-Everything after the edits is real: the tests run, the checks pass or fail, the budgets bind and the
-merges are real git merges.
+![A demo run waiting on a decision: scores climbing toward the bar, one task out of budget](docs/screenshots/run-needs-you.png)
+
+The demo above needs no API key. A bundled invoice extractor (80 synthetic invoices, a dev split for
+tuning and a held-out split for checking) starts with most fields well under F1 0.90. The plan and
+the agents' edits are recorded; everything after the edits is real. The eval runs on every round,
+the checks pass or fail on its numbers, the budgets bind, and the merges are real git merges. In one
+round an agent "fixes" totals by changing a shared helper, reports done, and the check sends it back
+because `invoice_number.f1` fell from 1.00 to 0.30.
 
 ## Quickstart (one command)
 
@@ -24,13 +32,19 @@ python start.py          # Windows: py start.py
 ```
 
 `start.py` makes a `.venv`, installs `requirements.txt` into it (first run only, about a minute) and
-opens http://127.0.0.1:8765. Click **Run the demo**. In about two minutes you'll see:
+opens http://127.0.0.1:8765. Click **Run the demo** (Invoice extraction is picked). In about a
+minute you'll see:
 
-1. the goal planned into 6 tasks with dependencies,
-2. agents working up to 3 tasks at once, each in its own worktree,
-3. one task fail its check, get the failure back, and pass on round 2,
+1. the goal planned into 5 tasks, one per weak field, each done when its F1 clears 0.90 on the
+   held-out invoices and no other field drops more than 0.01,
+2. agents working up to 3 tasks at once, each in its own worktree, and the scores chart stepping up
+   as each one merges,
+3. one task report done, fail its check on a regression it caused, get the numbers back, and pass on
+   round 2 (click it in the task graph to see "Agent said" next to "Check found"),
 4. another task hit its $0.15 budget and land in **Needs you**. Click **Add $0.15 and retry**,
-5. every task merge into the run's branch, and the progress, spend and repo-map panels fill in.
+5. **What merged**: every field's final score next to where it started, and each task's diff.
+
+The second demo, **Discount codes**, is the same loop on a toy shop where done means tests pass.
 
 If port 8765 is taken it says so; pick another with `LUCIDITY_PORT=8800 python start.py`
 (PowerShell: `$env:LUCIDITY_PORT="8800"; py start.py`). Set `LUCIDITY_NO_BROWSER=1` to skip opening
@@ -49,12 +63,35 @@ then run `app.py` with the venv's Python.
    - **Built-in**: a small agent on your OpenAI key that can read, write and run allowlisted tests.
    - **Claude Code**: your `claude` CLI, headless, with a hard `--max-budget-usd` per round.
    - **Codex**: your `codex` CLI, sandboxed to the task's worktree.
-3. Untick "Start as soon as the plan is ready" if you want to read the plan before any agent runs.
+3. Optionally give an **eval command** (below) so tasks can be judged on scores, not just tests.
+4. Untick "Start as soon as the plan is ready" if you want to read the plan before any agent runs.
 
 Your checkout is never touched. A run gets its own branch `lucidity/<run-id>` in a worktree under
 `state/`, each task branches off that, and only work the checker passed is merged back into it. When
-the run is done, the page shows the `git diff` command to review the branch; merging it into your own
-branch (or deleting it) is up to you.
+the run is done, **What merged** shows each task's diff; merging the branch into your own (or
+deleting it) is up to you.
+
+### Bring your own eval
+
+An eval command is `python evals/<script>.py [args]`. The script must live in the repo's `evals/` or
+`eval/` folder; it runs without a shell, with a timeout, from the task's worktree. It should print
+one JSON line with its scores as its last JSON output:
+
+```
+{"metrics": {"vendor": {"f1": 0.82}, "total": {"f1": 0.91}}}
+```
+
+Nested numbers are flattened to dotted names (`vendor.f1`, `total.f1`); anything that isn't a number
+is ignored. A non-zero exit or no JSON line counts as a failed check. With an eval command set, the
+planner can use two more kinds of done-when condition:
+
+- **metric**: a named score must reach a bar, e.g. `total.f1 >= 0.90`.
+- **no_regression**: no score matching a pattern (`*.f1`) may drop more than a set amount below
+  where it stood when the task started.
+
+The eval runs on the run branch before the first task and again after every merge, which is what the
+Scores chart and Metrics table plot. Keep tuning data and checking data apart (the demo's agents are
+told to tune on `dev` only; the checks read `heldout`).
 
 ## How a run works
 
@@ -72,8 +109,8 @@ goal ─► plan ─► run tasks (parallel, each in a worktree) ─► check �
   condition, and every task must have at least one condition a program can check.
 - **Work.** A task starts when its dependencies have merged. The worker sees its task prompt and the
   contract, works only inside its worktree, and never commits, merges or pushes.
-- **Check.** Conditions a program can check (a file exists, a test passes, a string is present) are
-  run first by plain code, and a failure there is final whatever the worker's report says. Only
+- **Check.** Conditions a program can check (a file exists, a test passes, a score clears its bar or
+  didn't drop) are run first by plain code, and a failure there is final whatever the worker's report says. Only
   conditions that need judgment go to the checker model, in a separate call with no tools that sees
   the contract, the program's results, the diff and the report, never the worker's reasoning.
 - **Needs you.** A task stops and asks you when its checks fail every round, it spends its budget, its
@@ -83,8 +120,10 @@ goal ─► plan ─► run tasks (parallel, each in a worktree) ─► check �
 ## What you see
 
 - **Runs**: the goal composer up front and every past run below it.
-- **A run**: the needs-you callout, the task graph (click a task for its prompt, contract and every
-  check result), a per-round timeline, progress by task state over time, spend against the budget,
+- **A run**: the needs-you callout, the scores chart against the bar and a metrics table (start, now,
+  which task moved each score, and what the checks stopped before it merged), the task graph (click
+  a task for its prompt, contract, and each round's "Agent said" next to "Check found"), a per-round
+  timeline, what merged with each task's diff, progress by task state over time, spend against the budget,
   the repo map shaded by how much agents changed each module, and a live activity feed.
 - **Sessions, Session map, Trace, Evals**: Lucidity's monitor for agent sessions you started by hand
   in Claude Code or Codex. It shows synthetic sample sessions by default; `LUCIDITY_DATA=local` reads
@@ -102,6 +141,7 @@ goal ─► plan ─► run tasks (parallel, each in a worktree) ─► check �
 | Claude Code / Codex worker | your own CLI and account | its task prompt and contract; the CLI reads files in the worktree as it works |
 | Checker | `OPENAI_MODEL` | the contract, the program's check results, the diff and the worker's report, redacted |
 | Session monitor | `OPENAI_MODEL` | the last 14 events of each changed session, with keys, tokens and passwords redacted |
+| Eval command | nothing | it's your script, run locally; only its printed scores reach the checker |
 | Demo | nothing | the plan and edits are recorded; no model is called |
 
 Text from workers and sessions is wrapped as data and the models are told never to follow it.
@@ -121,7 +161,8 @@ Text from workers and sessions is wrapped as data and the models are told never 
 ## Safety
 
 - Tests run only through allowlisted runners (`pytest`, `python -m pytest`, `npm test`, `go test`,
-  `cargo test`), without a shell, with a timeout.
+  `cargo test`), and evals only as a Python script under `evals/`, both without a shell, with a
+  timeout.
 - Workers can't touch your branch or push; merges happen only after a pass, into the run's branch.
 - If a model reply never fits the expected shape, that call is marked failed (its cost still counts)
   and the task goes to you instead of passing.
@@ -131,13 +172,14 @@ Text from workers and sessions is wrapped as data and the models are told never 
 ## Tests and evals
 
 ```
-.venv/Scripts/python -m pytest -q    # 126 tests, offline, no key needed (macOS/Linux: .venv/bin/python)
+.venv/Scripts/python -m pytest -q    # 131 tests, offline, no key needed (macOS/Linux: .venv/bin/python)
 python evals/run_evals.py            # monitor evals: 30 labeled cases x 5 configurations x 3 runs, about $0.07
 python smoke.py                      # one tiny model call, to check your key
 ```
 
-The tests run the whole demo loop in temp git repos (plan, parallel work, a failing check that
-recovers, a budget stop, add budget, merge) and the run API over HTTP.
+The tests run both demo loops in temp git repos (plan, parallel work, a regression the agent called
+done that the check catches, a budget stop, add budget, merge, final scores) and the run API over
+HTTP, plus the eval-command rules and metric conditions on their own.
 
 ## Layout
 
@@ -148,7 +190,7 @@ lucidity/orch/        the orchestrator: runs, worktrees, contracts, gate (checks
 lucidity/agents/      planner, worker, checker and the session monitor's agents
 lucidity/             config, model calls, cost, budget breaker, redaction, tracing
 static/               the UI: index.html, style.css, app.js (runs), monitor.js (sessions)
-sample_data/demo/     the toy repo and the recorded demo scenario
+sample_data/demos/    the two demos: each has a repo/, a recorded scenario.json and steps/ of edits
 sample_data/          synthetic sessions, labels and the recorded triage for the monitor
 evals/  tests/        monitor evals and the test suite
 ```
