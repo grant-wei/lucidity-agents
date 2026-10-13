@@ -77,9 +77,9 @@ To check the setup with one tiny model call: `python smoke.py`.
 - **Sessions.** A "Needs you" box first (sessions waiting on an answer or an approval, flagged runaways,
   unverified "done" claims, leaked secrets), then a card per session. Every claim on a card cites the
   log events it's based on; click a chip to see the event.
-- **How it decided.** The agent graph for the last refresh: which steps were plain code, which were model
+- **Trace.** The agent graph for the last refresh: which steps were plain code, which were model
   calls, what each one read and returned, and what it cost.
-- **Planner replay.** A recorded run of the planner splitting a goal into tasks with done-when contracts,
+- **Planner.** A recorded run of the planner splitting a goal into tasks with done-when contracts,
   a worker doing them, and the checker verifying each one. It's a recording; sample mode never spawns agents.
 - **Evals.** Accuracy, tokens and cost for 30 labeled cases under several configurations.
 
