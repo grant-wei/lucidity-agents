@@ -1,0 +1,60 @@
+{
+ "about": "The demo run. The plan and the worker edits are scripted; the tests, the checker, the merges and the budget caps are real and run on a fresh copy of sample_data/demo/repo.",
+ "goal": "Add discount codes to checkout: percent and flat codes, an expiry date, applied before tax, accepted by the API.",
+ "budget_usd": 1.5,
+ "planner": {
+  "seconds": 3.0,
+  "usd": 0.0042,
+  "activity": ["list files (14)", "read README.md", "read shop/cart/cart.py", "read shop/checkout/checkout.py", "read spec/ (5 acceptance test files)"]
+ },
+ "plan": {
+  "summary": "Build discount codes bottom-up: the code table first, then the cart, checkout and API on top of it, with expiry and docs alongside. Each task is done when its acceptance tests in spec/ pass.",
+  "nodes": [
+   {"id": "t1", "title": "Discount code table", "deps": [],
+    "prompt": "Add shop/pricing/codes.py with SAVE10 (10% off), FLAT5 ($5 off) and SPRING (20% off, expires 2026-04-30), a case-insensitive lookup() and discount_on(subtotal, code) that rounds half up and never goes below zero.",
+    "done_when": [{"kind": "test", "command": "python -m pytest -q spec/test_discount_codes.py", "path": "", "text": ""}],
+    "budget_usd": 0.25, "max_rounds": 2},
+   {"id": "t2", "title": "Document the codes", "deps": [],
+    "prompt": "Add a Discount codes section to README.md: the codes, what each does, when it expires, and that the discount comes off before tax.",
+    "done_when": [{"kind": "file_contains", "path": "README.md", "text": "## Discount codes", "command": ""}],
+    "budget_usd": 0.10, "max_rounds": 2},
+   {"id": "t3", "title": "Cart applies a code", "deps": ["t1"],
+    "prompt": "Give Cart apply_code(code), discount() and total(). Unknown codes raise UnknownCode. The discount must follow later changes to the cart.",
+    "done_when": [{"kind": "test", "command": "python -m pytest -q spec/test_cart_discounts.py", "path": "", "text": ""},
+                  {"kind": "test", "command": "python -m pytest -q tests", "path": "", "text": ""}],
+    "budget_usd": 0.40, "max_rounds": 3},
+   {"id": "t4", "title": "Codes expire", "deps": ["t1"],
+    "prompt": "Make lookup() refuse a code after its expiry date with ExpiredCode. A code still works on its last day. Accept an optional today= for testing.",
+    "done_when": [{"kind": "test", "command": "python -m pytest -q spec/test_code_expiry.py", "path": "", "text": ""}],
+    "budget_usd": 0.15, "max_rounds": 2},
+   {"id": "t5", "title": "Checkout uses the code", "deps": ["t3"],
+    "prompt": "Show code and discount on the receipt, and tax the discounted amount.",
+    "done_when": [{"kind": "test", "command": "python -m pytest -q spec/test_checkout_codes.py", "path": "", "text": ""},
+                  {"kind": "test", "command": "python -m pytest -q tests", "path": "", "text": ""}],
+    "budget_usd": 0.25, "max_rounds": 2},
+   {"id": "t6", "title": "API accepts a code", "deps": ["t4", "t5"],
+    "prompt": "POST /checkout takes an optional \"code\". Unknown and expired codes are a 400 with a reason.",
+    "done_when": [{"kind": "test", "command": "python -m pytest -q spec/test_api_codes.py", "path": "", "text": ""},
+                  {"kind": "test", "command": "python -m pytest -q tests", "path": "", "text": ""}],
+    "budget_usd": 0.25, "max_rounds": 2}
+  ]
+ },
+ "steps": {
+  "t1-r1": {"seconds": 6, "usd": 0.16, "report": "Added shop/pricing/codes.py with the three codes, lookup() and discount_on(). The spec tests for codes pass.",
+            "activity": ["read shop/pricing/tax.py", "read spec/test_discount_codes.py", "write shop/pricing/codes.py", "run python -m pytest -q spec/test_discount_codes.py"]},
+  "t2-r1": {"seconds": 4, "usd": 0.04, "report": "Added a Discount codes section with a table of codes to README.md.",
+            "activity": ["read README.md", "read spec/test_code_expiry.py", "write README.md"]},
+  "t3-r1": {"seconds": 6, "usd": 0.19, "report": "Cart now has apply_code(), discount() and total(). Done.",
+            "activity": ["read shop/cart/cart.py", "read shop/pricing/codes.py", "read spec/test_cart_discounts.py", "write shop/cart/cart.py"]},
+  "t3-r2": {"seconds": 5, "usd": 0.12, "report": "discount() is now worked out from the current subtotal on every call instead of once in apply_code(), so items added after the code count. All cart spec tests pass.",
+            "activity": ["read checker feedback", "read shop/cart/cart.py", "write shop/cart/cart.py", "run python -m pytest -q spec/test_cart_discounts.py"]},
+  "t4-r1": {"seconds": 7, "usd": 0.15, "report": "lookup() now raises ExpiredCode for expired codes and takes today= for tests.",
+            "activity": ["read shop/pricing/codes.py", "read spec/test_code_expiry.py", "write shop/pricing/codes.py", "search the repo for date handling", "read shop/checkout/checkout.py"]},
+  "t4-r2": {"seconds": 4, "usd": 0.07, "report": "Changed the expiry comparison from >= to > so a code works through its last day. Expiry spec passes.",
+            "activity": ["read checker feedback", "write shop/pricing/codes.py", "run python -m pytest -q spec/test_code_expiry.py"]},
+  "t5-r1": {"seconds": 5, "usd": 0.17, "report": "Receipts now carry code and discount, and tax is worked out on the discounted subtotal.",
+            "activity": ["read shop/checkout/checkout.py", "read shop/cart/cart.py", "write shop/checkout/checkout.py", "run python -m pytest -q spec/test_checkout_codes.py"]},
+  "t6-r1": {"seconds": 5, "usd": 0.18, "report": "POST /checkout applies an optional code; unknown and expired codes return 400 with the reason.",
+            "activity": ["read shop/api/routes.py", "read spec/test_api_codes.py", "write shop/api/routes.py", "run python -m pytest -q spec/test_api_codes.py"]}
+ }
+}

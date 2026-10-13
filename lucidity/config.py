@@ -41,6 +41,9 @@ PORT = int(os.environ.get("LUCIDITY_PORT") or 8765)
 DAILY_USD_CAP = float(os.environ.get("LUCIDITY_DAILY_USD_CAP") or 0.50)
 CALLS_PER_HOUR_CAP = int(os.environ.get("LUCIDITY_CALLS_PER_HOUR_CAP") or 120)
 REFRESH_SECONDS = int(os.environ.get("LUCIDITY_REFRESH_SECONDS") or 60)
+# The most one orchestrator run may be budgeted, whatever the page asks for. A run stops
+# starting tasks at its own budget; each task stops at its share and waits for you.
+MAX_RUN_USD = float(os.environ.get("LUCIDITY_MAX_RUN_USD") or 5.0)
 
 
 def has_key():

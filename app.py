@@ -1,9 +1,10 @@
-"""Lucidity: one screen for every coding agent you have running.
+"""Lucidity: an orchestrator for coding agents, and one screen to watch them on.
 
-    python app.py            # sample data (default), opens http://127.0.0.1:8765
-    LUCIDITY_DATA=local python app.py   # your own Claude Code and Codex sessions
+    python app.py            # opens http://127.0.0.1:8765; the demo run needs no key
+    LUCIDITY_DATA=local python app.py   # the Sessions tab reads your own Claude Code and Codex sessions
 
-Standard library server, local only. A background thread refreshes every REFRESH_SECONDS;
+Standard library server, local only. Runs (goal -> plan -> agents -> checks -> merge) live in
+lucidity/orch/. A background thread refreshes the Sessions monitor every REFRESH_SECONDS;
 unchanged sessions cost nothing, so leaving it open all day is cheap by design."""
 import json
 import os
@@ -20,6 +21,7 @@ from lucidity import config
 from lucidity.agents.coordinator import Options, refresh
 from lucidity.agents.mapper import refresh_map
 from lucidity.guard import breaker
+from lucidity.orch import runmap, runs, workers
 from lucidity.trace import TRACE_DIR
 
 STATIC = config.ROOT / "static"
@@ -104,9 +106,42 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _body(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(min(n, 20000)) or b"{}")
+        except ValueError:
+            return None
+        return body if isinstance(body, dict) else None
+
+    def _run_route(self, path):
+        """/api/runs/<id>[/<what>] -> (run, what) or (None, None)."""
+        parts = path[len("/api/runs/"):].split("/")
+        run = runs.get(parts[0]) if parts and parts[0] else None
+        return run, (parts[1] if len(parts) > 1 else "")
+
     def do_GET(self):
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path == "/api/runs":
+            return self._send(200, {"runs": runs.list_runs(), "workers": workers.choices(), "has_key": config.has_key(),
+                                    "model": config.MODEL, "max_run_usd": config.MAX_RUN_USD,
+                                    "demo": {"goal": runs.demo.Scenario().goal, "budget_usd": runs.demo.Scenario().budget_usd,
+                                             "repo_name": runs.demo.REPO_NAME},
+                                    "self_cost": breaker.status()})
+        if u.path.startswith("/api/runs/"):
+            run, what = self._run_route(u.path)
+            if not run:
+                return self._send(404, {"error": "no such run"})
+            if what == "":
+                return self._send(200, run.view())
+            if what == "map":
+                try:
+                    return self._send(200, runmap.build(run.view()))
+                except Exception as e:
+                    traceback.print_exc()
+                    return self._send(200, {"modules": [], "edges": [], "error": f"map failed: {e}"})
+            return self._send(404, {"error": "not found"})
         if u.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html")
         if u.path.startswith("/static/"):
@@ -141,6 +176,34 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u = urlparse(self.path)
+        if u.path == "/api/runs":
+            body = self._body()
+            if body is None:
+                return self._send(400, {"error": "bad json"})
+            try:
+                run = runs.create(body.get("goal"), repo=body.get("repo"), budget_usd=body.get("budget_usd"),
+                                  worker=body.get("worker") or "demo", max_parallel=body.get("max_parallel") or 3,
+                                  auto_run=bool(body.get("auto_run")))
+            except (runs.RunError, runs.worktrees.GitError) as e:
+                return self._send(400, {"error": str(e)})
+            return self._send(201, run.view())
+        if u.path.startswith("/api/runs/"):
+            run, what = self._run_route(u.path)
+            if not run:
+                return self._send(404, {"error": "no such run"})
+            body = self._body()
+            if body is None:
+                return self._send(400, {"error": "bad json"})
+            try:
+                if what == "action":
+                    run.act(str(body.get("action")), node=body.get("node"), amount=body.get("amount") or 0)
+                    return self._send(200, run.view())
+                if what == "delete":
+                    runs.delete(run.id)
+                    return self._send(200, {"ok": True})
+            except (runs.RunError, runs.worktrees.GitError) as e:
+                return self._send(400, {"error": str(e)})
+            return self._send(404, {"error": "not found"})
         if u.path == "/api/refresh":
             threading.Thread(target=do_refresh, daemon=True).start()
             threading.Thread(target=do_map, daemon=True).start()
