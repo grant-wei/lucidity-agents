@@ -368,6 +368,7 @@ label.f { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-
 .vhead h1 { font-size: 20px; font-weight: 700; }
 .banner { border-radius: var(--r); padding: 10px 14px; margin-bottom: 12px; background: var(--needs-soft); color: var(--needs); border: 1px solid var(--needs-line); font-size: 13px; }
 .banner.bad { background: var(--fail-soft); color: var(--fail); border-color: transparent; }
+.banner.info { background: var(--accent-soft); color: var(--ink); border-color: var(--accent-line); }
 .mneeds { background: var(--needs-soft); border: 1px solid var(--needs-line); border-radius: var(--r-lg); padding: 14px 18px; margin-bottom: 18px; }
 .mneeds h2 { margin: 0 0 6px; font-size: 14px; color: var(--needs); }
 .mneeds.ok { background: var(--done-soft); border-color: transparent; }

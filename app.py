@@ -50,7 +50,10 @@ def do_refresh():
     _state["refreshing"] = True
     try:
         if not config.has_key():
-            _state["error"] = "No OPENAI_API_KEY found in .env (this folder or the one above). Showing cached results only."
+            _state["error"] = ("No OPENAI_API_KEY found in .env (this folder or the one above), so this shows "
+                               "the last results Lucidity has" + (", a recorded triage of the sample sessions"
+                                                                  if config.DATA_MODE == "sample" else "")
+                               + ". Add a key to read them again.")
             seed_sample_cache()
         snap = refresh(Options(mode=config.DATA_MODE))
         _state["snapshot"] = snap
@@ -163,7 +166,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, p.read_bytes(), ctype)
             return self._send(404, {"error": "not found"})
         if u.path == "/api/snapshot":
-            return self._send(200, {**(_state["snapshot"] or {}), "error": _state["error"],
+            return self._send(200, {**(_state["snapshot"] or {}), "error": _state["error"], "has_key": config.has_key(),
                                     "refreshing": _state["refreshing"], "last_refresh": _state["last_refresh"],
                                     "self_cost": breaker.status(), "model": config.MODEL,
                                     "caps": {"daily_usd": config.DAILY_USD_CAP, "calls_per_hour": config.CALLS_PER_HOUR_CAP,

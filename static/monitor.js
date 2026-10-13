@@ -18,7 +18,7 @@
 
   function banners() {
     if (!snap) return "";
-    return (snap.error ? `<div class="banner bad">${esc(snap.error)}</div>` : "") + (snap.banner ? `<div class="banner">${esc(snap.banner)}</div>` : "");
+    return (snap.error ? `<div class="banner${snap.has_key === false && !snap.error.startsWith("Refresh failed") ? " info" : " bad"}">${esc(snap.error)}</div>` : "") + (snap.banner ? `<div class="banner">${esc(snap.banner)}</div>` : "");
   }
 
   function bindRefresh(el) {
