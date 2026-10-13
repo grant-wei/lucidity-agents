@@ -23,6 +23,7 @@ from ..agents import planner as planner_agent
 from ..guard import BudgetExceeded
 from ..llm import ModelCallFailed
 from . import contracts, demo, gate, worktrees
+from ..agents.checker import RefusedCommand, check_eval_command
 from .workers import LIVE, DemoWorker
 
 ACTIVE = ("queued", "running")
@@ -134,6 +135,12 @@ class Run:
         with self.lock:
             out = json.loads(json.dumps(self.d, default=str))
         out["elapsed_s"] = self.elapsed() if out["state"] in ("planning", "running") else out.get("elapsed_s", 0)
+        out["targets"] = {}
+        out["eval_command"] = cmd = self.eval_command()
+        for n in out["nodes"]:
+            for c in n["done_when"]:
+                if c["kind"] == "metric" and c["command"] == cmd:
+                    out["targets"][c["metric"]] = {"op": c.get("op", ">="), "value": c["value"], "node": n["id"]}
         out["needs"] = [{"node": n["id"], "title": n["title"], "reason": n["reason"], "kind": n.get("needs_kind"),
                          "actions": _actions_for(n)} for n in out["nodes"] if n["state"] == "needs_you"]
         if out["state"] == "needs_you" and out.get("needs_kind") == "run_budget":
@@ -159,7 +166,7 @@ class Run:
             else:
                 self.event("planner", f"reading {self.d['repo_name']} ({config.MODEL})")
                 clean, row, _ = planner_agent.plan(self.d["goal"], describe_repo(self.d["repo"]), self.d["budget_usd"],
-                                                   refresh_id=self.id)
+                                                   refresh_id=self.id, eval_command=self.d.get("eval_command"))
                 problems = clean.pop("problems", [])
                 self.spend(row["usd"], what="planner")
             if "the task graph has a cycle" in problems:
@@ -195,6 +202,7 @@ class Run:
                 worktrees.add(self.d["repo"], path, branch, self.d["base_commit"])
                 self.d["integration"] = {"path": str(path), "branch": branch}
             self.d["started"] = _now()
+        self._record_scores("start", None)
         self.event("run", "plan approved; running up to %d tasks at a time" % self.d["max_parallel"])
         self.set_state("running")
         self._ensure_loop()
@@ -288,7 +296,10 @@ class Run:
             with self.lock:
                 n.update(worktree=str(path), branch=branch, start_commit=base)
             self.event("worktree", f"{n['id']}: worktree on {branch}", node=n["id"])
-            weak = [m for m in contracts.evaluate(n["done_when"], path) if m["met"] is True]
+            before = {}
+            weak = [m for m in contracts.evaluate(n["done_when"], path, scores=before) if m["met"] is True]
+            with self.lock:
+                n["before"] = before
             checkable = [c for c in n["done_when"] if c["kind"] != "rubric"]
             if checkable and len(weak) == len(checkable):
                 n["weak"] = True
@@ -323,7 +334,8 @@ class Run:
                 n["phase"] = "checking"
                 span = {"kind": "check", "round": rnd, "start": self.elapsed(), "end": None}
                 n["spans"].append(span)
-            mech = contracts.evaluate(n["done_when"], n["worktree"])
+            scores = {}
+            mech = contracts.evaluate(n["done_when"], n["worktree"], before=n.get("before"), scores=scores)
             if res.get("error"):
                 verdict = {"verdict": "fail", "reasons": [f"the worker stopped with an error: {res['error']}"],
                            "conditions": mech, "usd": 0.0, "by": "program"}
@@ -339,7 +351,8 @@ class Run:
             if verdict["usd"]:
                 self.spend(verdict["usd"], n, what="checker")
             with self.lock:
-                n["checks"].append({"round": rnd, "s": self.elapsed(), **verdict})
+                n["checks"].append({"round": rnd, "s": self.elapsed(), **verdict,
+                                    "scores": {k: v.get("metrics") for k, v in scores.items()}})
             self.event("check", f"{n['id']} round {rnd}: {verdict['verdict'].upper().replace('_', ' ')}"
                        + (f" — {verdict['reasons'][0]}" if verdict["reasons"] else ""),
                        node=n["id"], level={"pass": "ok", "fail": "warn"}.get(verdict["verdict"], "error"))
@@ -383,7 +396,30 @@ class Run:
                      finished=self.elapsed(), worktree=None)
         self.event("merge", f"{n['id']} merged into {self.d['integration']['branch']} ({len(n['files'])} files)",
                    node=n["id"], level="ok")
+        self._record_scores(f"{n['id']} merged", n["id"])
         self.sample(force=True)
+
+    def eval_command(self):
+        """The eval the run's score chart follows: the one you gave, else the first one the plan uses."""
+        if self.d.get("eval_command"):
+            return self.d["eval_command"]
+        cmds = contracts.eval_commands([c for n in self.d["nodes"] for c in n["done_when"]])
+        return cmds[0] if cmds else None
+
+    def _record_scores(self, label, nid):
+        """Score the merged branch, so the page can show every metric over time. Runs under merge_lock
+        so a score always belongs to one commit."""
+        cmd = self.eval_command()
+        if not cmd or not self.d.get("integration"):
+            return
+        with self.merge_lock:
+            res = contracts.score(cmd, self.d["integration"]["path"])
+        with self.lock:
+            self.d["eval_command"] = cmd
+            self.d.setdefault("scores", []).append({"s": self.elapsed(), "label": label, "node": nid,
+                                                    "metrics": res.get("metrics"), "error": res.get("error")})
+        if res.get("error"):
+            self.event("eval", f"scoring the merged branch failed: {res['error']}", level="warn")
 
     def _needs(self, n, kind, reason):
         with self.lock:
@@ -501,13 +537,24 @@ def _new_id():
     return datetime.now().strftime("%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
 
 
-def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto_run=False, demo_speed=None):
+def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto_run=False, demo_speed=None,
+           demo_name=None, eval_command=None):
     goal = re.sub(r"\s+", " ", (goal or "").strip())
+    eval_command = re.sub(r"\s+", " ", (eval_command or "").strip()) or None
     if worker == "demo":
-        w = DemoWorker(demo.Scenario(), speed=demo_speed)
+        try:
+            w = DemoWorker(demo.Scenario(demo_name or demo.DEFAULT), speed=demo_speed)
+        except ValueError as e:
+            raise RunError(str(e)) from None
         goal = goal or w.scenario.goal
         budget_usd = w.scenario.budget_usd if budget_usd in (None, "") else budget_usd
+        eval_command = None
     else:
+        if eval_command:
+            try:
+                check_eval_command(eval_command)
+            except RefusedCommand as e:
+                raise RunError(f"eval command: {e}") from None
         w = LIVE.get(worker)
         if w is None:
             raise RunError(f"unknown worker {worker!r}")
@@ -532,7 +579,7 @@ def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto
     max_parallel = max(1, min(6, int(max_parallel or 3)))
     rid = _new_id()
     if worker == "demo":
-        repo = demo.prepare_repo(config.STATE_DIR / "demo" / rid)
+        repo = demo.prepare_repo(config.STATE_DIR / "demo" / rid, w.scenario)
     else:
         repo = Path(str(repo or "").strip().strip('"')).expanduser()
         if not str(repo) or not repo.is_dir():
@@ -548,7 +595,8 @@ def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto
             "budget_usd": budget_usd, "spent_usd": 0.0, "spend_by": {}, "max_parallel": max_parallel,
             "auto_run": bool(auto_run), "base_commit": worktrees.head(repo), "integration": None,
             "plan_summary": "", "problems": [], "nodes": [], "order": [], "events": [], "samples": [],
-            "elapsed_s": 0}
+            "elapsed_s": 0, "demo": w.scenario.name if worker == "demo" else None,
+            "eval_command": eval_command, "scores": []}
     run = Run(data, w)
     with _registry_lock:
         _registry[rid] = run
@@ -576,7 +624,13 @@ def get(rid):
 
 def _load(path):
     data = json.loads(path.read_text(encoding="utf-8"))
-    w = DemoWorker(demo.Scenario()) if data["worker"] == "demo" else LIVE.get(data["worker"])
+    if data["worker"] == "demo":
+        try:
+            w = DemoWorker(demo.Scenario(data.get("demo") or "shop"))
+        except ValueError:
+            w = None
+    else:
+        w = LIVE.get(data["worker"])
     run = Run(data, w)
     if data["state"] in ("planning", "running"):
         # the server restarted under it; nothing is running any more
