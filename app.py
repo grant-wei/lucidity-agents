@@ -155,6 +155,12 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     traceback.print_exc()
                     return self._send(200, {"modules": [], "edges": [], "error": f"map failed: {e}"})
+            if what == "diff":
+                try:
+                    return self._send(200, run.merged_diff())
+                except Exception as e:
+                    traceback.print_exc()
+                    return self._send(200, {"tasks": [], "error": f"diff failed: {e}"})
             return self._send(404, {"error": "not found"})
         if u.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html")

@@ -62,12 +62,12 @@ window.addEventListener("hashchange", go);
 /* ================= home: composer + runs ================= */
 
 let meta = null;          // /api/runs payload
-let form = {worker: "demo", goal: "", repo: "", budget: "1.00", parallel: 3, auto: true};
+let form = {worker: "demo", demo: null, goal: "", repo: "", evalCmd: "", budget: "1.00", parallel: 3, auto: true};
 
 const STEPS = [
   ["Plan", "var(--accent)", "A model splits the goal into tasks, each with done-when checks and a budget."],
   ["Work", "var(--run)", "Each task gets its own git worktree and an agent: Claude Code, Codex, or built-in."],
-  ["Check", "var(--check)", "Tests and file checks run in the worktree. A checker decides: pass, fail, or needs you."],
+  ["Check", "var(--check)", "Tests, eval scores and file checks run in the worktree. A checker decides: pass, fail, or needs you."],
   ["Merge", "var(--done-mark)", "Only passing work merges, into a run branch. Your own branch is never touched."],
 ];
 
@@ -116,6 +116,9 @@ function renderComposer() {
   const opts = workerOptions();
   if (!opts.find(o => o.name === form.worker && o.ok)) form.worker = "demo";
   const demo = form.worker === "demo";
+  const demos = meta.demos || [];
+  if (!demos.find(d => d.name === form.demo)) form.demo = demos.length ? demos[0].name : null;
+  const dm = demos.find(d => d.name === form.demo) || {goal: "", repo_name: "", about_repo: "", budget_usd: 1};
   f.innerHTML = `
     <div class="field">
       <label class="f">Who does the work</label>
@@ -123,21 +126,32 @@ function renderComposer() {
         <button type="button" class="opt ${o.name === form.worker ? "on" : ""}" data-w="${esc(o.name)}" role="radio" aria-checked="${o.name === form.worker}" ${o.ok ? "" : "disabled"} title="${esc(o.ok ? o.label : o.label + ": " + o.why)}">
           <b>${esc(o.short)}</b><span>${esc(o.sub)}</span></button>`).join("")}</div>
     </div>
+    ${demo && demos.length > 1 ? `<div class="field">
+      <label class="f">Demo</label>
+      <div class="demos" role="radiogroup">${demos.map(d => `
+        <button type="button" class="opt demo-opt ${d.name === form.demo ? "on" : ""}" data-demo="${esc(d.name)}" role="radio" aria-checked="${d.name === form.demo}">
+          <b>${esc(d.title)}</b><span>${esc(d.blurb)}</span></button>`).join("")}</div>
+    </div>` : ""}
     <div class="field">
       <label class="f" for="goal">Goal</label>
-      ${demo ? `<textarea id="goal" readonly rows="3">${esc(meta.demo.goal)}</textarea>
-        <div class="hint">The demo's goal is fixed. Its agent edits are recorded; the tests, checks, budget caps and git merges are real.</div>`
+      ${demo ? `<textarea id="goal" readonly rows="2">${esc(dm.goal)}</textarea>
+        <div class="hint">The demo's goal is fixed. Its agent edits are recorded; the evals, tests, checks, budget caps and git merges are real.</div>`
              : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>`}
     </div>
     <div class="field">
       <label class="f" for="repo">Repository</label>
-      ${demo ? `<div class="repo-fixed"><b>${esc(meta.demo.repo_name)}</b><span>bundled toy shop, copied fresh for each run</span></div>`
+      ${demo ? `<div class="repo-fixed"><b>${esc(dm.repo_name)}</b><span>${esc(dm.about_repo)}, copied fresh for each run</span></div>`
              : `<input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
                 <div class="hint">A git repo with at least one commit. Work happens in worktrees on <code>lucidity/*</code> branches.</div>`}
     </div>
+    ${demo ? "" : `<div class="field">
+      <label class="f" for="evalcmd">Eval command <span class="muted" style="font-weight:500">· optional</span></label>
+      <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
+      <div class="hint">A script under <code>evals/</code> that prints its scores as JSON. Tasks can then be done when a score clears a bar, and every merge is scored.</div>
+    </div>`}
     <div class="row2 field">
       <div><label class="f" for="budget">Budget</label>
-        <div class="money-in"><input type="number" id="budget" min="0.05" step="0.05" max="${meta.max_run_usd}" value="${demo ? meta.demo.budget_usd.toFixed(2) : esc(form.budget)}"></div>
+        <div class="money-in"><input type="number" id="budget" min="0.05" step="0.05" max="${meta.max_run_usd}" value="${demo ? dm.budget_usd.toFixed(2) : esc(form.budget)}"></div>
         <div class="hint">Cap ${money(meta.max_run_usd)} per run</div></div>
       <div><label class="f" for="parallel">Agents at once</label>
         <select id="parallel">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === form.parallel ? "selected" : ""}>${n}</option>`).join("")}</select></div>
@@ -149,14 +163,16 @@ function renderComposer() {
       <button class="btn primary lg" type="submit" id="go">${demo ? "Run the demo" : "Plan this goal"} <span aria-hidden="true">→</span></button>
     </div>`;
   f.dataset.ready = "1";
-  $$(".opt", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
+  $$("[data-w]", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
+  $$("[data-demo]", f).forEach(b => b.onclick = () => { saveForm(); form.demo = b.dataset.demo; renderComposer(); });
   f.onsubmit = submit;
 }
 
 function saveForm() {
-  const g = $("#goal"), r = $("#repo"), b = $("#budget");
+  const g = $("#goal"), r = $("#repo"), b = $("#budget"), ec = $("#evalcmd");
   if (g && !g.readOnly) form.goal = g.value;
   if (r) form.repo = r.value;
+  if (ec) form.evalCmd = ec.value.trim();
   if (b && form.worker !== "demo") form.budget = b.value;
   form.parallel = +$("#parallel").value;
   form.auto = $("#auto").checked;
@@ -169,7 +185,8 @@ async function submit(e) {
   btn.disabled = true;
   $("#cerr").textContent = "";
   const body = {worker: form.worker, budget_usd: +$("#budget").value, max_parallel: form.parallel, auto_run: form.auto};
-  if (form.worker !== "demo") Object.assign(body, {goal: form.goal, repo: form.repo});
+  if (form.worker !== "demo") Object.assign(body, {goal: form.goal, repo: form.repo}, form.evalCmd ? {eval_command: form.evalCmd} : {});
+  else body.demo = form.demo;
   try {
     const run = await api("/api/runs", body);
     location.hash = "run/" + run.id;
@@ -206,6 +223,7 @@ let sel = null;            // selected task id
 let selMod = null;         // selected module in the repo map
 let sigs = {};             // last rendered signature per part
 let runMap = null, mapAt = 0;
+let runDiff = null;        // /diff payload, fetched once the run is over
 let narrowGraph = null;
 
 function part(name, sig, render) {
@@ -219,12 +237,17 @@ function part(name, sig, render) {
 async function showRun(id) {
   const el = $("#view-run");
   if (!cur || cur.id !== id) {
-    cur = null; sel = null; selMod = null; sigs = {}; runMap = null; mapAt = 0;
+    cur = null; sel = null; selMod = null; sigs = {}; runMap = null; mapAt = 0; runDiff = null;
     el.innerHTML = `
       <div class="crumbs"><a href="#runs">← All runs</a><span>/</span><span class="mono">${esc(id)}</span></div>
       <div id="p-head"><div class="skel" style="height:64px;max-width:720px"></div></div>
       <div id="p-callout"></div>
       <div id="p-stats" class="stats"></div>
+      <div id="p-result"></div>
+      <div class="grid-2 scores-row" id="scores-row" hidden>
+        <div class="card"><div class="card-h"><h2>Scores</h2><span class="sub" id="scores-sub">the merged branch, over time</span></div><div class="card-b" id="p-scores"></div></div>
+        <div class="card"><div class="card-h"><h2>Metrics</h2><span class="sub">start → now, against the bar</span></div><div class="card-b" id="p-fields"></div></div>
+      </div>
       <div class="grid-main">
         <div class="col">
           <div class="card"><div class="card-h"><h2>Task graph</h2><span class="sub" id="graph-sub"></span></div><div class="card-b" id="p-graph"></div></div>
@@ -272,6 +295,14 @@ function renderRun(v) {
   part("graph", [v.state, sel, narrow, Math.round(w / 40), nodes.map(n => [n.id, n.state, n.phase, n.round, n.spent_usd, n.budget_usd]),
                  v.state === "planning" ? v.events.length : 0], renderGraph);
   part("detail", detailSig(v), renderDetail);
+  const scores = v.scores || [];
+  $("#scores-row").hidden = !v.eval_command;
+  if (v.eval_command) {
+    const sw = Math.round(($("#p-scores").clientWidth || 0) / 40);
+    part("scores", [scores.length, v.state, sw, live ? Math.floor(v.elapsed_s / 2) : 0], el => { CW = chartWidth(el); el.innerHTML = scoresChart(v); });
+    part("fields", [scores.length, v.state, nodes.map(n => n.checks.length)], el => { el.innerHTML = metricsTable(v); bindActions(el); });
+  }
+  part("result", [v.state, scores.length, nodes.filter(n => n.merged_commit).length], renderResult);
   part("progress", [v.samples.length, v.state, nodes.length], el => { CW = chartWidth(el); el.innerHTML = progressChart(v); });
   part("spend", [v.samples.length, v.spent_usd, v.budget_usd, v.state], el => { CW = chartWidth(el); el.innerHTML = spendChart(v); });
   part("gantt", [nodes.map(n => [n.state, n.spans.length, n.checks.length]), live ? Math.floor(v.elapsed_s * 2) : v.state, sel], el => { el.innerHTML = gantt(v); bindNodeClicks(el); });
@@ -374,7 +405,9 @@ function renderCallout(el) {
     h = `<div class="callout"><div><b>The plan is ready for review.</b><p>${esc(v.plan_summary)} ${plural(v.nodes.length, "task")}, ${money(v.nodes.reduce((a, n) => a + n.budget_usd, 0))} of task budgets. Click a task to read its prompt and done-when checks.</p></div>
       <button class="btn primary" data-a="approve">Approve and run</button></div>`;
   } else if (v.state === "done") {
-    h = `<div class="callout ok"><div><b>Done. Every task passed its checks and merged.</b><p>${plural((v.files_changed || []).length, "file")} changed on <code>${esc(v.integration.branch)}</code> in ${esc(v.repo_name)}. Review it with <code>git diff ${esc((v.base_commit || "").slice(0, 7))}..${esc(v.integration.branch)}</code>; your own branch was not touched.</p></div></div>`;
+    const blocked = v.nodes.reduce((a, n) => a + n.checks.filter(c => c.verdict === "fail").length, 0);
+    h = `<div class="callout ok"><div><b>Done. Every task passed its checks and merged.</b><p>${plural((v.files_changed || []).length, "file")} changed on <code>${esc(v.integration.branch)}</code>; your own branch was not touched.${blocked ? ` Checks sent back ${plural(blocked, "round")} that would otherwise have merged.` : ""}</p></div>
+      <a class="btn" href="javascript:void 0" data-jump="result">See what merged ↓</a></div>`;
   } else if (v.state === "failed") {
     h = `<div class="callout bad"><div><b>This run failed.</b><p>${esc(v.reason)}</p></div><a class="btn" href="#runs">Start another</a></div>`;
   } else if (v.state === "stopped") {
@@ -382,6 +415,8 @@ function renderCallout(el) {
   }
   el.innerHTML = h;
   bindActions(el);
+  const j = $("[data-jump]", el);
+  if (j) j.onclick = () => $("#p-result").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
 function renderStats(el) {
@@ -529,7 +564,7 @@ function renderDetail(el) {
     return;
   }
   const last = n.checks[n.checks.length - 1];
-  const conds = last ? last.conditions : n.done_when.map(c => ({kind: c.kind, label: c.kind === "test" ? c.command : c.kind === "file_contains" ? `${c.path} contains "${c.text}"` : c.text, met: null, evidence: ""}));
+  const conds = last ? last.conditions : n.done_when.map(c => ({kind: c.kind, label: c.label || c.text || c.command, met: null, evidence: ""}));
   const need = (v.needs || []).find(x => x.node === n.id);
   const evs = v.events.filter(e => e.node === n.id).slice(-30).reverse();
   el.innerHTML = `
@@ -542,12 +577,167 @@ function renderDetail(el) {
     <p>${esc(n.prompt)}</p>
     ${n.deps.length ? `<p class="small muted">Starts after ${n.deps.map(d => `<a href="javascript:void 0" data-sel="${esc(d)}" class="mono">${esc(d)}</a>`).join(", ")}.</p>` : ""}
     <div class="kicker">Done when${last ? ` · round ${last.round} result` : ""}</div>
-    ${conds.map(c => `<div class="cond"><span class="m ${c.met === true ? "y" : c.met === false ? "n" : ""}">${c.met === true ? "✓" : c.met === false ? "×" : "·"}</span><div class="lab">${c.kind === "rubric" ? "Checker judges: " : ""}<span class="${c.kind === "test" ? "mono" : ""}">${esc(c.label)}</span>${c.evidence && c.met === false ? `<pre>${esc(c.evidence.slice(-900))}</pre>` : ""}</div></div>`).join("")}
-    ${n.checks.length ? `<div class="kicker">Checks</div>${n.checks.map(c => `<div class="verdict"><div class="vh"><span class="v-${esc(c.verdict)}">${esc(c.verdict === "needs_you" ? "NEEDS YOU" : c.verdict.toUpperCase())}</span><span class="small muted">round ${c.round} · by ${esc(c.by === "program" ? "the tests" : c.by === "model" ? "the checker model" : c.by)}${c.usd ? " · " + money(c.usd) : ""}</span></div>${c.reasons.length ? `<ul>${c.reasons.slice(0, 4).map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}</div>`).join("")}` : ""}
-    ${n.reports.length ? `<div class="kicker">Agent's report</div>${n.reports.slice(-2).map(r => `<p class="small"><span class="muted">Round ${r.round}:</span> ${esc(r.text)}</p>`).join("")}` : ""}
+    ${conds.map(c => `<div class="cond"><span class="m ${c.met === true ? "y" : c.met === false ? "n" : ""}">${c.met === true ? "✓" : c.met === false ? "×" : "·"}</span><div class="lab"><span class="${c.kind === "test" ? "mono" : ""}">${esc(c.label)}</span>${c.met != null && c.evidence && !/\n/.test(c.evidence) && c.kind !== "test" ? `<span class="small muted"> · ${esc(trunc(c.evidence, 90))}</span>` : ""}</div></div>`).join("")}
+    ${n.checks.length ? `<div class="kicker">Rounds · newest first</div>${[...n.checks].reverse().map(c => roundCard(n, c)).join("")}`
+      : n.reports.length ? `<div class="kicker">Agent's report</div>${n.reports.slice(-2).map(r => `<p class="small"><span class="muted">Round ${r.round}:</span> ${esc(r.text)}</p>`).join("")}` : ""}
     ${n.files.length ? `<div class="kicker">Files changed</div><div class="files">${n.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
     ${evs.length ? `<div class="kicker">Activity</div><div class="feed">${evs.map(feedRow).join("")}</div>` : ""}`;
   bindActions(el);
+}
+
+const VERDICT = {pass: "Passed", fail: "Sent back", needs_you: "Needs you"};
+const BY = {program: "the checks", model: "the checker model"};
+
+// One round: what the agent said it did, next to what the check found.
+function roundCard(n, c) {
+  const rep = n.reports.find(r => r.round === c.round);
+  const cs = c.conditions || [];
+  const failed = cs.filter(x => x.met === false), met = cs.filter(x => x.met === true);
+  const found = failed.map(x => {
+    let ev;
+    if (x.drops && x.drops.length) ev = `<div class="drops">${x.drops.map(d => `<span><b class="mono">${esc(d.metric)}</b> ${fmtScore(d.before)} → <span class="minus">${d.after == null ? "missing" : fmtScore(d.after)}</span></span>`).join("")}</div>`;
+    else if (x.kind === "test" || /\n/.test(x.evidence || "")) ev = x.evidence ? `<pre>${esc(x.evidence.slice(-700))}</pre>` : "";
+    else ev = x.evidence ? `<div class="small muted">${esc(x.evidence)}</div>` : "";
+    return `<div class="fx"><span class="m n">×</span><div class="lab"><b>${esc(x.label)}</b>${ev}</div></div>`;
+  }).join("");
+  const why = c.by !== "program" && c.reasons.length ? `<ul>${c.reasons.slice(0, 4).map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : "";
+  return `<div class="round r-${esc(c.verdict)}">
+    <div class="vh"><span class="v-${esc(c.verdict)}">${esc(VERDICT[c.verdict] || c.verdict)}</span><span class="small muted">round ${c.round} · by ${esc(BY[c.by] || c.by)}${c.usd ? " · " + money(c.usd) : ""}</span></div>
+    ${rep ? `<div class="said"><div class="lbl">Agent said</div><p>${esc(trunc(rep.text, 420))}</p></div>` : ""}
+    ${failed.length || why ? `<div class="found"><div class="lbl">Check found</div>${found}${why}
+      ${met.length ? `<div class="small muted also">Also checked and met: ${met.map(x => esc(x.label)).join(" · ")}</div>` : ""}</div>`
+      : met.length ? `<div class="small muted also">${plural(met.length, "check")} met: ${met.map(x => esc(x.label)).join(" · ")}</div>` : ""}
+  </div>`;
+}
+
+const fmtScore = x => typeof x !== "number" ? "–" : Math.abs(x) <= 1 ? x.toFixed(2) : x.toLocaleString(undefined, {maximumFractionDigits: 2});
+
+/* ---------- scores (runs with an eval) ---------- */
+
+function globRe(p) {
+  return new RegExp("^" + p.split("*").map(s => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$");
+}
+
+// The metrics worth charting: the ones a task must raise, plus the ones guarded against drops.
+function trackedMetrics(v) {
+  const S = (v.scores || []).filter(s => s.metrics);
+  const all = S.length ? Object.keys(S[S.length - 1].metrics) : [];
+  const pats = [...new Set(v.nodes.flatMap(n => n.done_when).filter(c => c.kind === "no_regression" && c.command === v.eval_command).map(c => c.metric))].map(globRe);
+  let keys = all.filter(k => k in v.targets || pats.some(r => r.test(k)));
+  if (!keys.length) keys = all.slice(0, 8);
+  Object.keys(v.targets).forEach(k => { if (!keys.includes(k)) keys.push(k); });
+  return keys.slice(0, 8);
+}
+
+// "vendor.f1", "total.f1" → "vendor", "total" with suffix ".f1", so the legend stays short.
+function shortNames(keys) {
+  const tail = keys.length > 1 && keys.every(k => k.includes(".")) ? keys[0].slice(keys[0].lastIndexOf(".")) : "";
+  const same = tail && keys.every(k => k.endsWith(tail));
+  return {suffix: same ? tail.slice(1) : "", name: k => same ? k.slice(0, -tail.length) : k};
+}
+
+function scoresChart(v) {
+  const all = v.scores || [], S = all.filter(s => s.metrics);
+  const keys = trackedMetrics(v), sn = shortNames(keys);
+  $("#scores-sub").innerHTML = `<code>${esc(v.eval_command)}</code> on the merged branch${sn.suffix ? " · " + esc(sn.suffix.toUpperCase()) : ""}`;
+  if (!S.length) {
+    const err = all.find(s => s.error);
+    return chartEmpty(err ? "Scoring failed: " + err.error
+      : ["planning", "plan_ready"].includes(v.state) ? "The merged branch is scored when the run starts, then after every merge." : "Waiting for the first score.");
+  }
+  const end = Math.max(v.elapsed_s || 0, S[S.length - 1].s, 1);
+  const vals = S.flatMap(s => keys.map(k => s.metrics[k]).filter(x => typeof x === "number"));
+  const bars = [...new Set(Object.values(v.targets).map(t => t.value))];
+  const hi = Math.max(...vals, ...bars, 0);
+  const maxY = hi <= 1 ? 1 : Math.ceil(hi * 1.1);
+  const {x, y, g} = axes(end, maxY, val => maxY <= 1 ? val.toFixed(2) : Math.round(val), 4);
+  let lines = "", dots = "";
+  keys.forEach((k, i) => {
+    const pts = S.filter(s => typeof s.metrics[k] === "number");
+    if (!pts.length) return;
+    let d = `M${x(pts[0].s)} ${y(pts[0].metrics[k])}`;
+    pts.slice(1).forEach(p => { d += `H${x(p.s)}V${y(p.metrics[k])}`; });
+    d += `H${x(end)}`;
+    const col = `var(--c${i % 8 + 1})`;
+    lines += `<path class="sline" d="${d}" style="stroke:${col}"/>`;
+    pts.forEach((p, j) => {
+      const prev = j ? pts[j - 1].metrics[k] : null;
+      if (j && Math.abs(p.metrics[k] - prev) < 0.005) return;
+      dots += `<circle cx="${x(p.s)}" cy="${y(p.metrics[k])}" r="3.2" style="fill:${col}"><title>${esc(p.label)}: ${esc(k)} ${fmtScore(p.metrics[k])}</title></circle>`;
+    });
+  });
+  const barLines = bars.map(b => `<line class="target-line" x1="${PL}" x2="${CW - PR}" y1="${y(b)}" y2="${y(b)}"/>
+      <text class="target-label" x="${PL + 4}" y="${y(b) - 5}">bar ${fmtScore(b)}</text>`).join("");
+  return `<div class="svgwrap chart"><svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Eval scores of the merged branch over time">${g}${barLines}${lines}${dots}</svg></div>
+    <div class="legend">${keys.map((k, i) => `<span><i style="background:var(--c${i % 8 + 1})"></i>${esc(sn.name(k))}</span>`).join("")}<span class="grow"></span><span>dashed: the bar tasks must clear</span></div>`;
+}
+
+function metricsTable(v) {
+  const S = (v.scores || []).filter(s => s.metrics);
+  if (!S.length) return chartEmpty("Each metric's start, current value and bar show up here once the run starts.");
+  const keys = trackedMetrics(v), first = S[0].metrics, now = S[S.length - 1].metrics, sn = shortNames(keys);
+  const rows = keys.map(k => {
+    const t = v.targets[k];
+    const ok = t && typeof now[k] === "number" ? (t.op === "<=" ? now[k] <= t.value : now[k] >= t.value) : null;
+    const moves = [];
+    for (let i = 1; i < S.length; i++) {
+      const a = S[i - 1].metrics[k], b = S[i].metrics[k];
+      if (typeof a === "number" && typeof b === "number" && Math.abs(b - a) >= 0.005 && S[i].node)
+        moves.push(`<a href="javascript:void 0" data-sel="${esc(S[i].node)}" class="dchip ${b > a ? "up" : "down"}">${esc(S[i].node)} ${b > a ? "+" : "−"}${Math.abs(b - a).toFixed(2)}</a>`);
+    }
+    const chips = `<span class="dchips">${moves.join("") || `<span class="muted">–</span>`}</span>`;
+    return `<tr><td class="mono" title="${esc(k)}">${esc(sn.name(k))}<div class="mv-in">${moves.length ? chips : ""}</div></td>
+      <td class="num">${fmtScore(first[k])}</td>
+      <td class="num"><b class="${ok === true ? "okv" : ok === false ? "lowv" : ""}">${fmtScore(now[k])}</b></td>
+      <td class="num">${t ? `${t.op === "<=" ? "≤" : "≥"} ${fmtScore(t.value)}` : `<span class="muted">no drop</span>`}</td>
+      <td class="mv">${chips}</td></tr>`;
+  }).join("");
+  const blocked = v.nodes.flatMap(n => n.checks.filter(c => c.verdict === "fail").flatMap(c =>
+    (c.conditions || []).filter(x => x.kind === "no_regression" && x.met === false && x.drops).flatMap(x => x.drops.map(d => ({node: n.id, round: c.round, ...d})))));
+  return `<table class="t metrics"><thead><tr><th>${sn.suffix ? `Field · ${esc(sn.suffix.toUpperCase())}` : "Metric"}</th><th>Start</th><th>Now</th><th>Bar</th><th class="mv">Moved by</th></tr></thead><tbody>${rows}</tbody></table>
+    ${blocked.length ? `<div class="kicker">Stopped before merge</div>${blocked.map(b => `<div class="blocked"><span class="m n">×</span><div><a href="javascript:void 0" data-sel="${esc(b.node)}" class="mono">${esc(b.node)}</a> round ${b.round} would have taken <b class="mono">${esc(b.metric)}</b> from ${fmtScore(b.before)} to <span class="minus">${b.after == null ? "missing" : fmtScore(b.after)}</span>. The agent called it done; the check sent it back.</div></div>`).join("")}` : ""}`;
+}
+
+/* ---------- result (once the run is over) ---------- */
+
+async function renderResult(el) {
+  const v = cur;
+  const merged = v.nodes.filter(n => n.merged_commit);
+  if (v.state !== "done" && !(v.state === "stopped" && merged.length)) { el.innerHTML = ""; return; }
+  if (!runDiff || runDiff.n !== merged.length) {
+    el.innerHTML = `<div class="card result"><div class="card-h"><h2>What merged</h2></div><div class="card-b"><div class="skel" style="height:120px"></div></div></div>`;
+    try { runDiff = await api(`/api/runs/${encodeURIComponent(v.id)}/diff`); runDiff.n = merged.length; }
+    catch (e) { el.innerHTML = `<div class="notice err">Couldn't load the merged changes: ${esc(e.message)}</div>`; return; }
+  }
+  const S = (v.scores || []).filter(s => s.metrics);
+  const keys = S.length ? trackedMetrics(v) : [];
+  const first = S.length ? S[0].metrics : {}, last = S.length ? S[S.length - 1].metrics : {};
+  const pm = files => {
+    const a = files.reduce((s, f) => s + f.added, 0), r = files.reduce((s, f) => s + f.removed, 0);
+    return `<span class="plus">+${a}</span>${r ? ` <span class="minus">−${r}</span>` : ""}`;
+  };
+  el.innerHTML = `<div class="card result">
+    <div class="card-h"><h2>What merged</h2><span class="sub">${plural(runDiff.tasks.length, "task")} on <code>${esc(runDiff.branch || "")}</code> · ${pm(runDiff.tasks.flatMap(t => t.files))} · from <code>${esc((runDiff.base || "").slice(0, 7))}</code> · click a task for its diff</span></div>
+    <div class="card-b">
+      ${keys.length ? `<div class="finals">${keys.map(k => {
+        const t = v.targets[k], ok = t ? (t.op === "<=" ? last[k] <= t.value : last[k] >= t.value) : true;
+        return `<div class="final ${ok ? "" : "low"}"><span class="mono">${esc(k)}</span><b>${fmtScore(last[k])}</b><span class="small muted">from ${fmtScore(first[k])}</span></div>`;
+      }).join("")}</div>` : ""}
+      ${runDiff.tasks.map(t => `<details class="mtask">
+        <summary><span class="mono muted">${esc(t.id)}</span> <b>${esc(t.title)}</b>
+          <span class="small">${pm(t.files)} · ${plural(t.files.length, "file")}</span></summary>
+        <div class="mfiles">${t.files.map(f => `<span class="mono">${esc(f.path)} ${pm([f])}</span>`).join("")}</div>
+        <pre class="diff">${diffHtml(t.diff)}${t.cut ? "\n… cut here; run git diff for the rest" : ""}</pre>
+      </details>`).join("")}
+    </div></div>`;
+}
+
+function diffHtml(text) {
+  return esc(text || "").split("\n").map(l =>
+    /^(\+\+\+|---|diff |index |new file|deleted file)/.test(l) ? `<span class="dh">${l}</span>`
+      : l.startsWith("@@") ? `<span class="dhunk">${l}</span>`
+      : l.startsWith("+") ? `<span class="dadd">${l}</span>`
+      : l.startsWith("-") ? `<span class="ddel">${l}</span>` : l).join("\n");
 }
 
 /* ---------- charts ---------- */

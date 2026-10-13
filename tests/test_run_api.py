@@ -55,6 +55,12 @@ def test_demo_over_http(api):
     assert all(n["state"] == "done" for n in v["nodes"])
     final = v["scores"][-1]["metrics"]
     assert all(final[f"{f}.f1"] >= 0.9 for f in ("vendor", "invoice_date", "due_date", "total", "currency"))
+    code, d, _ = get(url + "/diff")
+    assert code == 200 and [t["id"] for t in d["tasks"]] and len(d["tasks"]) == 5
+    t2 = next(t for t in d["tasks"] if t["id"] == "t2")
+    # round 1's change to text.py was rejected and round 2 put it back, so only money.py merged
+    assert {f["path"] for f in t2["files"]} == {"invoicekit/fields/money.py"}
+    assert "_number_part" in t2["diff"] and "__pycache__" not in t2["diff"]
 
     listed = get(api + "/api/runs")[1]["runs"]
     assert listed[0]["id"] == made["id"] and listed[0]["done"] == 5

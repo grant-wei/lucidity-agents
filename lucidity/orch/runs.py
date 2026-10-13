@@ -139,6 +139,7 @@ class Run:
         out["eval_command"] = cmd = self.eval_command()
         for n in out["nodes"]:
             for c in n["done_when"]:
+                c["label"] = contracts.label(c)
                 if c["kind"] == "metric" and c["command"] == cmd:
                     out["targets"][c["metric"]] = {"op": c.get("op", ">="), "value": c["value"], "node": n["id"]}
         out["needs"] = [{"node": n["id"], "title": n["title"], "reason": n["reason"], "kind": n.get("needs_kind"),
@@ -391,12 +392,13 @@ class Run:
             # the work is fine but no longer fits; the retry starts again on top of the latest merge
             return self._needs(n, "conflict", f"Checks passed but the merge conflicted in {what}.")
         worktrees.remove(self.d["repo"], n["worktree"])
+        # score before the task counts as done, so a finished run always has its final scores
+        self._record_scores(f"{n['id']} merged", n["id"])
         with self.lock:
             n.update(state="done", phase="", reason="", merged_commit=res["commit"], commit=sha,
                      finished=self.elapsed(), worktree=None)
         self.event("merge", f"{n['id']} merged into {self.d['integration']['branch']} ({len(n['files'])} files)",
                    node=n["id"], level="ok")
-        self._record_scores(f"{n['id']} merged", n["id"])
         self.sample(force=True)
 
     def eval_command(self):
@@ -405,6 +407,27 @@ class Run:
             return self.d["eval_command"]
         cmds = contracts.eval_commands([c for n in self.d["nodes"] for c in n["done_when"]])
         return cmds[0] if cmds else None
+
+    def merged_diff(self, limit=80_000):
+        """What each merged task changed, in merge order. Every merge is --no-ff, so a task's change is
+        its merge commit against the first parent."""
+        repo, left, tasks = self.d["repo"], limit, []
+        merged = sorted((n for n in self.d["nodes"] if n.get("merged_commit")), key=lambda n: n.get("finished") or 0)
+        skip = ("--", ".", ":(exclude)**/__pycache__/**")
+        for n in merged:
+            c = n["merged_commit"]
+            files = []
+            for ln in worktrees.git(repo, "diff", "--numstat", f"{c}^1", c, *skip).stdout.splitlines():
+                parts = ln.split("\t")
+                if len(parts) == 3:
+                    files.append({"path": parts[2], "added": int(parts[0]) if parts[0].isdigit() else 0,
+                                  "removed": int(parts[1]) if parts[1].isdigit() else 0})
+            body = worktrees.git(repo, "diff", f"{c}^1", c, *skip).stdout
+            cut = len(body) > left
+            body = body[:max(0, left)]
+            left -= len(body)
+            tasks.append({"id": n["id"], "title": n["title"], "commit": c, "files": files, "diff": body, "cut": cut})
+        return {"base": self.d.get("base_commit"), "branch": (self.d.get("integration") or {}).get("branch"), "tasks": tasks}
 
     def _record_scores(self, label, nid):
         """Score the merged branch, so the page can show every metric over time. Runs under merge_lock
