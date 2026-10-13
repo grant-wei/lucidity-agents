@@ -33,6 +33,17 @@ _map_lock = threading.Lock()
 _map = {"map": None, "error": None, "building": False}
 
 
+def seed_sample_cache():
+    """No key on a fresh clone: start the sample sessions from a recorded triage (made with the course
+    model on the same synthetic sessions) so the Sessions page has real results. Unchanged sessions are
+    then skipped, so no model is needed."""
+    dest = config.STATE_DIR / "cache_sample.json"
+    src = config.SAMPLE_DIR / "recorded_triage.json"
+    if config.DATA_MODE == "sample" and not dest.exists() and src.exists():
+        config.STATE_DIR.mkdir(exist_ok=True)
+        dest.write_bytes(src.read_bytes())
+
+
 def do_refresh():
     if not _lock.acquire(blocking=False):
         return  # one refresh at a time; a second click while one runs is a no-op
@@ -40,6 +51,7 @@ def do_refresh():
     try:
         if not config.has_key():
             _state["error"] = "No OPENAI_API_KEY found in .env (this folder or the one above). Showing cached results only."
+            seed_sample_cache()
         snap = refresh(Options(mode=config.DATA_MODE))
         _state["snapshot"] = snap
         _state["error"] = None if config.has_key() else _state["error"]

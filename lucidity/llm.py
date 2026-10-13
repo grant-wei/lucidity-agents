@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 from pydantic_ai import capture_run_messages
-from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
+from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded, UserError
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -22,6 +22,8 @@ _model = None
 def model():
     global _model
     if _model is None:
+        if not config.has_key():
+            raise UserError("no OPENAI_API_KEY in .env")
         _model = OpenAIResponsesModel(config.MODEL, provider=OpenAIProvider())
     return _model
 
@@ -66,9 +68,15 @@ def run_agent(agent, prompt, *, name, deps=None, refresh_id=None, request_limit=
     when the model's output never fits the schema."""
     breaker.check()
     started = time.perf_counter()
+    try:
+        m = model()
+    except UserError as e:   # no key: fail like a bad model call, so callers keep their last result
+        row = _row(name, refresh_id, started, 0, 0, 0, 0, 0)
+        row["failed"] = "no OPENAI_API_KEY"
+        raise ModelCallFailed("no OPENAI_API_KEY in .env, so no model was called", row) from e
     with capture_run_messages() as messages:
         try:
-            result = agent.run_sync(prompt, deps=deps, model=model(), model_settings=SETTINGS,
+            result = agent.run_sync(prompt, deps=deps, model=m, model_settings=SETTINGS,
                                     usage_limits=UsageLimits(request_limit=request_limit))
         except (UnexpectedModelBehavior, UsageLimitExceeded) as e:
             rs = [m.usage for m in messages if isinstance(m, ModelResponse)]

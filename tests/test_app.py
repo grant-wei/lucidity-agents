@@ -13,6 +13,9 @@ from lucidity import config
 from lucidity.agents import coordinator
 
 from conftest import FakeModel, use_fake
+from lucidity import llm as _llm
+
+REAL_MODEL = _llm.model   # captured before any test swaps in the fake
 
 
 @pytest.fixture
@@ -120,3 +123,15 @@ def test_missing_key_is_reported(server, monkeypatch):
     app.do_refresh()
     _, snap, _ = get(server + "/api/snapshot")
     assert "OPENAI_API_KEY" in snap["error"]
+
+
+def test_no_key_shows_the_recorded_sample_triage(server, monkeypatch):
+    from lucidity import llm
+    monkeypatch.setattr(config, "has_key", lambda: False)
+    monkeypatch.setattr(llm, "model", REAL_MODEL)
+    monkeypatch.setattr(llm, "_model", None)
+    app.do_refresh()
+    _, snap, _ = get(server + "/api/snapshot")
+    assert "OPENAI_API_KEY" in snap["error"] and "Refresh failed" not in snap["error"]
+    assert len(snap["sessions"]) == 8 and all(r["claims"] for r in snap["sessions"] if r["state"] != "unknown")
+    assert sum(r["state"] == "needs_you" for r in snap["sessions"]) >= 2

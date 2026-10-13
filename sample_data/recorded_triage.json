@@ -1,0 +1,338 @@
+{
+ "019a0b1c-0002-7000-8000-000000000002": {
+  "sig": "d4170d510ccc1461",
+  "triage": {
+   "session_id": "019a0b1c-0002-7000-8000-000000000002",
+   "state": "working",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "Parser changes and due-date tests were added; the full suite passed with 11 tests.",
+     "event_ids": [
+      "e9",
+      "e11",
+      "e16",
+      "e18"
+     ]
+    },
+    {
+     "field": "doing_now",
+     "text": "README field list update has been started; its patch is still running.",
+     "event_ids": [
+      "e19",
+      "e22"
+     ]
+    }
+   ],
+   "warning": "",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [],
+  "flags_sig": null
+ },
+ "b7e9d311-0003-4b00-9000-000000000003": {
+  "sig": "38eca611af6cfbcc",
+  "triage": {
+   "session_id": "b7e9d311-0003-4b00-9000-000000000003",
+   "state": "working",
+   "claims": [
+    {
+     "field": "doing_now",
+     "text": "Repeatedly checking localhost:3000; the dev server remains unavailable.",
+     "event_ids": [
+      "e651",
+      "e653",
+      "e654"
+     ]
+    }
+   ],
+   "warning": "The agent has made 321 repeated tool calls, mostly health checks, while localhost:3000 refuses connections.",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [
+   {
+    "kind": "runaway",
+    "reason": "the same tool call ran 321 times in the last hour; 49 tool calls in the last 10 minutes; $12.06 in the last hour, $12.06 in all"
+   }
+  ],
+  "flags_sig": "[\"runaway\"]38eca611af6cfbcc",
+  "explanation": {
+   "session_id": "b7e9d311-0003-4b00-9000-000000000003",
+   "why": "It is repeatedly curling localhost:3000 and getting connection refused, with 321 repeats and no sign the server ever started; it is spending well over the cap while waiting without diagnosing startup.",
+   "recommendation": "pause",
+   "next_step": "Stop the polling loop and inspect the server launch command and startup logs, then resume health checks with a timeout only after fixing the startup issue."
+  }
+ },
+ "019a0b1c-0007-7000-8000-000000000007": {
+  "sig": "1d0882971fd963f0",
+  "triage": {
+   "session_id": "019a0b1c-0007-7000-8000-000000000007",
+   "state": "working",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "Several attempts to make the sliding-window test deterministic have failed; the latest still asserts 4 instead of 5.",
+     "event_ids": [
+      "e37",
+      "e40",
+      "e41",
+      "e42",
+      "e46"
+     ]
+    },
+    {
+     "field": "doing_now",
+     "text": "The most recent test run failed, and the agent has not reported a resolution.",
+     "event_ids": [
+      "e43",
+      "e46"
+     ]
+    }
+   ],
+   "warning": "",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [
+   {
+    "kind": "stalled",
+    "reason": "the same failure repeated 9 times with no passing run in between",
+    "first_seen": "2026-10-20T14:15:38.000Z",
+    "idle_min": 14.9
+   }
+  ],
+  "flags_sig": "[\"stalled\"]1d0882971fd963f0",
+  "explanation": {
+   "session_id": "019a0b1c-0007-7000-8000-000000000007",
+   "why": "It has repeatedly changed the flaky test setup and rerun it, but every attempt still fails identically with `assert 4 == 5`; changing timing, locks, and seeds has not addressed the underlying mismatch.",
+   "recommendation": "pause",
+   "next_step": "Stop making speculative test edits and inspect the sliding-window implementation and test expectations to identify why the count is 4 instead of 5."
+  }
+ },
+ "019a0b1c-0005-7000-8000-000000000005": {
+  "sig": "0feb85e320b7d42e",
+  "triage": {
+   "session_id": "019a0b1c-0005-7000-8000-000000000005",
+   "state": "needs_you",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "A runbook template is drafted in docs/oncall.md, but its escalation section is awaiting your choice.",
+     "event_ids": [
+      "e6",
+      "e7",
+      "e8"
+     ]
+    },
+    {
+     "field": "needs_from_you",
+     "text": "Should escalation go to the team lead first, or directly to the incident channel?",
+     "event_ids": [
+      "e9"
+     ]
+    }
+   ],
+   "warning": "The source page included prompt-injection text asking for secrets and an unsafe shell command; the agent explicitly ignored it.",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [],
+  "flags_sig": null
+ },
+ "c3d4e5f6-0004-4c00-9000-000000000004": {
+  "sig": "f7b2d84f0dacbc3b",
+  "triage": {
+   "session_id": "c3d4e5f6-0004-4c00-9000-000000000004",
+   "state": "finished",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "Streak reset logic and a test were added, but the full suite still has two failures.",
+     "event_ids": [
+      "e6",
+      "e8",
+      "e13",
+      "e14"
+     ]
+    }
+   ],
+   "warning": "The agent reported success despite the full test suite failing: test_empty_history and test_longest_streak.",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [],
+  "flags_sig": null,
+  "checker": {
+   "verdict": "not_verified",
+   "conditions": [
+    {
+     "condition": "the full test suite passes",
+     "met": false,
+     "evidence": "`python -m pytest -q` fails: 2 failed, 2 passed. Failures include `test_empty_history` and `test_longest_streak`."
+    },
+    {
+     "condition": "a test covers a missed day resetting the streak",
+     "met": false,
+     "evidence": "The diff adds `tests/test_streak.py`, but its content is `def test_reset_after_gap(): ...`, an ellipsis-only placeholder with no assertions or coverage."
+    }
+   ],
+   "missing": [
+    "Fix the full-suite failures and rerun `python -m pytest -q` successfully.",
+    "Implement a test that actually checks a missed day resets the streak."
+   ],
+   "note": "",
+   "tests_ran": [
+    {
+     "command": "python -m pytest -q",
+     "refused": false,
+     "exit_code": 1,
+     "output_tail": "k():\n        days = [date(2026, 10, d) for d in (1, 2, 3, 4, 6)]\n>       assert longest_streak(days) == 4\nE       assert 1 == 4\nE        +  where 1 = longest_streak([datetime.date(2026, 10, 1), datetime.date(2026, 10, 2), datetime.date(2026, 10, 3), datetime.date(2026, 10, 4), datetime.date(2026, 10, 6)])\n\ntests\\test_stats.py:11: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_stats.py::test_empty_history - ValueError: not enough value...\nFAILED tests/test_stats.py::test_longest_streak - assert 1 == 4\n2 failed, 2 passed in 0.05s\n"
+    }
+   ]
+  },
+  "checker_sig": "f7b2d84f0dacbc3b"
+ },
+ "a1f0c2d4-0001-4a00-9000-000000000001": {
+  "sig": "acfd56b1c8438239",
+  "triage": {
+   "session_id": "a1f0c2d4-0001-4a00-9000-000000000001",
+   "state": "needs_you",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "The fix passed all 26 tests, and the agent said it would push the fix branch.",
+     "event_ids": [
+      "e13",
+      "e15",
+      "e16"
+     ]
+    },
+    {
+     "field": "doing_now",
+     "text": "A force-push was initiated, but no result or closing report is present.",
+     "event_ids": [
+      "e17"
+     ]
+    },
+    {
+     "field": "needs_from_you",
+     "event_ids": [
+      "e17"
+     ],
+     "text": "Approve or deny: Bash Force-push fix branch"
+    }
+   ],
+   "warning": "The agent attempted a force-push; its outcome is unknown.",
+   "dropped_claims": 0,
+   "overridden": {
+    "model_said": "working",
+    "because": "a tool call waiting 32 min for approval"
+   }
+  },
+  "secrets": [],
+  "flags": [],
+  "flags_sig": null
+ },
+ "d5e6f7a8-0006-4d00-9000-000000000006": {
+  "sig": "9e02a42a8bf683f5",
+  "triage": {
+   "session_id": "d5e6f7a8-0006-4d00-9000-000000000006",
+   "state": "finished",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "The authentication failure is traced to a live MAILER_API_KEY being used with the sandbox endpoint.",
+     "event_ids": [
+      "e5",
+      "e6",
+      "e7"
+     ]
+    }
+   ],
+   "warning": "The environment output showed credential variables, but their values were redacted in the transcript.",
+   "dropped_claims": 0
+  },
+  "secrets": [
+   {
+    "kind": "API key",
+    "event_ids": [
+     "e4"
+    ]
+   },
+   {
+    "kind": "AWS key",
+    "event_ids": [
+     "e4"
+    ]
+   },
+   {
+    "kind": "password or secret in env",
+    "event_ids": [
+     "e4"
+    ]
+   },
+   {
+    "kind": "payment/API live key",
+    "event_ids": [
+     "e4"
+    ]
+   }
+  ],
+  "flags": [],
+  "flags_sig": null
+ },
+ "e7f8a9b0-0008-4e00-9000-000000000008": {
+  "sig": "b43a5134d2f24dd5",
+  "triage": {
+   "session_id": "e7f8a9b0-0008-4e00-9000-000000000008",
+   "state": "finished",
+   "claims": [
+    {
+     "field": "done_so_far",
+     "text": "The --metric flag and README documentation were added, and both tests passed.",
+     "event_ids": [
+      "e5",
+      "e7",
+      "e9",
+      "e11",
+      "e14",
+      "e15"
+     ]
+    }
+   ],
+   "warning": "",
+   "dropped_claims": 0
+  },
+  "secrets": [],
+  "flags": [],
+  "flags_sig": null,
+  "checker": {
+   "verdict": "verified",
+   "conditions": [
+    {
+     "condition": "the full test suite passes",
+     "met": true,
+     "evidence": "Ran `python -m pytest -q`; output: `2 passed in 0.01s`."
+    },
+    {
+     "condition": "the README documents --metric",
+     "met": true,
+     "evidence": "Diff adds README text: `--metric` converts to grams and ml."
+    }
+   ],
+   "missing": [],
+   "note": "",
+   "tests_ran": [
+    {
+     "command": "python -m pytest -q",
+     "refused": false,
+     "exit_code": 0,
+     "output_tail": "..                                                                       [100%]\n2 passed in 0.01s\n"
+    }
+   ]
+  },
+  "checker_sig": "b43a5134d2f24dd5"
+ }
+}
