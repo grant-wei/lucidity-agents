@@ -1,136 +1,156 @@
-# Lucidity Agents
+# Lucidity
 
-One screen for every coding agent you have running. Lucidity reads Claude Code and Codex session logs
-on your machine and tells you which sessions are waiting on you, which are stuck or burning money,
-and whether the ones that say "done" actually are.
+An orchestrator for coding agents that you can watch. Give it a goal and a git repo. It plans the
+goal into tasks, each with a done-when contract and a budget, runs a coding agent on every task in
+its own git worktree, and has a separate checker decide whether each task is really done. Nothing
+merges without a pass. While it runs you see the task graph, progress and spend over time against
+the budget, and a map of the repo showing which agents changed which modules. When a check keeps
+failing or a budget hits its cap, the run stops that task and asks you.
 
-It runs locally. By default it shows **sample data** (8 synthetic sessions), so you can try it without
-any agents of your own.
+![A demo run waiting on a decision: one task hit its budget](docs/screenshots/run-needs-you.png)
 
-## Run it (about 5 minutes)
+The demo above needs no API key: a bundled toy shop repo, a recorded plan and scripted agent edits.
+Everything after the edits is real: the tests run, the checks pass or fail, the budgets bind and the
+merges are real git merges.
 
-You need Python 3.10 or newer and an OpenAI API key.
+## Quickstart (one command)
 
-1. Clone the repo and enter it.
+You need Python 3.10 or newer and git.
 
-   ```
-   git clone https://github.com/grant-wei/lucidity-agents
-   cd lucidity-agents
-   ```
+```
+git clone https://github.com/grant-wei/lucidity-agents
+cd lucidity-agents
+python start.py          # Windows: py start.py
+```
 
-2. Put your key in a `.env` file. Lucidity looks in the repo folder first, then the folder above it.
-   **If your `.env` is already one folder above the repo, skip this step.** Otherwise copy the
-   example and fill in the key:
+`start.py` makes a `.venv`, installs `requirements.txt` into it (first run only, about a minute) and
+opens http://127.0.0.1:8765. Click **Run the demo**. In about two minutes you'll see:
 
-   ```
-   cp .env.example .env        # Windows PowerShell: copy .env.example .env
-   ```
+1. the goal planned into 6 tasks with dependencies,
+2. agents working up to 3 tasks at once, each in its own worktree,
+3. one task fail its check, get the failure back, and pass on round 2,
+4. another task hit its $0.15 budget and land in **Needs you**. Click **Add $0.15 and retry**,
+5. every task merge into the run's branch, and the progress, spend and repo-map panels fill in.
 
-   `.env` needs `OPENAI_API_KEY=...`. `OPENAI_MODEL` is optional and defaults to `gpt-6-luna`.
-   A `.env` that still holds the placeholder key is ignored, so a copied example never hides a real key one folder up.
+If port 8765 is taken it says so; pick another with `LUCIDITY_PORT=8800 python start.py`
+(PowerShell: `$env:LUCIDITY_PORT="8800"; py start.py`). Set `LUCIDITY_NO_BROWSER=1` to skip opening
+a browser, and `LUCIDITY_DEMO_SPEED=4` to play the demo four times faster.
 
-3. Make a virtual environment and install.
+Prefer to set it up by hand? `python -m venv .venv`, install `requirements.txt` with the venv's pip,
+then run `app.py` with the venv's Python.
 
-   macOS / Linux:
-   ```
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+## Point it at your own repo
 
-   Windows (PowerShell):
-   ```
-   py -m venv .venv
-   .venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
-   ```
+1. Add a key. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. Lucidity looks for `.env` in
+   this folder first, then the folder above it. `OPENAI_MODEL` is optional and defaults to `gpt-6-luna`.
+   A `.env` that still holds the placeholder key is ignored.
+2. Restart, pick who does the work, type a goal, and give the full path to a git repo with at least
+   one commit:
+   - **Built-in**: a small agent on your OpenAI key that can read, write and run allowlisted tests.
+   - **Claude Code**: your `claude` CLI, headless, with a hard `--max-budget-usd` per round.
+   - **Codex**: your `codex` CLI, sandboxed to the task's worktree.
+3. Untick "Start as soon as the plan is ready" if you want to read the plan before any agent runs.
 
-   If PowerShell blocks `Activate.ps1`, skip activation and call the venv's Python directly:
-   `.venv\Scripts\python -m pip install -r requirements.txt`, then `.venv\Scripts\python app.py` in step 4.
+Your checkout is never touched. A run gets its own branch `lucidity/<run-id>` in a worktree under
+`state/`, each task branches off that, and only work the checker passed is merged back into it. When
+the run is done, the page shows the `git diff` command to review the branch; merging it into your own
+branch (or deleting it) is up to you.
 
-4. Start it.
+## How a run works
 
-   ```
-   python app.py
-   ```
+```
+goal ─► plan ─► run tasks (parallel, each in a worktree) ─► check ─► merge ─► done
+                       ▲                                     │
+                       └──── failed: reasons go back ◄───────┘   (1 to 4 rounds, set per task)
+                                                             └─► needs you
+```
 
-   It opens http://127.0.0.1:8765 in your browser. The page says "Reading your sessions…" until the
-   first refresh finishes. That takes 20 to 40 seconds and costs
-   a tenth to a fifth of a cent (two measured runs on the sample data). After that, unchanged sessions are skipped, so leaving it open is nearly free.
+- **Plan.** The planner model gets the goal plus the repo's file list and README opening. It returns
+  tasks with dependencies, a budget for each, and done-when conditions. Plain code then validates the
+  graph before anything runs: a cycle is rejected, unknown dependencies are dropped, budgets that add
+  up to more than the run's are scaled down, a test command off the allowlist becomes a judgment
+  condition, and every task must have at least one condition a program can check.
+- **Work.** A task starts when its dependencies have merged. The worker sees its task prompt and the
+  contract, works only inside its worktree, and never commits, merges or pushes.
+- **Check.** Conditions a program can check (a file exists, a test passes, a string is present) are
+  run first by plain code, and a failure there is final whatever the worker's report says. Only
+  conditions that need judgment go to the checker model, in a separate call with no tools that sees
+  the contract, the program's results, the diff and the report, never the worker's reasoning.
+- **Needs you.** A task stops and asks you when its checks fail every round, it spends its budget, its
+  merge conflicts, or the checker wants a person. Other tasks keep going. You can add budget and
+  retry, retry, or skip.
 
-   If port 8765 is taken, it stops and says so. Pick another port:
-   `LUCIDITY_PORT=8800 python app.py` (Windows PowerShell: `$env:LUCIDITY_PORT="8800"; python app.py`).
+## What you see
 
-5. Optional: point it at your own sessions instead of the sample data.
+- **Runs**: the goal composer up front and every past run below it.
+- **A run**: the needs-you callout, the task graph (click a task for its prompt, contract and every
+  check result), a per-round timeline, progress by task state over time, spend against the budget,
+  the repo map shaded by how much agents changed each module, and a live activity feed.
+- **Sessions, Session map, Trace, Evals**: Lucidity's monitor for agent sessions you started by hand
+  in Claude Code or Codex. It shows synthetic sample sessions by default; `LUCIDITY_DATA=local` reads
+  your own `~/.claude/projects` and `~/.codex/sessions`. With no key it shows a recorded triage of the
+  samples.
 
-   ```
-   LUCIDITY_DATA=local python app.py          # Windows PowerShell: $env:LUCIDITY_DATA="local"; python app.py
-   ```
+![A finished demo run in dark mode](docs/screenshots/run-done-dark.png)
 
-   It reads `~/.claude/projects` and `~/.codex/sessions` (the last 3 days, up to 25 sessions).
-   Only redacted tails of those logs are sent to the model; see "What gets sent" below.
+## What gets sent to which model
 
-To check the setup with one tiny model call: `python smoke.py`.
-
-## What's on the screen
-
-- **Sessions.** A "Needs you" box first (sessions waiting on an answer or an approval, flagged runaways,
-  unverified "done" claims, leaked secrets), then a card per session. Every claim on a card cites the
-  log events it's based on; click a chip to see the event.
-- **Trace.** The agent graph for the last refresh: which steps were plain code, which were model
-  calls, what each one read and returned, and what it cost.
-- **Planner.** A recorded run of the planner splitting a goal into tasks with done-when contracts,
-  a worker doing them, and the checker verifying each one. It's a recording; sample mode never spawns agents.
-- **Evals.** Accuracy, tokens and cost for 30 labeled cases under several configurations.
-
-## The agents
-
-| Agent | Model? | Job |
+| Step | Goes to | What it sees |
 |---|---|---|
-| Collector | no | Reads the session logs, counts tokens and dollars |
-| Coordinator | no | Skips sessions whose change signature hasn't moved; batches the rest |
-| Triage | yes | needs you / working / finished, with claims that must cite event ids |
-| Watchdog detectors | no | Runaway loops and spend in the last hour (active sessions only), the same failure repeating |
-| Watchdog explainer | yes | Only for newly flagged sessions: why, and pause / stop / let it run |
-| Done checker | yes | Runs the task's tests (allowlisted runners only) and grades its done-when list |
-| Planner | yes | Goal to task graph with contracts; plain code validates the graph |
+| Planner | `OPENAI_MODEL` (default `gpt-6-luna`) | your goal, the repo's file list (up to 300 paths) and the first 4,000 characters of its README |
+| Built-in worker | same | its task prompt and contract, plus the files it chooses to read in its worktree |
+| Claude Code / Codex worker | your own CLI and account | its task prompt and contract; the CLI reads files in the worktree as it works |
+| Checker | `OPENAI_MODEL` | the contract, the program's check results, the diff and the worker's report, redacted |
+| Session monitor | `OPENAI_MODEL` | the last 14 events of each changed session, with keys, tokens and passwords redacted |
+| Demo | nothing | the plan and edits are recorded; no model is called |
 
-Facts that a program can establish (an unanswered question, a tool call waiting for approval, a secret
-in the output) are decided in plain code and override the model.
+Text from workers and sessions is wrapped as data and the models are told never to follow it.
+
+## Cost caps
+
+- **Per run:** you set a budget when you start (default $1.00 for live runs). A run stops starting
+  tasks when it's spent, and no run can be budgeted above `LUCIDITY_MAX_RUN_USD` (default $5.00),
+  including budget you add later.
+- **Per task:** each task gets a share of the run budget from the plan. Claude Code enforces it with
+  `--max-budget-usd`; for the others Lucidity stops at the end of the round that crosses it.
+- **Lucidity's own calls** (planner, checker, built-in worker, monitor): $0.50 a day and 120 requests
+  an hour by default (`LUCIDITY_DAILY_USD_CAP`, `LUCIDITY_CALLS_PER_HOUR_CAP`). When that trips, no
+  further call is made and the page says so. Raise it for real live runs.
+- Every model call is logged with its token counts and cost to `logs/usage.jsonl`.
 
 ## Safety
 
-- **Lucidity's own spending cap.** $0.50 a day and 120 model requests an hour by default
-  (`LUCIDITY_DAILY_USD_CAP`, `LUCIDITY_CALLS_PER_HOUR_CAP`). When it trips, no model call is made
-  and the page shows a banner.
-- **What gets sent.** The last 14 events of each changed session, with keys, tokens and passwords
-  redacted first. Transcript text is wrapped as data and the model is told never to follow it.
-- **Commands.** The checker runs only test runners (`pytest`, `python -m pytest`, `npm test`,
-  `go test`, `cargo test`), without a shell, with a 2-minute timeout.
-- **Bad model output.** If a reply never fits the expected shape, that one call is marked failed in the trace
-  (its cost is still counted), the refresh carries on, and plain-code checks like "waiting on you" still apply.
-- **Actions.** Pause / Stop / Let it run are recorded to `logs/actions.jsonl`; Lucidity never stops
-  your agents itself.
+- Tests run only through allowlisted runners (`pytest`, `python -m pytest`, `npm test`, `go test`,
+  `cargo test`), without a shell, with a timeout.
+- Workers can't touch your branch or push; merges happen only after a pass, into the run's branch.
+- If a model reply never fits the expected shape, that call is marked failed (its cost still counts)
+  and the task goes to you instead of passing.
+- In the monitor, Pause / Stop / Let it run are recorded to `logs/actions.jsonl`; Lucidity never
+  stops your hand-started agents itself.
 
 ## Tests and evals
 
 ```
-python -m pytest -q                 # 101 tests, offline, no key needed (~10 s)
-python evals/run_evals.py           # 30 cases x 5 configurations x 3 runs, about $0.07 and 15 minutes
-python scripts/run_refresh.py       # one refresh from the command line, state vs label per session
-python scripts/record_replay.py     # re-record the planner replay (needs requirements-dev.txt)
+.venv/Scripts/python -m pytest -q    # 126 tests, offline, no key needed (macOS/Linux: .venv/bin/python)
+python evals/run_evals.py            # monitor evals: 30 labeled cases x 5 configurations x 3 runs, about $0.07
+python smoke.py                      # one tiny model call, to check your key
 ```
+
+The tests run the whole demo loop in temp git repos (plan, parallel work, a failing check that
+recovers, a budget stop, add budget, merge) and the run API over HTTP.
 
 ## Layout
 
 ```
-app.py                  local web server (standard library)
-lucidity/               readers, redaction, cost, budget breaker, tracing
-lucidity/agents/        coordinator, triage, watchdog, checker, planner, worker
-static/index.html       the whole UI, one file
-sample_data/            synthetic sessions, labels, task contracts, fixtures, the recorded replay
-evals/                  eval cases, runner, results.json
-tests/                  readers, cost, watchdog, server and safety tests
+start.py              one-command launcher
+app.py                local web server (standard library)
+lucidity/orch/        the orchestrator: runs, worktrees, contracts, gate (checks), workers, demo, repo map
+lucidity/agents/      planner, worker, checker and the session monitor's agents
+lucidity/             config, model calls, cost, budget breaker, redaction, tracing
+static/               the UI: index.html, style.css, app.js (runs), monitor.js (sessions)
+sample_data/demo/     the toy repo and the recorded demo scenario
+sample_data/          synthetic sessions, labels and the recorded triage for the monitor
+evals/  tests/        monitor evals and the test suite
 ```
 
-Lucidity started as a personal tool I used before this course. This repo is a clean rebuild for MGT 409.
+What's not done yet is in [TODO.md](TODO.md).
