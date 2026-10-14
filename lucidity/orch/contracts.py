@@ -107,7 +107,10 @@ def _metric(c, now, was):
         return {"met": False, "evidence": f"the eval printed no {name}"}
     v = now[name]
     met = OPS.get(c.get("op", ">="), OPS[">="])(v, c["value"])
-    change = f"{_num(was[name])} → {_num(v)}" if name in was else f"now {_num(v)}"
+    shown = _num(v)
+    if not met and shown == _num(c["value"]):   # 0.847 against a 0.85 bar must not read "0.85, needs ≥ 0.85"
+        shown = next((s for s in (f"{v:.{d}f}" for d in range(3, 7)) if s != f"{c['value']:.{len(s) - 2}f}"), str(v))
+    change = f"{_num(was[name])} → {shown}" if name in was else f"now {shown}"
     return {"met": met, "value": v, "before": was.get(name), "evidence": change + ("" if met else f", needs {label(c).split(' ', 1)[1]}")}
 
 

@@ -300,3 +300,10 @@ def test_complaint_demo_blocks_a_rounded_up_claim(orch):
     assert [c["verdict"] for c in t3["checks"]] == ["fail", "pass"]
     final = run.d["scores"][-1]["metrics"]
     assert final["accuracy"] >= 0.85 and run.d["spend_by"].get("eval", 0) == 0   # every answer came from the seed
+
+
+def test_a_score_just_under_its_bar_shows_enough_digits():
+    c = {"kind": "metric", "command": "python evals/score.py", "metric": "accuracy", "op": ">=", "value": 0.85}
+    r = contracts._metric(c, {"accuracy": 0.8472}, {"accuracy": 0.7847})
+    assert r["met"] is False and r["evidence"] == "0.78 → 0.847, needs ≥ 0.85"
+    assert contracts._metric(c, {"accuracy": 0.8542}, {})["evidence"] == "now 0.85"
