@@ -299,6 +299,7 @@ class Run:
             self.event("worktree", f"{n['id']}: worktree on {branch}", node=n["id"])
             before = {}
             weak = [m for m in contracts.evaluate(n["done_when"], path, scores=before) if m["met"] is True]
+            self._charge_evals(before, n)
             with self.lock:
                 n["before"] = before
             checkable = [c for c in n["done_when"] if c["kind"] != "rubric"]
@@ -324,6 +325,8 @@ class Run:
                                   cancelled=self.cancel.is_set)
             span["end"] = self.elapsed()
             self.spend(res.get("usd") or 0.0, n)
+            if res.get("eval_usd"):
+                self.spend(res["eval_usd"], n, what="eval")
             files = worktrees.changed_files(n["worktree"], n["start_commit"])
             with self.lock:
                 n["files"] = files
@@ -337,13 +340,14 @@ class Run:
                 n["spans"].append(span)
             scores = {}
             mech = contracts.evaluate(n["done_when"], n["worktree"], before=n.get("before"), scores=scores)
+            self._charge_evals(scores, n)
             if res.get("error"):
                 verdict = {"verdict": "fail", "reasons": [f"the worker stopped with an error: {res['error']}"],
                            "conditions": mech, "usd": 0.0, "by": "program"}
             else:
                 try:
                     verdict = gate.grade(n, mech, res.get("report"), worktrees.diff(n["worktree"], n["start_commit"]),
-                                         history=n["checks"], refresh_id=self.id)
+                                         history=n["checks"], refresh_id=self.id, scores=scores)
                 except (BudgetExceeded, ModelCallFailed) as e:
                     verdict = {"verdict": "needs_you", "reasons": [f"the checker could not run: {e}"], "conditions": mech,
                                "usd": 0.0, "by": "none"}
@@ -372,6 +376,10 @@ class Run:
                  "Work only inside this folder. Do not commit, merge, push or change git settings: Lucidity commits "
                  "and merges your work after an independent check.", "",
                  f"OVERALL GOAL: {self.d['goal']}", "", contracts.contract_text(n)]
+        for cmd, res in (n.get("before") or {}).items():
+            if res.get("metrics"):
+                shown = ", ".join(f"{k} {v:g}" for k, v in list(res["metrics"].items())[:40])
+                lines.append(f"Scores from `{cmd}` when this task started (no_regression compares against these): {shown}")
         if n["checks"]:
             last = n["checks"][-1]
             lines += ["", f"Your round {last['round']} was checked and did NOT pass:"]
@@ -429,6 +437,12 @@ class Run:
             tasks.append({"id": n["id"], "title": n["title"], "commit": c, "files": files, "diff": body, "cut": cut})
         return {"base": self.d.get("base_commit"), "branch": (self.d.get("integration") or {}).get("branch"), "tasks": tasks}
 
+    def _charge_evals(self, results, n=None):
+        """Evals that call a model print what that cost; it counts against the run like any other spend."""
+        usd = sum(r.get("usd") or 0.0 for r in results.values())
+        if usd:
+            self.spend(usd, n, what="eval")
+
     def _record_scores(self, label, nid):
         """Score the merged branch, so the page can show every metric over time. Runs under merge_lock
         so a score always belongs to one commit."""
@@ -437,6 +451,7 @@ class Run:
             return
         with self.merge_lock:
             res = contracts.score(cmd, self.d["integration"]["path"])
+        self._charge_evals({cmd: res})
         with self.lock:
             self.d["eval_command"] = cmd
             self.d.setdefault("scores", []).append({"s": self.elapsed(), "label": label, "node": nid,

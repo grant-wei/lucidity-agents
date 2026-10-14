@@ -119,3 +119,39 @@ def test_malformed_model_output_does_not_crash_a_refresh(sandbox, monkeypatch):
     assert any(r.get("failed") and r["requests"] >= 1 for r in rows)   # the wasted spend is still metered
     # a waiting session is still caught by plain code even with no model result
     assert next(r for r in snap["sessions"] if r["id"] == INJECTION)["state"] == "needs_you"
+
+
+def test_worker_eval_tool_runs_eval_scripts_and_refuses_everything_else(tmp_path):
+    from types import SimpleNamespace
+    from lucidity.agents import worker
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "score.py").write_text('print(\'{"metrics": {"f1": 0.5}}\')\n')
+    ctx = SimpleNamespace(deps=worker.Deps(root=tmp_path))
+    ok = worker.run_eval(ctx, "python evals/score.py --split dev")
+    assert ok["exit_code"] == 0 and '"f1": 0.5' in ok["output"]
+    for bad in ("python other.py", "python evals/score.py && del x", "curl http://x", "python evals/../x.py"):
+        assert worker.run_eval(ctx, bad)["refused"]
+
+
+def test_a_malformed_command_is_refused_not_raised():
+    from lucidity.agents.checker import RefusedCommand, check_command, check_eval_command, run_allowlisted_command
+    for check in (check_command, check_eval_command):
+        with pytest.raises(RefusedCommand):
+            check('python evals/score.py --split "heldout')
+    assert run_allowlisted_command('python -m pytest -q "tests', ".")["refused"] is True
+
+
+def test_an_evals_own_model_spend_is_read_and_counted(tmp_path):
+    from types import SimpleNamespace
+    from lucidity.agents import worker
+    from lucidity.agents.checker import run_eval_command
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "score.py").write_text(
+        'print(\'{"metrics": {"acc": 0.8}, "cost": {"usd": 0.004, "calls": 40}}\')\n')
+    assert run_eval_command("python evals/score.py", tmp_path) == {"metrics": {"acc": 0.8}, "usd": 0.004}
+    ctx = SimpleNamespace(deps=worker.Deps(root=tmp_path))
+    worker.run_eval(ctx, "python evals/score.py")
+    worker.run_eval(ctx, "python evals/score.py")
+    assert ctx.deps.eval_usd == pytest.approx(0.008)
+    (tmp_path / "evals" / "score.py").write_text('print(\'{"acc": 0.8, "cost": {"usd": "lots"}}\')\n')
+    assert run_eval_command("python evals/score.py", tmp_path) == {"metrics": {"acc": 0.8}, "usd": 0.0}

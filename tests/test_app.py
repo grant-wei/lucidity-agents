@@ -129,7 +129,7 @@ def test_no_key_shows_the_recorded_sample_triage(server, monkeypatch):
     from lucidity import llm
     monkeypatch.setattr(config, "has_key", lambda: False)
     monkeypatch.setattr(llm, "model", REAL_MODEL)
-    monkeypatch.setattr(llm, "_model", None)
+    monkeypatch.setattr(llm, "_local", __import__("threading").local())
     app.do_refresh()
     _, snap, _ = get(server + "/api/snapshot")
     assert "OPENAI_API_KEY" in snap["error"] and "Refresh failed" not in snap["error"]

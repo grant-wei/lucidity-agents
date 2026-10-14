@@ -34,9 +34,16 @@ class RefusedCommand(ValueError):
     pass
 
 
+def _split(cmd):
+    try:
+        return shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+    except ValueError as e:  # e.g. an unbalanced quote from the model
+        raise RefusedCommand(f"could not parse the command: {e}") from e
+
+
 def check_command(cmd):
     """Return the argv to run, or raise RefusedCommand. Accepts a list or a string."""
-    argv = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+    argv = _split(cmd)
     if not argv:
         raise RefusedCommand("empty command")
     if any(ch in tok for tok in argv for ch in FORBIDDEN_CHARS):
@@ -70,7 +77,7 @@ EVAL_DIRS = ("evals", "eval")
 
 
 def check_eval_command(cmd):
-    argv = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+    argv = _split(cmd)
     if len(argv) < 2:
         raise RefusedCommand("an eval command is `python evals/<script>.py [args]`")
     if any(ch in tok for tok in argv for ch in FORBIDDEN_CHARS):
@@ -98,10 +105,17 @@ def flatten_metrics(obj, prefix=""):
     return out
 
 
+def eval_cost(data):
+    """What the eval says its own model calls cost: {"cost": {"usd": 0.01}} in its JSON line, else 0."""
+    cost = data.get("cost") if isinstance(data, dict) else None
+    usd = cost.get("usd") if isinstance(cost, dict) else None
+    return float(usd) if isinstance(usd, (int, float)) and not isinstance(usd, bool) and usd > 0 else 0.0
+
+
 def run_eval_command(cmd, cwd):
     """Run an eval script and read the scores it prints: the last line of stdout that is a JSON
     object, either {"metrics": {...}} or the metrics themselves (nested dicts are flattened).
-    Returns {"metrics": {...}} or {"error": "..."}."""
+    Returns {"metrics": {...}, "usd": <the eval's own model spend>} or {"error": "..."}."""
     import json
     try:
         argv = check_eval_command(cmd)
@@ -123,9 +137,10 @@ def run_eval_command(cmd, cwd):
                 data = json.loads(line)
             except ValueError:
                 continue
-            metrics = flatten_metrics(data["metrics"] if isinstance(data.get("metrics"), dict) else data)
+            scored = data["metrics"] if isinstance(data.get("metrics"), dict) else {k: v for k, v in data.items() if k != "cost"}
+            metrics = flatten_metrics(scored)
             if metrics:
-                return {"metrics": metrics}
+                return {"metrics": metrics, "usd": eval_cost(data)}
     return {"error": "the eval printed no JSON line of scores"}
 
 

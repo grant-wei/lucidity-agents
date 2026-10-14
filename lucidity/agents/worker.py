@@ -6,10 +6,14 @@ from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
-from .checker import run_allowlisted_command
+import subprocess
+
+from ..redact import redact
+from .checker import TIMEOUT_S, RefusedCommand, check_eval_command, eval_cost, run_allowlisted_command
 
 INSTRUCTIONS = """You are a coding agent working in a small repo. Do the task you are given, then
-check your work against its done-when conditions (run the tests if a condition is a test).
+check your work against its done-when conditions (run the tests if a condition is a test, run the
+eval script if a condition is a score).
 Keep changes small. When finished, reply with two sentences: what you changed, and whether the
 conditions pass."""
 
@@ -18,6 +22,7 @@ conditions pass."""
 class Deps:
     root: Path
     log: list = field(default_factory=list)
+    eval_usd: float = 0.0   # what the evals it ran say their own model calls cost
 
 
 agent = Agent(output_type=str, instructions=INSTRUCTIONS, deps_type=Deps, name="worker")
@@ -70,4 +75,34 @@ def run_tests(ctx: RunContext[Deps], command: str = "python -m pytest -q") -> di
     out = run_allowlisted_command(command, ctx.deps.root)
     ctx.deps.log.append({"tool": "run_tests", "arg": command,
                          "result": f"exit {out.get('exit_code')}" if not out.get("refused") else "refused"})
+    return out
+
+
+def _printed_cost(stdout):
+    import json
+    for line in reversed(stdout.strip().splitlines()):
+        if line.strip().startswith("{"):
+            try:
+                return eval_cost(json.loads(line))
+            except ValueError:
+                continue
+    return 0.0
+
+
+@agent.tool
+def run_eval(ctx: RunContext[Deps], command: str) -> dict:
+    """Run an eval script, `python evals/<script>.py [args]` (no shell), and return its output."""
+    try:
+        argv = check_eval_command(command)
+    except RefusedCommand as e:
+        ctx.deps.log.append({"tool": "run_eval", "arg": command, "result": "refused"})
+        return {"refused": True, "reason": str(e)}
+    try:
+        r = subprocess.run(argv, cwd=ctx.deps.root, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=TIMEOUT_S, stdin=subprocess.DEVNULL, shell=False)
+        out = {"exit_code": r.returncode, "output": redact((r.stdout + r.stderr)[-6000:])}
+        ctx.deps.eval_usd += _printed_cost(r.stdout)
+    except subprocess.TimeoutExpired:
+        out = {"exit_code": None, "output": f"timed out after {TIMEOUT_S}s"}
+    ctx.deps.log.append({"tool": "run_eval", "arg": command, "result": f"exit {out['exit_code']}"})
     return out

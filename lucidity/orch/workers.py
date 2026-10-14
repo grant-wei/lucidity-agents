@@ -78,10 +78,10 @@ class BuiltinWorker(Worker):
         except ModelCallFailed as e:
             for t in deps.log:
                 emit(f"{t['tool']} {t['arg']}".strip())
-            return {"report": "", "usd": e.row["usd"], "error": f"model call failed: {e}"}
+            return {"report": "", "usd": e.row["usd"], "eval_usd": deps.eval_usd, "error": f"model call failed: {e}"}
         for t in deps.log:
             emit(f"{t['tool']} {t['arg']}".strip())
-        return {"report": reply, "usd": row["usd"], "error": None}
+        return {"report": reply, "usd": row["usd"], "eval_usd": deps.eval_usd, "error": None}
 
 
 def _cli(name):

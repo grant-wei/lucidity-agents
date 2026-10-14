@@ -91,8 +91,9 @@ def changed_files(path, base):
 def diff(path, base, limit=40_000):
     """Stat plus the diff since `base`, with new files included, for the checker to read."""
     git(path, "add", "-A", "-N")  # intent-to-add, so untracked files show up in the diff
-    stat = git(path, "diff", "--stat", base).stdout.strip()
-    body = git(path, "diff", base, "--", ".", ":(exclude)**/__pycache__/**").stdout
+    skip = ("--", ".") + tuple(j.replace(":(glob)", ":(exclude,glob)") for j in JUNK)
+    stat = git(path, "diff", "--stat", base, *skip).stdout.strip()
+    body = git(path, "diff", base, *skip).stdout
     if len(body) > limit:
         body = body[:limit] + f"\n... (diff cut at {limit} characters)"
     return f"{stat}\n\n{body}".strip() or "(no changes)"

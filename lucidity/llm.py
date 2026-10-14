@@ -1,6 +1,7 @@
 """Every model call Lucidity makes goes through run_agent, so every call is metered,
 logged to logs/usage.jsonl from the API's own usage numbers, and stopped by the budget breaker."""
 import json
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -16,16 +17,18 @@ from .cost import model_cost
 from .guard import breaker
 
 USAGE_LOG = config.LOG_DIR / "usage.jsonl"
-_model = None
+# One model per thread: run_sync gives each worker thread its own event loop, and the provider's
+# HTTP connection pool can't be shared across loops ("bound to a different event loop").
+_local = threading.local()
 
 
 def model():
-    global _model
-    if _model is None:
+    m = getattr(_local, "model", None)
+    if m is None:
         if not config.has_key():
             raise UserError("no OPENAI_API_KEY in .env")
-        _model = OpenAIResponsesModel(config.MODEL, provider=OpenAIProvider())
-    return _model
+        m = _local.model = OpenAIResponsesModel(config.MODEL, provider=OpenAIProvider())
+    return m
 
 
 SETTINGS = OpenAIResponsesModelSettings(openai_reasoning_effort="low", max_tokens=4000)
