@@ -87,7 +87,7 @@ def test_demo_run_end_to_end(orch):
 
 
 def test_invoice_demo_catches_a_regression_the_agent_called_done(orch):
-    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    run = wait(runs.create("", worker="demo", demo_name="invoices", demo_speed=0, auto_run=True))
     assert run.d["demo"] == "invoices" and run.d["eval_command"] == "python evals/score.py --split heldout"
     t2 = node(run, "t2")
     # round 1: the agent reports both its targets met; they are, but invoice numbers broke, so no merge
@@ -250,3 +250,53 @@ def test_contracts_and_merge_conflict(orch, tmp_path):
     second = worktrees.merge(repo, "tb", "merge b")
     assert first["ok"] and not second["ok"] and second["conflicts"] == ["a.txt"]
     assert (repo / "a.txt").read_text(encoding="utf-8") == "two\n"     # the failed merge was aborted
+
+
+def test_gate_matches_a_paraphrased_rubric_label_by_number(orch, monkeypatch):
+    from pydantic_ai.messages import ModelResponse, ToolCallPart
+    from pydantic_ai.models.function import FunctionModel
+    from lucidity import llm
+
+    def checker(messages, info):
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {
+            "verdict": "pass", "reasons": [],
+            "conditions": [{"number": 2, "label": "Baseline scores are recorded", "met": True, "evidence": "BASELINE.md"}]})])
+    monkeypatch.setattr(config, "has_key", lambda: True)
+    monkeypatch.setattr(llm, "model", lambda: FunctionModel(checker))
+    n = {"id": "t", "title": "x", "prompt": "", "done_when": []}
+    conds = [{"kind": "test", "label": "tests pass", "met": True, "evidence": "3 passed"},
+             {"kind": "rubric", "label": "reviewer: Record the held-out baseline in BASELINE.md", "met": None, "evidence": ""}]
+    v = gate.grade(n, conds, "done", "diff")
+    assert v["verdict"] == "pass" and v["conditions"][1]["met"] is True
+
+    def silent(messages, info):   # passes but judges nothing: downgraded, and says why
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"verdict": "pass", "reasons": [], "conditions": []})])
+    monkeypatch.setattr(llm, "model", lambda: FunctionModel(silent))
+    v = gate.grade(n, conds, "done", "diff")
+    assert v["verdict"] == "fail" and "did not confirm" in v["reasons"][0]
+
+
+def test_worker_prompt_shows_the_scores_a_task_started_from(orch):
+    run = wait(runs.create("", worker="demo", demo_name="invoices", demo_speed=0, auto_run=True))
+    t1 = node(run, "t1")
+    assert t1["before"]
+    prompt = run._prompt(t1)
+    assert "when this task started" in prompt and "invoice_date.f1 0.54" in prompt
+
+
+def test_complaint_demo_blocks_a_rounded_up_claim(orch):
+    # the default demo; its recorded model answers are seeded into the repo, so scoring needs no key
+    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    assert run.d["demo"] == "complaints" and run.d["state"] == "done", run.d["reason"]
+    start = run.d["scores"][0]["metrics"]
+    assert start["accuracy"] == pytest.approx(0.7986, abs=1e-4)
+    t3 = node(run, "t3")
+    first = t3["checks"][0]
+    # the agent reports 0.85; the eval measures 0.847 and checking_savings falling 0.07, so no merge
+    assert "0.85" in t3["reports"][0]["text"] and first["verdict"] == "fail" and first["by"] == "program"
+    acc, reg = first["conditions"]
+    assert acc["met"] is False and 0.84 < first["scores"]["python evals/score.py --split heldout"]["accuracy"] < 0.85
+    assert reg["met"] is False and [d["metric"] for d in reg["drops"]] == ["checking_savings.f1"]
+    assert [c["verdict"] for c in t3["checks"]] == ["fail", "pass"]
+    final = run.d["scores"][-1]["metrics"]
+    assert final["accuracy"] >= 0.85 and run.d["spend_by"].get("eval", 0) == 0   # every answer came from the seed

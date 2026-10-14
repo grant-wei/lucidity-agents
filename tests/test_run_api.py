@@ -32,10 +32,10 @@ def poll(url, states, timeout=90):
 def test_demo_over_http(api):
     code, runs_list, _ = get(api + "/api/runs")
     assert code == 200 and runs_list["runs"] == []
-    assert [d["name"] for d in runs_list["demos"]] == ["invoices", "shop"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
+    assert [d["name"] for d in runs_list["demos"]] == ["complaints", "invoices", "shop"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
     assert {w["name"] for w in runs_list["workers"]} >= {"demo", "builtin", "claude", "codex"}
 
-    code, made = post(api + "/api/runs", {"worker": "demo", "auto_run": False})   # the invoice demo by default
+    code, made = post(api + "/api/runs", {"worker": "demo", "demo": "invoices", "auto_run": False})
     assert code == 201 and made["mode"] == "demo" and made["repo_name"] == "invoicekit"
     url = api + "/api/runs/" + made["id"]
     v = poll(url, ("plan_ready",))
