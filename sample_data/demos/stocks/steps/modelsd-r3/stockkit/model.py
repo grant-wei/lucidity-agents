@@ -1,9 +1,12 @@
-"""Standardized L2-regularized logistic regression (ridge logistic regression)."""
+"""L1-regularized (lasso) logistic classifier."""
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    # Heavy L2 shrinkage, selected on the development split to limit noisy signals.
-    return make_pipeline(StandardScaler(), LogisticRegression(C=1e-5, solver="lbfgs", max_iter=2000))
+    # L1 selects the most useful features while keeping a linear probability model.
+    return make_pipeline(
+        StandardScaler(),
+        LogisticRegression(penalty="l1", solver="liblinear", C=0.01, max_iter=500),
+    )

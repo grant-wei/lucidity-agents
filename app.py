@@ -155,6 +155,11 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     traceback.print_exc()
                     return self._send(200, {"modules": [], "edges": [], "error": f"map failed: {e}"})
+            if what == "round":   # one round's code change for one agent: ?node=<id>&round=<n>
+                try:
+                    return self._send(200, {"diff": run.round_diff((q.get("node") or [""])[0], int((q.get("round") or ["0"])[0]))})
+                except (runs.RunError, ValueError):
+                    return self._send(404, {"error": "no such round"})
             if what == "diff":
                 try:
                     return self._send(200, run.merged_diff())

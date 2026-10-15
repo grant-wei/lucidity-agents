@@ -24,6 +24,12 @@ sys.path.insert(0, str(ROOT))
 from hoopkit import NAMES, SPLITS, featurize, load_games, make_model  # noqa: E402
 
 
+def std_err(xs):
+    """Standard error of the mean: std(xs, ddof=1) / sqrt(n). A rough "could be luck" range."""
+    m = sum(xs) / len(xs)
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1) / len(xs)) if len(xs) > 1 else 0.0
+
+
 def importance(model, X, y):
     """Rise in log loss when each column is shuffled, mean of 5 fixed shuffles, biggest first."""
     def ll(rows):
@@ -64,8 +70,10 @@ def main():
     p = [min(max(float(q), 1e-6), 1 - 1e-6) for q in model.predict_proba([X[i] for i in test])[:, 1]]
     yt = [y[i] for i in test]
     n = len(yt)
+    losses = [-math.log(q if t else 1 - q) for q, t in zip(p, yt)]
     metrics = {
         "log_loss": round(-sum(math.log(q if t else 1 - q) for q, t in zip(p, yt)) / n, 4),
+        "log_loss_se": round(std_err(losses), 5),
         "brier": round(sum((q - t) ** 2 for q, t in zip(p, yt)) / n, 4),
         "accuracy": round(sum((q > 0.5) == bool(t) for q, t in zip(p, yt)) / n, 4),
     }

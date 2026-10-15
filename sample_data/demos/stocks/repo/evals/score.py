@@ -25,6 +25,12 @@ sys.path.insert(0, str(ROOT))
 from stockkit import NAMES, SPLITS, examples, load_months, make_model  # noqa: E402
 
 
+def std_err(xs):
+    """Standard error of the mean: std(xs, ddof=1) / sqrt(n). A rough "could be luck" range."""
+    m = sum(xs) / len(xs)
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1) / len(xs)) if len(xs) > 1 else 0.0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="heldout", choices=["dev", "heldout"])
@@ -53,8 +59,15 @@ def main():
     for month, pr in by_month.items():
         pr.sort(key=lambda t: t[0])
         spread.append(sum(x for _, x in pr[-10:]) / 10 - sum(x for _, x in pr[:10]) / 10)
+    # Industries in the same month move together, so treat each month as one draw: the standard
+    # error comes from the spread of monthly mean log losses, not from every row.
+    month_losses = defaultdict(list)
+    for q, t, r in zip(p, yt, test):
+        month_losses[r[0]].append(-math.log(q if t else 1 - q))
+    losses = [sum(v) / len(v) for v in month_losses.values()]
     metrics = {
         "log_loss": round(-sum(math.log(q if t else 1 - q) for q, t in zip(p, yt)) / n, 4),
+        "log_loss_se": round(std_err(losses), 5),
         "accuracy": round(sum((q > 0.5) == bool(t) for q, t in zip(p, yt)) / n, 4),
         "spread_pct": round(sum(spread) / len(spread), 3),
     }

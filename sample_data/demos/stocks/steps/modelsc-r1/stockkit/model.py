@@ -1,9 +1,8 @@
-"""Standardized L1-penalized logistic regression."""
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
+"""Naive Bayes model for monthly industry outcomes."""
+from sklearn.naive_bayes import GaussianNB
 
 
 def make_model():
-    return make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear", l1_ratio=1, C=0.003,
-                                                              max_iter=2000, random_state=0))
+    # A modest variance floor prevents a small number of extreme return observations
+    # from producing overconfident class likelihoods.
+    return GaussianNB(var_smoothing=0.1)

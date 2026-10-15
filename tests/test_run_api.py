@@ -87,6 +87,6 @@ def test_the_owners_picks_arrive_over_http(api):
     v = poll(url, ("plan_ready",))
     assert v["awaiting_owner"] and v["questions"][0]["drives"] == "models"
     q = v["questions"][0]
-    assert post(url + "/action", {"action": "approve", "answers": {q["id"]: ["SVM"]}})[0] == 200
+    assert post(url + "/action", {"action": "approve", "answers": {q["id"]: ["Ridge logistic regression"]}})[0] == 200
     v = poll(url, ("done", "needs_you"))
-    assert [a["id"] for a in v["nodes"][0]["agents"]] == ["modelsb"] and v["state"] == "done"
+    assert [a["id"] for a in v["nodes"][0]["agents"]] == ["modelse"] and v["state"] == "done"

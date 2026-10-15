@@ -741,12 +741,13 @@ function renderStory(el) {
     CW = chartWidth(rc);
     rc.innerHTML = raceChart(unitsOf(n), tg, (S.find(s => typeof s.metrics[key] === "number") || {metrics: {}}).metrics[key], v.references);
   });
+  bindRounds(el, v);
   bindActions(el);
 }
 
 /* ---------- a race, drawn: each model round by round, the leaderboard, and why the winner won ---------- */
 
-const FAM = ["var(--c1)", "var(--c3)", "var(--c4)", "var(--c2)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
+const FAM = ["var(--c1)", "var(--c3)", "var(--c4)", "var(--c2)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)", "var(--c9)", "var(--c10)"];
 const better = (tg, a, b) => tg.op === "<=" ? a < b : a > b;
 // Feature names are whatever the agent wrote; turn the common pieces into words a reader knows.
 const GLOSS = {status: "late status", bill: "bill", paid: "paid", utilization: "card used", limit: "limit", mean: "avg", change: "change",
@@ -818,6 +819,15 @@ function raceChart(us, tg, base, refs) {
     <div class="legend race-legend">${legend}<span class="muted"><i class="hollow"></i>sent back</span><span class="muted"><i class="filled"></i>passed</span></div>`;
 }
 
+// The scorer's rough noise range for a model's latest test score ("log_loss_se" next to "log_loss"), if it reports one.
+function seOf(u, key) {
+  if (!u || !key) return null;
+  for (const c of [...u.checks].reverse()) {
+    for (const m of Object.values(c.scores || {})) if (m && typeof m[key + "_se"] === "number") return m[key + "_se"];
+  }
+  return null;
+}
+
 // Bars: how far each model moved the held-out score from the starting model, against the goal.
 function leaderboard(n, us, tg, base, refs) {
   const rows = n.comparison ? n.comparison.rows.map(r => ({...r, u: us.find(u => u.id === r.agent)}))
@@ -829,14 +839,19 @@ function leaderboard(n, us, tg, base, refs) {
   const max = Math.max(goal * 1.25, ...rows.filter(r => r.value != null).map(r => gain(r.value)), 1e-9);
   const P = val => Math.max(0, Math.min(100, 100 * gain(val) / max));
   const won = n.comparison && n.comparison.rows[0] && n.comparison.rows[0].passed ? n.comparison.rows[0].agent : null;
+  const mkey = n.comparison ? n.comparison.metric : tg.metric;
+  const benchVal = ((refs || []).find(r => r.benchmark && typeof r.value === "number") || {}).value;
+  // Two scores closer than about 2 standard errors could swap on another set of test games or months.
+  const luck = r => { const se = seOf(r.u, mkey); return se != null && r.value != null && benchVal != null && Math.abs(r.value - benchVal) < 2 * se ? se : null; };
   const bars = rows.map(r => {
     const i = us.indexOf(r.u), col = FAM[(i < 0 ? 0 : i) % FAM.length];
     const w = r.value == null ? 0 : P(r.value);
     return `<div class="lb-row${r.agent && r.agent === won ? " won" : ""}${r.passed ? "" : " miss"}">
       <span class="lb-name" title="${esc(r.label)}">${esc(short(r.label))}</span>
       <span class="lb-track"><i class="lb-bar" style="width:${w}%;--col:${col}"></i><i class="lb-goal" style="left:${P(tg.value)}%"></i></span>
-      <span class="lb-val" title="held-out ${esc(plainMetric(n.comparison ? n.comparison.metric : "score"))}">${r.value == null ? "–" : asPct(r.value)}</span>
-      <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}</span></div>`;
+      <span class="lb-val" title="held-out ${esc(plainMetric(mkey || "score"))}${seOf(r.u, mkey) != null ? ` ± ${asPct(2 * seOf(r.u, mkey))} (rough noise range)` : ""}">${r.value == null ? "–" : asPct(r.value)}</span>
+      <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}</span>
+      ${luck(r) != null ? `<span class="lb-luck">gap to the benchmark is within noise (± ${asPct(2 * luck(r))}), so it could be luck</span>` : ""}</div>`;
   }).join("");
   // The best answer without agents (plain regression, an outside forecast, or a coin flip), scored by Lucidity.
   const bench = (refs || []).filter(r => r.benchmark && typeof r.value === "number").map(r => {
@@ -900,7 +915,67 @@ function raceBlock(v, n, us, key, tg) {
       <div class="panel"><div class="ph">Each model, round by round</div><div class="race-chart" data-race="${esc(n.id)}"></div>
         <div class="tiles">${tiles}</div></div>
       <div class="panel"><div class="ph">Leaderboard · test data</div>${leaderboard(n, us, tg, base, v.references)}${whyPanel(n, tg)}</div>
-    </div></div>`;
+    </div>${roundsPanel(us, tg, base)}</div>`;
+}
+
+/* ---------- what changed each round: the score, what the code shows, what the agent said ---------- */
+
+const roundOpen = new Set();   // which agents' round lists are open, kept across re-renders
+const diffCache = {};          // "node-round" -> the diff text, once fetched
+const fmtGain = (tg, d) => {
+  const good = tg.op === "<=" ? d < 0 : d > 0;
+  const s = (d < 0 ? "−" : "+") + asPct(Math.abs(d));
+  return Math.abs(d) < 1e-12 ? `<span class="muted">no change</span>` : `<span class="${good ? "okv" : "bad"}">${s} ${good ? "better" : "worse"}</span>`;
+};
+
+function roundsPanel(us, tg, base) {
+  const rows = us.map((u, i) => {
+    const pts = roundScores(u), reps = u.reports || [], chg = u.rounds || [];
+    const n = Math.max(reps.length, chg.length, pts.length ? pts[pts.length - 1].r : 0);
+    if (!n) return "";
+    let prev = base;
+    const items = [];
+    for (let r = 1; r <= n; r++) {
+      const p = pts.find(x => x.r === r), rep = reps.find(x => x.round === r), c = chg.find(x => x.round === r);
+      const k = `${u.id}-${r}`;
+      const score = p ? `<b>${asPct(p.val)}</b> ${prev != null ? fmtGain(tg, p.val - prev) : ""}${p.pass ? ` <span class="chip ok">passed</span>` : ""}`
+        : `<span class="muted">not scored</span>`;
+      if (p) prev = p.val;
+      items.push(`<li class="rc-r"><div class="rc-h"><span class="rc-n">Round ${r}</span><span class="rc-s">${score}</span></div>
+        ${c ? `<div class="rc-l"><span class="lbl">Code change</span><p>${esc(c.changed)} <span class="muted small">${c.files.length ? `+${c.added} −${c.removed} lines` : ""}</span></p></div>` : ""}
+        ${rep && rep.text ? `<div class="rc-l"><span class="lbl">Agent said</span><p>${esc(trunc(rep.text, 360))}</p></div>` : ""}
+        ${c && c.files.length ? `<button class="linkish" data-diff="${esc(k)}" data-node="${esc(u.id)}" data-round="${r}">${roundOpen.has("d:" + k) ? "Hide" : "Show"} the exact code change</button>
+          ${diffCache[k] != null && roundOpen.has("d:" + k) ? diffView(diffCache[k]) : ""}` : ""}</li>`);
+    }
+    const stop = u.reason && /^Stopped early/.test(u.reason) ? `<li class="rc-r rc-stop muted small">${esc(u.reason)}</li>` : "";
+    const b = bestOf(u, tg);
+    return `<details class="rc-agent" data-ag="${esc(u.id)}" style="--col:${FAM[i % FAM.length]}"${roundOpen.has(u.id) ? " open" : ""}>
+      <summary><i class="sw"></i><span class="rc-name">${esc(u.label || u.id)}</span><span class="muted small">${plural(n, "round")}${b != null ? " · best " + asPct(b) : ""}</span></summary>
+      <ol class="rc-list">${items.join("")}${stop}</ol></details>`;
+  }).join("");
+  if (!rows) return "";
+  return `<div class="panel rc"><div class="ph">What changed each round</div>
+    <p class="muted small">Score is on test data no agent sees. "Code change" is read from the code itself; "Agent said" is the agent's own report, unchecked.</p>${rows}</div>`;
+}
+
+function diffView(text) {
+  if (!text) return `<pre class="rc-diff muted">No code change recorded for this round.</pre>`;
+  return `<pre class="rc-diff">${text.split("\n").map(l => `<span class="${l.startsWith("+") && !l.startsWith("+++") ? "add" : l.startsWith("-") && !l.startsWith("---") ? "del" : l.startsWith("@@") ? "hunk" : ""}">${esc(l)}</span>`).join("\n")}</pre>`;
+}
+
+function bindRounds(el, v) {
+  $$("details.rc-agent", el).forEach(d => d.ontoggle = () => { d.open ? roundOpen.add(d.dataset.ag) : roundOpen.delete(d.dataset.ag); });
+  $$("[data-diff]", el).forEach(b => b.onclick = async () => {
+    const k = b.dataset.diff, key = "d:" + k;
+    if (roundOpen.has(key)) { roundOpen.delete(key); b.textContent = "Show the exact code change"; const pre = b.nextElementSibling; if (pre && pre.tagName === "PRE") pre.remove(); return; }
+    if (diffCache[k] == null) {
+      try { diffCache[k] = (await api(`/api/runs/${encodeURIComponent(v.id)}/round?node=${encodeURIComponent(b.dataset.node)}&round=${b.dataset.round}`)).diff || ""; }
+      catch (e) { diffCache[k] = ""; }
+    }
+    roundOpen.add(key);
+    b.textContent = "Hide the exact code change";
+    b.insertAdjacentHTML("afterend", diffView(diffCache[k]));
+  });
 }
 
 // Model families split by whether they learn a fixed set of weights (parametric) or grow with the data.

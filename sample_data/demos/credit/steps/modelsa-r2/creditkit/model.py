@@ -1,13 +1,22 @@
-"""Scaled k-nearest-neighbors credit-risk model."""
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.compose import ColumnTransformer
+"""Ordinary least-squares risk model, with probabilities clipped to [1%, 99%]."""
+import numpy as np
+from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.linear_model import LinearRegression
+
+
+class ClippedLinearRegression(BaseEstimator, ClassifierMixin):
+    def __init__(self):
+        self.regressor = LinearRegression()
+
+    def fit(self, X, y):
+        self.regressor.fit(X, y)
+        self.classes_ = np.array([0, 1])
+        return self
+
+    def predict_proba(self, X):
+        p = np.clip(self.regressor.predict(X), 0.01, 0.99)
+        return np.column_stack((1 - p, p))
 
 
 def make_model():
-    # Repayment-status history is ordinal and stable; limit distance to status
-    # history and its summary to avoid noise from correlated dollar amounts.
-    columns = [*range(1, 7), 31, 32]
-    scale = ColumnTransformer([("history", StandardScaler(), columns)], remainder="drop")
-    return make_pipeline(scale, KNeighborsClassifier(n_neighbors=400, weights="uniform", n_jobs=-1))
+    return ClippedLinearRegression()

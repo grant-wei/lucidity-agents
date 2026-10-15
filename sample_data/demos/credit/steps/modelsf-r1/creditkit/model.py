@@ -1,16 +1,10 @@
-"""The model: a boosted-tree classifier with the sklearn fit/predict_proba interface."""
-from sklearn.ensemble import HistGradientBoostingClassifier
+"""Scaled k-nearest-neighbor probability model."""
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def make_model():
-    # Shallow, regularized trees capture nonlinear repayment patterns while limiting
-    # overfitting; probabilities are optimized directly with dev log loss.
-    return HistGradientBoostingClassifier(
-        learning_rate=0.06,
-        max_iter=250,
-        max_leaf_nodes=15,
-        min_samples_leaf=40,
-        l2_regularization=2.0,
-        early_stopping=False,
-        random_state=17,
-    )
+    # Uniform neighborhoods avoid overly confident inverse-distance estimates.
+    return make_pipeline(StandardScaler(), KNeighborsClassifier(
+        n_neighbors=500, weights="uniform", p=2, n_jobs=-1))

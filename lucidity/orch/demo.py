@@ -8,19 +8,21 @@ and the budget cap really stops a task.
   nba       NBA home-win probabilities from 15 seasons of real results; the contract is held-out log
             loss <= 0.6068 (FiveThirtyEight's 0.608, beaten by 0.2%) with no accuracy drop. Replayed from
             a live run: the planner asks which model families to try, the person picks, and one agent per
-            pick builds it. Only the SVM clears the bar, at 0.6052.
+            pick builds it. Ridge logistic regression wins at 0.6035, on Elo and team-strength
+            ratings the agent built; lasso and random forest also pass.
   fed       will the Fed raise rates next month, from FRED Treasury yields, unemployment and CPI
             (1985-2026, held out from 2015); the contract is held-out log loss <= 0.3409 (plain regression
-            scores 0.3416, the repo 0.462). Replayed from a live run: random forest wins at 0.2723, kNN
-            also passes, and the 3-month yield's gap over the Fed's rate is its biggest predictor.
+            scores 0.3416, the repo 0.462). Replayed from a live run: of ten families, only plain logistic
+            regression on all the columns passes, at 0.3179. The tuned models looked better on the
+            tuning years and worse on the test years.
   stocks    which of 49 industries beats the median next month, from monthly returns 1970-2026 plus the
             Fama-French factors, momentum and each industry's size and book-to-market; the contract is
-            held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run: six model
-            families race, all use the factor data, none clears the bar (boosted trees come closest at
-            0.6928), and nothing merges. The honest answer.
+            held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run: ten model
+            families race, none clears the bar (random forest comes closest at 0.6928), and nothing
+            merges. The honest answer.
   credit    which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
             marital status; the contract is held-out log loss <= 0.4657 (plain regression scores 0.4666). Replayed
-            from a live run: six families race, random forest wins at 0.4227, and all six
+            from a live run: ten families race, random forest wins at 0.4247, and nine of the ten
             beat plain regression.
   complaints  (runnable by name, not in the picker) an LLM router for real CFPB consumer complaints; contracts are held-out accuracy and
             "no product's F1 drops more than 0.05". Replayed from a live run: two prompt strategies,
@@ -38,10 +40,10 @@ from . import contracts, worktrees
 
 DEMOS_DIR = config.SAMPLE_DIR / "demos"
 DEFAULT = "nba"
-SHOWN = {"nba": "Six models race to beat FiveThirtyEight",       # the composer's picker, in this order
-         "fed": "Six models call the Fed's next hike",
-         "credit": "Six models predict who misses a payment",
-         "stocks": "Six models try to beat a coin flip on stocks"}
+SHOWN = {"nba": "Ten models race to beat FiveThirtyEight",       # the composer's picker, in this order
+         "fed": "Ten models call the Fed's next hike",
+         "credit": "Ten models predict who misses a payment",
+         "stocks": "Ten models try to beat a coin flip on stocks"}
 
 
 def names():

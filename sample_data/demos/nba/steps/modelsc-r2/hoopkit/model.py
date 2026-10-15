@@ -1,8 +1,26 @@
-"""L1-regularized logistic regression for pregame win probabilities."""
-from sklearn.linear_model import LogisticRegression
+"""Naive Bayes model for game outcomes."""
+import numpy as np
+from sklearn.naive_bayes import GaussianNB
+
+
+class TeamRateNaiveBayes:
+    """Gaussian NB on matchup contrasts derived from pre-game team information."""
+    def __init__(self):
+        self.model = GaussianNB(var_smoothing=0.02)
+
+    @staticmethod
+    def _transform(X):
+        x = np.asarray(X, dtype=float)
+        # Convert both raw win rates into a contrast; Elo is already a contrast.
+        return np.column_stack((x[:, 0] - x[:, 1], x[:, 2]))
+
+    def fit(self, X, y):
+        self.model.fit(self._transform(X), y)
+        return self
+
+    def predict_proba(self, X):
+        return self.model.predict_proba(self._transform(X))
 
 
 def make_model():
-    # Tuned on the development season. L1 keeps this a sparse logistic model;
-    # a weaker penalty than the initial setting preserves useful margin signal.
-    return LogisticRegression(penalty="l1", solver="liblinear", C=1.0, max_iter=1000)
+    return TeamRateNaiveBayes()

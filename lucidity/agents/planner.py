@@ -29,11 +29,11 @@ can each finish in a few minutes. For every task write a contract:
 - max_rounds: how many fix-and-retry rounds before it stops and asks the owner (1 to 4).
 Questions for the owner: list the 1 to 4 judgment calls a person should make before agents start,
 the ones no eval can settle. For a predictive model these are which model families to try, what
-exactly is predicted, and which inputs the model may use. Give each question 2 to 6 options, mark
+exactly is predicted, and which inputs the model may use. Give each question 2 to 10 options, mark
 the ones you recommend, and say in one short sentence why. When a question picks the approaches
 for a task with several attempts, make it multi-select, set drives to that task's id, and give
 each option an approach an agent can follow; the owner's picks become that task's agents.
-For a race, offer every family worth trying (up to 6, from simple to complex) so the run itself
+For a race, offer every family worth trying (up to 10, from simple to complex) so the run itself
 finds the best; mark as recommended the one you expect to win.
 Every option must be a concrete choice (a named model family, a named input); never an
 "other" or "owner-specified" option.
@@ -151,7 +151,7 @@ def validate_plan(plan, total_budget, eval_command=None):
         problems.append("the task graph has a cycle")
     questions = []
     for q in [q.model_dump() for q in getattr(plan, "questions", [])][:4]:
-        q["options"] = [o for o in q["options"] if o["label"].strip()][:6]
+        q["options"] = [o for o in q["options"] if o["label"].strip()][:10]
         if len(q["options"]) < 2:
             problems.append(f"question {q['id']}: fewer than 2 options; dropped")
             continue

@@ -1,25 +1,21 @@
-"""Scaled k-nearest-neighbors forecast."""
+"""Plain linear regression classifier with clipped probability predictions."""
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
 
 
-class ScaledKNN:
-    def __init__(self, n_neighbors=100, weights="distance", shrink=0.7):
-        self.n_neighbors, self.weights, self.shrink = n_neighbors, weights, shrink
+class ClippedLinearRegression:
+    """Fit a linear model to binary outcomes and clip its predictions to [1%, 99%]."""
+    def __init__(self):
+        self.regressor = LinearRegression()
 
     def fit(self, X, y):
-        self.scaler = StandardScaler().fit(X)
-        self.knn = KNeighborsClassifier(n_neighbors=min(self.n_neighbors, len(y)), weights=self.weights)
-        self.knn.fit(self.scaler.transform(X), y)
-        self.prior = float(np.mean(y))
+        self.regressor.fit(X, y)
         return self
 
     def predict_proba(self, X):
-        raw = self.knn.predict_proba(self.scaler.transform(X))[:, 1]
-        p = self.prior + (raw - self.prior) * self.shrink
-        return np.column_stack((1 - p, p))
+        p = np.clip(self.regressor.predict(X), 0.01, 0.99)
+        return np.column_stack((1.0 - p, p))
 
 
 def make_model():
-    return ScaledKNN()
+    return ClippedLinearRegression()

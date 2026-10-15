@@ -16,12 +16,13 @@ and an agent that edits the scorer or the data fails unscored.
 
 Four demos need no API key. Each replays a real run on real data, and the scoring is done live:
 
-- **NBA game forecasts**: six model families try to beat FiveThirtyEight's forecast on two seasons the
-  agents never saw. The SVM wins at 0.6052 log loss, against FiveThirtyEight's 0.608.
+- **NBA game forecasts**: ten model families try to beat FiveThirtyEight's forecast on two seasons the
+  agents never saw. Ridge logistic regression wins at 0.6035 log loss, against FiveThirtyEight's 0.608.
 - **Fed rate hikes**: will the Fed raise rates next month, from Treasury yields, inflation and
-  unemployment. Random forest wins at 0.2723 on 2015-2026.
+  unemployment. Plain logistic regression wins at 0.3179 on 2015-2026. The tuned models looked better
+  on the tuning years and worse on the test years.
 - **Credit default**: which credit-card customers miss a payment, without using sex, age or marital
-  status. Random forest wins at 0.4227.
+  status. Random forest wins at 0.4247.
 - **Stock returns**: which industries beat the median next month, from past returns plus the Fama-French
   factors, momentum and each industry's size and book-to-market. No model beats a coin flip by enough
   to count, so nothing is kept. That's the right answer, and the point of a referee.

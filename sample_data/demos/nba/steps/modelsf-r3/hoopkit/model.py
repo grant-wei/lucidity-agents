@@ -1,13 +1,9 @@
-"""The model: anything scikit-learn-shaped with fit() and predict_proba()."""
-from sklearn.ensemble import GradientBoostingClassifier
+"""The model: a scaled k-nearest-neighbors classifier."""
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def make_model():
-    return GradientBoostingClassifier(
-        n_estimators=150,
-        learning_rate=0.05,
-        max_depth=2,
-        min_samples_leaf=10,
-        loss="log_loss",
-        random_state=0,
-    )
+    # A fairly broad neighborhood smooths noisy sequential team-strength estimates.
+    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=800, weights="uniform", p=2))

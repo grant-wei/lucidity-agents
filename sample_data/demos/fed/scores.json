@@ -1,154 +1,281 @@
 {
-"24a50606b91a8cbf217e178f2574f65b746aa3c92bd136c7a84bb61bb23a874f": {
-"metrics": {
-"accuracy": 0.8369,
-"auc": 0.4859,
-"log_loss": 1.6753
-},
-"usd": 0.0
-},
-"35802ad4ca09048c8cf197fee31fa98ddb59f1850ed73b5ba3f5df169acd9311": {
-"metrics": {
-"accuracy": 0.8511,
-"auc": 0.6435,
-"log_loss": 0.4177
-},
-"usd": 0.0
-},
-"3f0fd931a2e02e648d68bf4f48d09ee73eb2e105fe6a105c1ab1b9e14ee0cb7f": {
-"metrics": {
-"accuracy": 0.8511,
-"auc": 0.7286,
-"log_loss": 0.4002
-},
-"usd": 0.0
-},
-"4b2247d8cec6c18db326bcfb26dcbe44aba90aac32a94241f11d4dda9ee2cffc": {
-"metrics": {
-"accuracy": 0.9007,
-"auc": 0.8984,
-"log_loss": 0.2723
-},
-"usd": 0.0
-},
-"4b2247d8cec6c18db326bcfb26dcbe44aba90aac32a94241f11d4dda9ee2cffc:explain": {
-"importance": {
-"hiked_this_month": 0.0103,
-"inflation": -0.004,
-"unemployment": -0.0046,
-"unemployment_change_3m": -0.0031,
-"yield_2y_gap": 0.0335,
-"yield_3m_gap": 0.1779,
-"yield_curve": -0.0129
-},
-"metrics": {
-"accuracy": 0.9007,
-"auc": 0.8984,
-"log_loss": 0.2723
-},
-"usd": 0.0
-},
-"4c0026aecebb7928991cef98795014320d7f3865a164b6e9f67844b93acee08e": {
-"metrics": {
-"accuracy": 0.8652,
-"auc": 0.8262,
-"log_loss": 0.357
-},
-"usd": 0.0
-},
-"4da370362d663fb9380140455a0378e1695ac3540260191c7c94774483ea78d3": {
-"metrics": {
-"accuracy": 0.8652,
-"auc": 0.8357,
-"log_loss": 0.3247
-},
-"usd": 0.0
-},
-"54852b291a6c78bbc52feae2a9ac88a9d3a306dbb6ec03b9feecfdb4d4c772c2": {
-"metrics": {
-"accuracy": 0.8582,
-"auc": 0.8294,
-"log_loss": 0.3458
-},
-"usd": 0.0
-},
-"714524c0fc9cb54ab249fd1e32adb0b2f80988f23a4034534f97325a835ec74f": {
-"metrics": {
-"accuracy": 0.8652,
-"auc": 0.8139,
-"log_loss": 0.3471
-},
-"usd": 0.0
-},
-"918cf9a0732943b9d48002c3ab366f7cf1117880a2673e2c9742cfce9a07a2f5": {
-"metrics": {
-"accuracy": 0.766,
-"auc": 0.4526,
-"log_loss": 0.9527
-},
-"usd": 0.0
-},
-"b63db45a993e14f20d4820063f458a505401f416c7e153108d015b34e5b105c7": {
-"metrics": {
-"accuracy": 0.8511,
-"auc": 0.3681,
-"log_loss": 0.4209
-},
-"usd": 0.0
-},
-"c0778e132ca74be18848a942936167de0dc6ccbc120eea7fecc5516afea18c64": {
+"003b9576434dead2b40d7f757a822672c49e61dc0f6abc55f4e5b4d618aaf1cd": {
 "metrics": {
 "accuracy": 0.8511,
 "auc": 0.6113,
-"log_loss": 0.462
+"log_loss": 0.46,
+"log_loss_se": 0.07705
 },
 "usd": 0.0
 },
-"d70a46a8fd3e078b93d147ec0712abb4ac79805d22c226db6b05f7cec7d9f9bf": {
+"018b754b10930f9a6a8074240a7943a8cfeaca243aa94a31f5ac343bc2fb9ff3": {
 "metrics": {
-"accuracy": 0.8582,
-"auc": 0.8405,
-"log_loss": 0.3662
+"accuracy": 0.7234,
+"auc": 0.6762,
+"log_loss": 0.4857,
+"log_loss_se": 0.05524
 },
 "usd": 0.0
 },
-"e56ac165f8db7c9fd043e9d6eeb4df908c888bf5f97807181f45b27d5383ce08": {
+"07d9a8b3a20f8e3892f98c8b7535f0fa1b0b0bf735f092e072ce4f84990950e7": {
 "metrics": {
 "accuracy": 0.8511,
-"auc": 0.4599,
-"log_loss": 0.434
+"auc": 0.8893,
+"log_loss": 0.3457,
+"log_loss_se": 0.03836
 },
 "usd": 0.0
 },
-"ef2ca35e80b7a2ff5320c205ebc2e912f9dacebde1875a3190703ab6690c735b": {
-"metrics": {
-"accuracy": 0.8582,
-"auc": 0.8294,
-"log_loss": 0.3458
-},
-"usd": 0.0
-},
-"f31dc00538a9fa0525afc08804bdaebe5941d3c9107a94f697ef64c52abfc226": {
+"0a93a3a077e08669ee85d80312834b97f51d87f409ca92b00bd9fe3b9b6eb444": {
 "metrics": {
 "accuracy": 0.8652,
-"auc": 0.8262,
-"log_loss": 0.357
+"auc": 0.831,
+"log_loss": 0.3428,
+"log_loss_se": 0.03923
 },
 "usd": 0.0
 },
-"f938d02c7888c322de6a8f2f3ad64d193c87e12c985afc1d65ebcb7f03831183": {
-"metrics": {
-"accuracy": 0.8652,
-"auc": 0.8262,
-"log_loss": 0.357
-},
-"usd": 0.0
-},
-"fda17aae3b18b3e219685a6eeea050852a24d4f7cdab818a4cb4304b2f37f884": {
+"17c9981b5d6eebe581bde6e8b9f05e091b43b58d257ad8855e0ccc348bf9bdc3": {
 "metrics": {
 "accuracy": 0.8582,
-"auc": 0.8405,
-"log_loss": 0.3662
+"auc": 0.8131,
+"log_loss": 0.3575,
+"log_loss_se": 0.05089
+},
+"usd": 0.0
+},
+"1dfab8bd526f834a38b09961376f5bbc388d5cd8ca1205c6380699ee60ee3306": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.8881,
+"log_loss": 0.3458,
+"log_loss_se": 0.03849
+},
+"usd": 0.0
+},
+"2246b94157c51f6b86ba35035fa089e87ac1748396248e25bb86251da12db999": {
+"metrics": {
+"accuracy": 0.8156,
+"auc": 0.7726,
+"log_loss": 0.5669,
+"log_loss_se": 0.1685
+},
+"usd": 0.0
+},
+"297028244dcdc1ce6f2c8d32e72ab9091a11673f8dabddafe97923e50e1311c5": {
+"metrics": {
+"accuracy": 0.844,
+"auc": 0.8242,
+"log_loss": 0.3686,
+"log_loss_se": 0.0473
+},
+"usd": 0.0
+},
+"3760053669c6e62cf1c3b5dadcd66200b7eb52ed4a6c7ad1b6417fb96a687251": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.6113,
+"log_loss": 0.5183,
+"log_loss_se": 0.09312
+},
+"usd": 0.0
+},
+"3f0952382de6038beeb7fc5c3baba1da16bd30bfbb6cb22184329617155c7057": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.6113,
+"log_loss": 0.5183,
+"log_loss_se": 0.09312
+},
+"usd": 0.0
+},
+"49e8a5ae0f874e25a957579c422446c77626fd58d7c31b59aec47dc6a3fd1289": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8631,
+"log_loss": 0.3179,
+"log_loss_se": 0.04777
+},
+"usd": 0.0
+},
+"49e8a5ae0f874e25a957579c422446c77626fd58d7c31b59aec47dc6a3fd1289:explain": {
+"importance": {
+"inflation": 0.0018,
+"target": 1.0886,
+"target_change": -0.0089,
+"unemployment": 0.0196,
+"unemployment_change_3m": 0.0314,
+"yield_10y": 0.0342,
+"yield_2y": 0.6455,
+"yield_3m": 0.114
+},
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8631,
+"log_loss": 0.3179,
+"log_loss_se": 0.04777
+},
+"usd": 0.0
+},
+"4de48808817fd6bc7df5a584be869162a1f12c15e2556e7a25706555fb3e9c1d": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.4611,
+"log_loss": 0.4534,
+"log_loss_se": 0.07116
+},
+"usd": 0.0
+},
+"4f23c025a7330b0703dd531345fe5ef711bdaf378a7a2a8d631cb88fa8c187a1": {
+"metrics": {
+"accuracy": 0.8369,
+"auc": 0.48,
+"log_loss": 1.7499,
+"log_loss_se": 0.36632
+},
+"usd": 0.0
+},
+"55da8da60e55af46089e889bcfc1ccbb8109c3ffd6176befe51e6b79df82d217": {
+"metrics": {
+"accuracy": 0.844,
+"auc": 0.7579,
+"log_loss": 0.5094,
+"log_loss_se": 0.1407
+},
+"usd": 0.0
+},
+"5ee7b4f0dbe3309c279b8cacc4d44ead06a6d19ff4e07bb8d536d220a9691b7c": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.6113,
+"log_loss": 0.462,
+"log_loss_se": 0.07895
+},
+"usd": 0.0
+},
+"762f3097d5e4a2e6257860e0f21a21a08bbcb751cc6b1c4a3193260e9ed84b04": {
+"metrics": {
+"accuracy": 0.7234,
+"auc": 0.6762,
+"log_loss": 0.4857,
+"log_loss_se": 0.05524
+},
+"usd": 0.0
+},
+"894db4723aa782d9932f05c02ee9e965fdcb55e814527bb09b49906bea3c9629": {
+"metrics": {
+"accuracy": 0.7589,
+"auc": 0.6113,
+"log_loss": 0.6094,
+"log_loss_se": 0.10201
+},
+"usd": 0.0
+},
+"8b0e0ce402cf3dd688d981eb4ee626e022c87da38b6415e2ed5eab0594084a9b": {
+"metrics": {
+"accuracy": 0.844,
+"auc": 0.8361,
+"log_loss": 0.3695,
+"log_loss_se": 0.05953
+},
+"usd": 0.0
+},
+"9351c2447b7e56c1dc35b166e2c72e751947fe080810a24b5b625915df053966": {
+"metrics": {
+"accuracy": 0.8582,
+"auc": 0.8321,
+"log_loss": 0.3501,
+"log_loss_se": 0.05541
+},
+"usd": 0.0
+},
+"9ef4df96ef92db38b2024686d15cfa3300293c19e7e43c43db507350ae8cb3e2": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.4641,
+"log_loss": 1.6125,
+"log_loss_se": 0.35678
+},
+"usd": 0.0
+},
+"a0c1fb6caf292bc4b452cce34cd86814b61fbd492fe01810eb655c4e83d77ed6": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.5244,
+"log_loss": 0.4538,
+"log_loss_se": 0.06289
+},
+"usd": 0.0
+},
+"a11127c51a36508bf69a838b6705f68aabf29d6d1547daf60d078f03eb2f39b1": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.3681,
+"log_loss": 0.4214,
+"log_loss_se": 0.05596
+},
+"usd": 0.0
+},
+"a74c4d00d5070eb6e4ddbc3b5ae720811486cb054818b901a9be37b08f0bbbe6": {
+"metrics": {
+"accuracy": 0.844,
+"auc": 0.8361,
+"log_loss": 0.3695,
+"log_loss_se": 0.05953
+},
+"usd": 0.0
+},
+"aba4c577dfd6a9fa823766900e838e9452fd8519cbaa64c3e73519e002f5e5b0": {
+"metrics": {
+"accuracy": 0.7872,
+"auc": 0.5242,
+"log_loss": 0.9879,
+"log_loss_se": 0.20232
+},
+"usd": 0.0
+},
+"bcd0aa7620a6940d6b9488397d665bd4f9f84ad304726e0c160545f170b91f6b": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.5815,
+"log_loss": 0.4231,
+"log_loss_se": 0.06136
+},
+"usd": 0.0
+},
+"cee776694fde16bda85c3d919d2a8f03f6dccf74117dc0c87deb1c2ed767fbb5": {
+"metrics": {
+"accuracy": 0.7872,
+"auc": 0.5782,
+"log_loss": 1.0588,
+"log_loss_se": 0.268
+},
+"usd": 0.0
+},
+"dd89927ee5a3714b4f1d90a7a20bad86b699c10319338d7b266905e54554bfdc": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.8881,
+"log_loss": 0.3458,
+"log_loss_se": 0.03849
+},
+"usd": 0.0
+},
+"e419d4dc6070472e0ac819dc7717f5ebf32957beafe8d2517fbbfd3adb3f2007": {
+"metrics": {
+"accuracy": 0.7872,
+"auc": 0.5242,
+"log_loss": 0.9879,
+"log_loss_se": 0.20232
+},
+"usd": 0.0
+},
+"fabae55f5ace31e7af9c1c7e0c437316259fc69ed8b5ff2fb895a30d6b8cb5b5": {
+"metrics": {
+"accuracy": 0.7872,
+"auc": 0.5782,
+"log_loss": 1.0588,
+"log_loss_se": 0.268
 },
 "usd": 0.0
 }

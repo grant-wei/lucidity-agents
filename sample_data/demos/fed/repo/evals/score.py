@@ -24,6 +24,12 @@ sys.path.insert(0, str(ROOT))
 from fedkit import NAMES, features, load_months, make_model, split_of  # noqa: E402
 
 
+def std_err(xs):
+    """Standard error of the mean: std(xs, ddof=1) / sqrt(n). A rough "could be luck" range."""
+    m = sum(xs) / len(xs)
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1) / len(xs)) if len(xs) > 1 else 0.0
+
+
 def log_loss(model, X, y):
     p = [min(max(float(q), 1e-6), 1 - 1e-6) for q in model.predict_proba(X)[:, 1]]
     return -sum(math.log(q if t else 1 - q) for q, t in zip(p, y)) / len(y), p
@@ -76,8 +82,10 @@ def main():
     model.fit([X[i] for i in fit], [months[i]["hike_next"] for i in fit])
     yt = [months[i]["hike_next"] for i in test]
     ll, p = log_loss(model, [X[i] for i in test], yt)
+    losses = [-math.log(q if t else 1 - q) for q, t in zip(p, yt)]
     metrics = {
         "log_loss": round(ll, 4),
+        "log_loss_se": round(std_err(losses), 5),
         "auc": round(auc(p, yt), 4),
         "accuracy": round(sum((q > 0.5) == bool(t) for q, t in zip(p, yt)) / len(yt), 4),
     }

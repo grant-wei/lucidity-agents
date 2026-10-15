@@ -1,204 +1,296 @@
 {
-"013dc7e0a34ad143e83b8ece1497c7acf01e3041b4d1d0fba0a5b7be9666617c": {
+"0441bb3259452f2c18083dedd8e35a3e9c51707c7b19299b24a8cdae922bc8f9": {
+"metrics": {
+"accuracy": 0.6551,
+"brier": 0.2195,
+"log_loss": 0.6378,
+"log_loss_se": 0.01182
+},
+"usd": 0.0
+},
+"0e72d553812056eb138bd7e7d59f5dc4a4527ab81e350bb5440485710e66ac1f": {
+"metrics": {
+"accuracy": 0.6578,
+"brier": 0.2101,
+"log_loss": 0.6063,
+"log_loss_se": 0.00778
+},
+"usd": 0.0
+},
+"134121d2d73798d44307fee80bda986af2f21ceb2898892a6a73af3af3471862": {
 "metrics": {
 "accuracy": 0.6525,
-"brier": 0.2138,
-"log_loss": 0.6161
+"brier": 0.2165,
+"log_loss": 0.6234,
+"log_loss_se": 0.00729
 },
 "usd": 0.0
 },
-"07e442792562ec16dd974fee5d516e73e2ac62aeb90fbe69b08374fdeaf603ae": {
+"155d8c5cdc8705676cbdc79b6d770375869a6f2e337a02ed7001882c8c235e70": {
 "metrics": {
-"accuracy": 0.6582,
-"brier": 0.2119,
-"log_loss": 0.6111
+"accuracy": 0.6445,
+"brier": 0.2151,
+"log_loss": 0.6185,
+"log_loss_se": 0.00762
 },
 "usd": 0.0
 },
-"0e448647f6ada3730844fcabcf0d1161f7d9d8a9c9764b65241ea42eda129129": {
+"251d4086ab13dbb3925309690dd982249e003dbe7f3ca7d1ddcbde6b95f7a7d0": {
+"metrics": {
+"accuracy": 0.6445,
+"brier": 0.2151,
+"log_loss": 0.6185,
+"log_loss_se": 0.00762
+},
+"usd": 0.0
+},
+"2a6c7e084dce8ce2b478c5c8c57823f002a08454d6a6b9fae26b283bf98ff7bc": {
+"metrics": {
+"accuracy": 0.6608,
+"brier": 0.2115,
+"log_loss": 0.6102,
+"log_loss_se": 0.00778
+},
+"usd": 0.0
+},
+"384ac152e5e97831e398f03678c4b229fe3ebd13b251df0ee5bb19c7d96b9967": {
+"metrics": {
+"accuracy": 0.6547,
+"brier": 0.2147,
+"log_loss": 0.6181,
+"log_loss_se": 0.00699
+},
+"usd": 0.0
+},
+"3ca8f9ee8f5ac8beeb44dd3d6c7fda9461a074be69834bec3be93ebbcaac9925": {
+"metrics": {
+"accuracy": 0.6547,
+"brier": 0.2201,
+"log_loss": 0.6404,
+"log_loss_se": 0.01207
+},
+"usd": 0.0
+},
+"4ea4b4cc31b27033ebc701c0a1ff3460627845d675ef4d6ebc7a3ea41a49f755": {
+"metrics": {
+"accuracy": 0.6635,
+"brier": 0.2106,
+"log_loss": 0.6082,
+"log_loss_se": 0.00775
+},
+"usd": 0.0
+},
+"5281e72abcc98952c6882757948c3d73ab1dacb5476bd3907b9d6bd7f71c5972": {
 "metrics": {
 "accuracy": 0.6627,
-"brier": 0.2103,
-"log_loss": 0.6074
+"brier": 0.2117,
+"log_loss": 0.6108,
+"log_loss_se": 0.00773
 },
 "usd": 0.0
 },
-"0e448647f6ada3730844fcabcf0d1161f7d9d8a9c9764b65241ea42eda129129:explain": {
+"5415a78e74638ae07d20e52cb1d488f8ba400b9fe6f4949c1bca0044734c39e0": {
+"metrics": {
+"accuracy": 0.6681,
+"brier": 0.2088,
+"log_loss": 0.6039,
+"log_loss_se": 0.00787
+},
+"usd": 0.0
+},
+"5a3a1faf6e7ba3054b119d5607ddbdd185415d56c94c163d67b435439c47dbb6": {
+"metrics": {
+"accuracy": 0.6517,
+"brier": 0.2133,
+"log_loss": 0.614,
+"log_loss_se": 0.00725
+},
+"usd": 0.0
+},
+"69ae8f66a0b263721df5fca056008e86a4566d4fdbd8f1aa601b5573e7fae98a": {
+"metrics": {
+"accuracy": 0.6631,
+"brier": 0.2115,
+"log_loss": 0.6103,
+"log_loss_se": 0.00779
+},
+"usd": 0.0
+},
+"73a2c732b833d71b0ea7091b3be755c3b64df927147dfd698c624f956b4f68c1": {
+"metrics": {
+"accuracy": 0.6365,
+"brier": 0.2228,
+"log_loss": 0.6364,
+"log_loss_se": 0.00505
+},
+"usd": 0.0
+},
+"8692badb19160f13b0584fc52d4e227b6e3e752d9956de69fbc4e25f8ef11176": {
+"metrics": {
+"accuracy": 0.6635,
+"brier": 0.2184,
+"log_loss": 0.6278,
+"log_loss_se": 0.0071
+},
+"usd": 0.0
+},
+"8ae3337e7e172147b966f843a3d7dd1a0528f16f7d9fd704540991f26c8018ae": {
+"metrics": {
+"accuracy": 0.6597,
+"brier": 0.2191,
+"log_loss": 0.6284,
+"log_loss_se": 0.00547
+},
+"usd": 0.0
+},
+"8c23e3dce49afebe12b635c7df0a6d0e74d09c9e939108a0c6d004f9cf382dea": {
+"metrics": {
+"accuracy": 0.6521,
+"brier": 0.2166,
+"log_loss": 0.623,
+"log_loss_se": 0.00691
+},
+"usd": 0.0
+},
+"955078c4d42757e449d117199531489e52604b1da54a6cf50e0a15664bbb3921": {
+"metrics": {
+"accuracy": 0.6627,
+"brier": 0.2166,
+"log_loss": 0.6239,
+"log_loss_se": 0.00721
+},
+"usd": 0.0
+},
+"96035ae7377cad5b16d84b01195f5d10200f9954822cd5b74c269e652b7fb0a5": {
+"metrics": {
+"accuracy": 0.6627,
+"brier": 0.2184,
+"log_loss": 0.6278,
+"log_loss_se": 0.00708
+},
+"usd": 0.0
+},
+"9839996efb9421597d3945b3bb812fc98bd9ddd93c126900ed87d73724047c49": {
+"metrics": {
+"accuracy": 0.6506,
+"brier": 0.2127,
+"log_loss": 0.6131,
+"log_loss_se": 0.00776
+},
+"usd": 0.0
+},
+"98c4374be83dd13beaa05e957bdfac8bc3b70c6be3ca0dd6aa3206a6babe9c36": {
+"metrics": {
+"accuracy": 0.6677,
+"brier": 0.2086,
+"log_loss": 0.6035,
+"log_loss_se": 0.00794
+},
+"usd": 0.0
+},
+"98c4374be83dd13beaa05e957bdfac8bc3b70c6be3ca0dd6aa3206a6babe9c36:explain": {
 "importance": {
-"away_elo": 0.0465,
-"away_win_pct": 0.0024,
-"home_elo": 0.0789,
-"home_win_pct": 0.0037
+"away_net_rating": 0.0202,
+"away_win_pct": 0.0003,
+"elo_diff": 0.0448,
+"home_net_rating": 0.0468,
+"home_win_pct": -0.0005
 },
 "metrics": {
-"accuracy": 0.6627,
-"brier": 0.2103,
-"log_loss": 0.6074
+"accuracy": 0.6677,
+"brier": 0.2086,
+"log_loss": 0.6035,
+"log_loss_se": 0.00794
 },
 "usd": 0.0
 },
-"1a8b757b27e67583855c1f47f4ff40d1558a86b6a4541c1a62e9d863eb67bfc3": {
+"9e1062dd7ce0979ccc7b2562db7643cac9cb40dead7b513fb65278fba8e9c7c5": {
 "metrics": {
-"accuracy": 0.6578,
-"brier": 0.2118,
-"log_loss": 0.6108
+"accuracy": 0.6604,
+"brier": 0.2115,
+"log_loss": 0.6102,
+"log_loss_se": 0.00779
 },
 "usd": 0.0
 },
-"2a26626d9c16ecefd90c337a83d98c88a587e2dd1c2608fedd0e52f9fd935e10": {
+"b4bd54caaae2e582600e298602a9c83de78f958990911a974f182708f4e0ebe0": {
 "metrics": {
-"accuracy": 0.6578,
-"brier": 0.211,
-"log_loss": 0.6095
+"accuracy": 0.6566,
+"brier": 0.2108,
+"log_loss": 0.6094,
+"log_loss_se": 0.0081
 },
 "usd": 0.0
 },
-"3c6faf95245de462233f9907fcb6326b6dafed8501947b8f37f3d2c88dcaf314": {
+"b6840999a6c03620310fc9e1f6bb68ac87360945befdb4807e0bebd721821b06": {
 "metrics": {
-"accuracy": 0.6578,
-"brier": 0.211,
-"log_loss": 0.6095
+"accuracy": 0.654,
+"brier": 0.2174,
+"log_loss": 0.631,
+"log_loss_se": 0.00822
 },
 "usd": 0.0
 },
-"3f2870c335c5bb18a88c4e534ff6b0058cbb4decf1c30435fa7d9160ad367a19": {
+"bb40fa6cb37884fed7642764e5280bab60223af5c69ab78c7a2b6e41d0782872": {
 "metrics": {
-"accuracy": 0.5778,
-"brier": 0.2442,
-"log_loss": 0.6814
-},
-"usd": 0.0
-},
-"655f5f4478139dafab47077d7f1deaa9ffbe855b057d3f0569777d2ac219304c": {
-"metrics": {
-"accuracy": 0.6574,
-"brier": 0.2119,
-"log_loss": 0.6113
-},
-"usd": 0.0
-},
-"6892589935390ca3c1ebf1d324c1340e3104b9a77e5ce4489a8279732c57f2e7": {
-"metrics": {
-"accuracy": 0.6684,
-"brier": 0.2093,
-"log_loss": 0.6052
-},
-"usd": 0.0
-},
-"6f91d96ec701b117d4d78fb6815a3defea11168b0d412a4ae9c730b7ca49e2b2": {
-"metrics": {
-"accuracy": 0.6525,
-"brier": 0.2165,
-"log_loss": 0.6234
-},
-"usd": 0.0
-},
-"725eb5bf7cfe92056486d3bd755398f064475ffc39277cba84f73be4d026e23e": {
-"metrics": {
-"accuracy": 0.6525,
-"brier": 0.2165,
-"log_loss": 0.6234
-},
-"usd": 0.0
-},
-"88187d5567f420de9dfb551ffe3325cb1a486dee518dfac289d4a5bf86f62940": {
-"metrics": {
-"accuracy": 0.6627,
-"brier": 0.2103,
-"log_loss": 0.6074
-},
-"usd": 0.0
-},
-"90e9c176fb14a98820909d562a3789519d5351537cc8462124011563641def2f": {
-"metrics": {
-"accuracy": 0.6574,
-"brier": 0.2118,
-"log_loss": 0.6108
-},
-"usd": 0.0
-},
-"99bf13e9b9c81651a893fd5ef2745afff0ac35b64cd24d611e22360e1b1d957a": {
-"metrics": {
-"accuracy": 0.6525,
-"brier": 0.2154,
-"log_loss": 0.6199
-},
-"usd": 0.0
-},
-"9ef7d041c64858b3404bf45978a8a2d9434530c241817c71ef56829269af8689": {
-"metrics": {
-"accuracy": 0.6646,
-"brier": 0.217,
-"log_loss": 0.625
-},
-"usd": 0.0
-},
-"befba83d32a5b8da87c6463d9fab22959f4b8423328835b2336f8a69347ee830": {
-"metrics": {
-"accuracy": 0.6528,
+"accuracy": 0.641,
 "brier": 0.2163,
-"log_loss": 0.6231
+"log_loss": 0.6208,
+"log_loss_se": 0.00787
 },
 "usd": 0.0
 },
-"c239cdb0120d94a54476a2e2302cb6f6cd719b09a52081fb6f606e4c1ff5b888": {
+"c2a0f73810e04b2534b688e83d62188900ebec0fcfdd8476a171e6d996dc15f5": {
 "metrics": {
-"accuracy": 0.6464,
-"brier": 0.216,
-"log_loss": 0.6209
+"accuracy": 0.6608,
+"brier": 0.2115,
+"log_loss": 0.6102,
+"log_loss_se": 0.00778
 },
 "usd": 0.0
 },
-"c87134e3f3d78a03e76d253704a04eccb16991ff2acfb8f3762d24271cdf722b": {
+"c9a4b2019c2a7299db3599f77cdedd2455a8f2f753eecca5ccbc94118c3dab22": {
 "metrics": {
-"accuracy": 0.6475,
-"brier": 0.2207,
-"log_loss": 0.6325
+"accuracy": 0.6517,
+"brier": 0.2133,
+"log_loss": 0.614,
+"log_loss_se": 0.00725
 },
 "usd": 0.0
 },
-"c8a72612a684bcb8870ff6a22f6d995ca6c6569dd77d85ff68fb233885b39228": {
+"ca381e19993239ce02f5c21615f31aa7d95784fed5ea0b9af36380356f1146c6": {
 "metrics": {
-"accuracy": 0.6513,
-"brier": 0.2142,
-"log_loss": 0.6171
+"accuracy": 0.6517,
+"brier": 0.2133,
+"log_loss": 0.614,
+"log_loss_se": 0.00725
 },
 "usd": 0.0
 },
-"cd28b6e103b69a30c1318b1ba173c65cb0c61cb03cef1bd97550c10ee0a8e0f9": {
+"cd90877dc05440b7fc7f545e51c37af3d7c4bd0b0e738c84ea97f989d22628d3": {
 "metrics": {
-"accuracy": 0.646,
-"brier": 0.216,
-"log_loss": 0.621
+"accuracy": 0.6414,
+"brier": 0.2188,
+"log_loss": 0.6278,
+"log_loss_se": 0.00751
 },
 "usd": 0.0
 },
-"e8576b701098293f9123fc1d23ac7853a3674288a8aefb3bda352eae8b77654d": {
+"d03acc4f61fb565987146d034f681c43f0f42a0bac0718bef6b13f4b8084831d": {
 "metrics": {
-"accuracy": 0.6285,
-"brier": 0.228,
-"log_loss": 0.6495
+"accuracy": 0.6525,
+"brier": 0.2165,
+"log_loss": 0.6234,
+"log_loss_se": 0.00729
 },
 "usd": 0.0
 },
-"efa1e66238e6d9fda7f53d41524fa36b7dab3c379159b1cc85778cc831293abf": {
+"e12de017f3e459831c9b33356f336eef4568b644ba28a8b84ce24ae501cf48b0": {
 "metrics": {
-"accuracy": 0.6684,
-"brier": 0.2093,
-"log_loss": 0.6052
-},
-"usd": 0.0
-},
-"efa1e66238e6d9fda7f53d41524fa36b7dab3c379159b1cc85778cc831293abf:explain": {
-"importance": {
-"away_win_pct": 0.0008,
-"elo_difference": 0.1218,
-"home_win_pct": 0.0074
-},
-"metrics": {
-"accuracy": 0.6684,
-"brier": 0.2093,
-"log_loss": 0.6052
+"accuracy": 0.6254,
+"brier": 0.2265,
+"log_loss": 0.6443,
+"log_loss_se": 0.00462
 },
 "usd": 0.0
 }

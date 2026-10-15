@@ -1,161 +1,235 @@
 {
-"048daa5782f0f8bd3d1b186b7e19f6666349ecb32f30bdbde4a6891179d9fbf6": {
+"01ece2c39fe3157158c78343d5da4645c51c23e94f36f962038972d4f7fe6fe8": {
 "metrics": {
-"accuracy": 0.5137,
-"log_loss": 0.6931,
-"spread_pct": 0.633
+"accuracy": 0.5111,
+"log_loss": 0.6933,
+"log_loss_se": 0.00067,
+"spread_pct": 0.646
 },
 "usd": 0.0
 },
-"1c95ba3ece92f5a6367602418c31575384afed975e334b220643d48e29266d63": {
-"metrics": {
-"accuracy": 0.5048,
-"log_loss": 0.6931,
-"spread_pct": 0.244
-},
-"usd": 0.0
-},
-"26233f445e636a1c5ae6c6e68f1f9c78215e7719238da56e38909714506aed38": {
-"metrics": {
-"accuracy": 0.5136,
-"log_loss": 0.6928,
-"spread_pct": 0.563
-},
-"usd": 0.0
-},
-"3312a8b995779a0509778261abc942c4b1592eccf7f99d2ce21c3e7f8bb1792a": {
-"metrics": {
-"accuracy": 0.5091,
-"log_loss": 0.6931,
-"spread_pct": 0.648
-},
-"usd": 0.0
-},
-"3c73741ec8547cef7163ea0692ecefdee03a977d42a9a15dead4393178166a83": {
-"metrics": {
-"accuracy": 0.5044,
-"log_loss": 0.6931,
-"spread_pct": 0.244
-},
-"usd": 0.0
-},
-"4f215b40ae1d2727297bdcb6a8677a6e4ca2925329564f8c7d0127a97434bb80": {
-"metrics": {
-"accuracy": 0.5137,
-"log_loss": 0.6931,
-"spread_pct": 0.633
-},
-"usd": 0.0
-},
-"52169f56e8de9760316889bc5fa7f1ade81ed8aceb9466d0f7655732cfba05fc": {
-"metrics": {
-"accuracy": 0.5094,
-"log_loss": 0.6983,
-"spread_pct": 0.561
-},
-"usd": 0.0
-},
-"5c07833cb623a7194bcaabb48efc7d4b2e9340f5e2141c0a6987816eef35f0f4": {
-"metrics": {
-"accuracy": 0.5134,
-"log_loss": 0.6931,
-"spread_pct": 0.478
-},
-"usd": 0.0
-},
-"5d1a915456e71d5bcd0f2f5d5ed11d5bd1948717bfb8d932674b4033b2c3a934": {
-"metrics": {
-"accuracy": 0.5136,
-"log_loss": 0.6932,
-"spread_pct": 0.199
-},
-"usd": 0.0
-},
-"6ad2bcd65c16f5d964ef304934c119b37d672f5abb20a682288c3026f4ec94a5": {
-"metrics": {
-"accuracy": 0.5067,
-"log_loss": 0.6934,
-"spread_pct": 0.557
-},
-"usd": 0.0
-},
-"78efa9a17cbd6635ce2f4aec6e307b7523e8f55deb81e17ae343b3bf2f4e5aab": {
-"metrics": {
-"accuracy": 0.5114,
-"log_loss": 0.6934,
-"spread_pct": 0.641
-},
-"usd": 0.0
-},
-"94588f94d3c97c851eb14cbbc896cf811b5f69a1351f6b531d9644f719031f06": {
-"metrics": {
-"accuracy": 0.5137,
-"log_loss": 0.6931,
-"spread_pct": 0.633
-},
-"usd": 0.0
-},
-"afd122e8a69fdb2f995b4671a24420a2aa0f605a821816de4a9621db2c6dd9d4": {
-"metrics": {
-"accuracy": 0.5048,
-"log_loss": 0.6943,
-"spread_pct": 0.244
-},
-"usd": 0.0
-},
-"b2d426df8074c606a0740620872e267a5445e6ba3ac72b42182e507ae1dce996": {
-"metrics": {
-"accuracy": 0.5143,
-"log_loss": 0.6929,
-"spread_pct": 0.6
-},
-"usd": 0.0
-},
-"b5e84e5f5dc7a76cbaac556a01c5a0512bddadd7e6548b2843548eeeed45cc44": {
+"03e276f45e623fb58ede6a429ebc10bfb1174e1e8d6d0b2753721066aa656aa3": {
 "metrics": {
 "accuracy": 0.5148,
 "log_loss": 0.6929,
-"spread_pct": 0.604
+"log_loss_se": 0.00063,
+"spread_pct": 0.011
 },
 "usd": 0.0
 },
-"bfbf3264461bf7afc55d989f66c77fb16e3397d0738899eaf64acc83045d9a2f": {
+"08a33f5d40bd34ed0ee6d66a87cb8fc8e922b66be62e198638bfe440d7bfb0f4": {
 "metrics": {
 "accuracy": 0.5136,
 "log_loss": 0.6933,
+"log_loss_se": 0.00062,
+"spread_pct": 0.76
+},
+"usd": 0.0
+},
+"14dd2de09286b45c900f0d057196ead95329165defde6f86857f93a4cc46e478": {
+"metrics": {
+"accuracy": 0.5152,
+"log_loss": 0.6932,
+"log_loss_se": 0.00048,
+"spread_pct": 0.685
+},
+"usd": 0.0
+},
+"1c9136b2a289b4c003220debdfcdcc9f03de7269db2d3e1663c5f37d46c4f462": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00062,
+"spread_pct": 0.76
+},
+"usd": 0.0
+},
+"3adf84b7f3a353712aee436e63343c57f12cd557abbb2954323cf0c6cc9d0adb": {
+"metrics": {
+"accuracy": 0.5123,
+"log_loss": 0.6943,
+"log_loss_se": 0.00114,
+"spread_pct": 0.45
+},
+"usd": 0.0
+},
+"3dc37d6fb0b0baa5428b21ac5b5f10a8d1afd12f61579afd4f5545cfdca7c9ad": {
+"metrics": {
+"accuracy": 0.5096,
+"log_loss": 0.693,
+"log_loss_se": 0.00023,
+"spread_pct": 0.521
+},
+"usd": 0.0
+},
+"43a73a47af45ff1fef724a71135c88479f4c3cdae1993885a9f26fe9716295b5": {
+"metrics": {
+"accuracy": 0.5141,
+"log_loss": 0.6931,
+"log_loss_se": 0.00044,
+"spread_pct": 0.72
+},
+"usd": 0.0
+},
+"4502491010aa830331907a7d5a072ca83c30e9e1b04233aca99f24d6ab6b9401": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00061,
+"spread_pct": 0.689
+},
+"usd": 0.0
+},
+"5d0f3241778e2967458d15c04062f9e723b58eb2f1e4bc39379527e7097710df": {
+"metrics": {
+"accuracy": 0.5139,
+"log_loss": 0.6931,
+"log_loss_se": 0.00042,
+"spread_pct": 0.775
+},
+"usd": 0.0
+},
+"712874904663368c27bec81ae0c8dc572d6fb692be511381c54305dc41ae9a13": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00062,
 "spread_pct": 0.762
 },
 "usd": 0.0
 },
-"d4d26e7220b23da37f0c0e69df20d8d456ca54398381f1f2e3ef7563b3ec079d": {
+"79c3f51b85271ef84afbdcf89e14f827a8a71981dc4e9684399c91266a7109c2": {
+"metrics": {
+"accuracy": 0.5128,
+"log_loss": 0.6929,
+"log_loss_se": 0.0007,
+"spread_pct": 0.043
+},
+"usd": 0.0
+},
+"7a5dd60142545eb586c94f50e701b92b9212bfe2c0e01f4bf8f96a7141c668e0": {
+"metrics": {
+"accuracy": 0.5111,
+"log_loss": 0.6929,
+"log_loss_se": 0.00052,
+"spread_pct": 0.662
+},
+"usd": 0.0
+},
+"9663824cd2ea0060380469dbe23b5905cc01245724221c62bc42357e983d6453": {
+"metrics": {
+"accuracy": 0.5128,
+"log_loss": 0.6929,
+"log_loss_se": 0.0007,
+"spread_pct": 0.043
+},
+"usd": 0.0
+},
+"98857897919d3deeaa94260481d38338c197cd93be37778b2063dd16234e5cb2": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00062,
+"spread_pct": 0.76
+},
+"usd": 0.0
+},
+"9c2a406e43061f01dff222759086b19a6d66beb93b23f41a4fd36129b1fde273": {
+"metrics": {
+"accuracy": 0.5132,
+"log_loss": 0.6933,
+"log_loss_se": 0.00061,
+"spread_pct": 0.775
+},
+"usd": 0.0
+},
+"9dd33f4d4089ef702377ed82b8917e91f245b6130b40e2274700d0883643f0eb": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00062,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"a4b9720d0182d0961598c4ada16926b5f0d2fb2aede4dce6c3d62a6a3a97b118": {
+"metrics": {
+"accuracy": 0.5123,
+"log_loss": 0.6943,
+"log_loss_se": 0.00114,
+"spread_pct": 0.45
+},
+"usd": 0.0
+},
+"b1095f695c1da471bf86021d931f6a5a05f023a7e9d4bce132ffa112ad2a3440": {
+"metrics": {
+"accuracy": 0.5155,
+"log_loss": 0.6932,
+"log_loss_se": 0.00066,
+"spread_pct": 0.753
+},
+"usd": 0.0
+},
+"b1f0df4a275ba71d4a6a6bce2150134916b8c9f59503c6905fe2da4542601fde": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00062,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"bcce741d68a134c41f51f1c5863c22af7746de69c2d647d901fc2bd7a0f74b95": {
+"metrics": {
+"accuracy": 0.5161,
+"log_loss": 0.6928,
+"log_loss_se": 0.00057,
+"spread_pct": 0.582
+},
+"usd": 0.0
+},
+"c2c00e20f0e7448bff401f2e2285652fda3891b7f9c81ece78d367a8fabff003": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00061,
+"spread_pct": 0.689
+},
+"usd": 0.0
+},
+"d49e0368a28005995d92501f7f6d6c4c5f2e2be5b6196b99f629810c8513b605": {
+"metrics": {
+"accuracy": 0.5111,
+"log_loss": 0.6929,
+"log_loss_se": 0.00026,
+"spread_pct": 0.522
+},
+"usd": 0.0
+},
+"dcfd1bd08235630d2c3038b243b104a32656491150f8ba6ad816620ecb2469a6": {
 "metrics": {
 "accuracy": 0.5127,
 "log_loss": 0.6929,
-"spread_pct": 0.664
+"log_loss_se": 0.00061,
+"spread_pct": 0.668
 },
 "usd": 0.0
 },
-"e6d70e05d3c1daa0d00276e653d85a0fd16cdf3335e7d7193056b31707a60f82": {
+"e0a30b7432dcacb0ee09d00efb510c879174cee5d8b33896f5a7c02a76de7051": {
 "metrics": {
-"accuracy": 0.5096,
-"log_loss": 0.6932,
-"spread_pct": -0.115
+"accuracy": 0.5114,
+"log_loss": 0.6929,
+"log_loss_se": 0.00027,
+"spread_pct": 0.59
 },
 "usd": 0.0
 },
-"ead065d928e613c1dfd0f84b8a51c0b335c90d65e3c4d42492e4ee77dd8c06b2": {
+"fcdb6a74b6fddfca15f21ddc500558d9e36d57c6f7b2b2d6e22410941f90c94f": {
 "metrics": {
-"accuracy": 0.5053,
-"log_loss": 0.6943,
-"spread_pct": 0.495
-},
-"usd": 0.0
-},
-"ef9216473c9d0b837bbbb5dea1cdb35f2ee1c3b6bbb18a6ad46ef28e53ef403a": {
-"metrics": {
-"accuracy": 0.5073,
-"log_loss": 0.6931,
-"spread_pct": 0.377
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"log_loss_se": 0.00061,
+"spread_pct": 0.689
 },
 "usd": 0.0
 }

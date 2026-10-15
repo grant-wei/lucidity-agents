@@ -1,12 +1,9 @@
-"""Scaled probabilistic support-vector machine for home-win predictions."""
+"""The model: anything scikit-learn-shaped with fit() and predict_proba()."""
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    # A smooth RBF boundary uses the Elo matchup signal alongside current-season form.
-    return make_pipeline(
-        StandardScaler(),
-        SVC(kernel="rbf", C=1.0, gamma="scale", probability=True, random_state=0),
-    )
+    # Scaling makes regularization comparable across the rating and percentage inputs.
+    return make_pipeline(StandardScaler(), LogisticRegression(C=0.3, max_iter=500))

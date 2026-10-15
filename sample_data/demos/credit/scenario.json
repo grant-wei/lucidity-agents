@@ -1,8 +1,39 @@
 {
- "about": "A demo run, replayed from a live gpt-6-luna run (1014-173225-96b1) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out customers; only Lucidity scored them. Data is UCI's \"Default of Credit Card Clients\" (CC BY 4.0).",
+ "about": "A demo run, replayed from a live gpt-6-luna run (1015-141455-11ba) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all ten model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out customers; only Lucidity scored them. Data is UCI's \"Default of Credit Card Clients\" (CC BY 4.0).",
  "title": "Credit default",
- "card": {"ask": "Which card customers miss next month's payment? Without using sex, age or marital status.", "stats": [["Starts at", "0.472"], ["Goal", "0.4657"], ["Plain regression", "0.467"]], "parts": [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]], "why": "Ordinary logistic regression on all 20 allowed columns, no tuning. It's the best answer here without agents."},
- "blurb": "A model predicts which of 30,000 credit-card customers miss next month's payment, from six months of account history, without using sex, age or marital status. The repo scores 0.472 log loss and plain regression on all 20 allowed columns scores 0.467, so the goal is 0.4657. Six kinds of model are tried at once, one agent each, tuning on dev customers. Lucidity scores every attempt on held-out customers the agents never see, and recommends the best.",
+ "card": {
+  "ask": "Which card customers miss next month's payment? Without using sex, age or marital status.",
+  "stats": [
+   [
+    "Starts at",
+    "0.472"
+   ],
+   [
+    "Goal",
+    "0.4657"
+   ],
+   [
+    "Plain regression",
+    "0.467"
+   ]
+  ],
+  "parts": [
+   [
+    "Train",
+    "60%"
+   ],
+   [
+    "Tune",
+    "20%"
+   ],
+   [
+    "Test",
+    "20%"
+   ]
+  ],
+  "why": "Ordinary logistic regression on all 20 allowed columns, no tuning. It's the best answer here without agents."
+ },
+ "blurb": "A model predicts which of 30,000 credit-card customers miss next month's payment, from six months of account history, without using sex, age or marital status. The repo scores 0.472 log loss and plain regression on all 20 allowed columns scores 0.467, so the goal is 0.4657. Ten kinds of model are tried at once, one agent each, tuning on dev customers. Lucidity scores every attempt on held-out customers the agents never see, and recommends the best.",
  "split": "Customers are split by ID: 60% to train, 20% to tune, 20% to test. Agents never see the test customers; only Lucidity scores them.",
  "references": [
   {
@@ -26,55 +57,23 @@
  "repo_name": "creditkit",
  "about_repo": "bundled credit-default model: 30,000 card customers, logistic regression, evals/score.py",
  "commit_message": "creditkit: credit limit + last month status, logistic regression, 30,000 card customers, evals/score.py",
- "goal": "Get held-out log loss to 0.4657 or lower (plain logistic regression on all 20 allowed columns scores 0.4666; the repo scores 0.472) for predicting which credit-card customers miss next month's payment, without AUC dropping. Tune on the dev split. The fair-lending tests must keep passing. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
- "budget_usd": 2.0,
+ "goal": "Get held-out log loss to 0.4657 or lower (plain logistic regression on all 20 allowed columns scores 0.4666; the repo scores 0.472) for predicting which credit-card customers miss next month's payment, without AUC dropping. Tune on the dev split. The fair-lending tests must keep passing. Ask the owner which model families to try (plain linear regression with predictions clipped to 1-99%, plain logistic regression, naive Bayes, lasso logistic regression, ridge logistic regression, kNN, SVM, a single decision tree, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "budget_usd": 3.5,
  "planner": {
-  "seconds": 0.5,
-  "usd": 0.000677,
+  "seconds": 0.6,
+  "usd": 0.000501,
   "activity": [
    "reading creditkit (gpt-6-luna)"
   ]
  },
  "plan": {
-  "summary": "Owner input is needed to select model families. Once selected, implement each family independently in parallel, then evaluate the combined candidates on dev and retain the best model that meets the held-out log-loss target without AUC regression, while preserving fair-lending tests.",
+  "summary": "Explore the ten requested model families in parallel on the dev split, using only permitted features. Retain the best validated candidate and verify held-out log loss, AUC, and fair-lending tests.",
   "nodes": [
    {
-    "id": "features",
-    "title": "Expand permitted customer-history features",
-    "prompt": "Extend the allowed feature representation to use useful bill, payment, and repayment-trend information across the six months, without incorporating sex, marital status, age, or proxies that violate the existing feature restrictions. Keep feature ordering/names consistent with the model interface and add or adjust tests as needed.",
-    "deps": [],
-    "done_when": [
-     {
-      "kind": "test",
-      "command": "python -m pytest -q",
-      "path": "",
-      "text": "",
-      "metric": "",
-      "op": ">=",
-      "value": 0.0
-     },
-     {
-      "kind": "no_regression",
-      "command": "python evals/score.py --split heldout",
-      "path": "",
-      "text": "",
-      "metric": "*.auc",
-      "op": ">=",
-      "value": 0.01
-     }
-    ],
-    "budget_usd": 0.25,
-    "max_rounds": 4,
-    "attempts": 1,
-    "strategies": []
-   },
-   {
     "id": "models",
-    "title": "Implement and compare selected model families",
-    "prompt": "Implement the model families selected by the owner as independent candidate models in parallel. Use permitted inputs only; tune model hyperparameters using the dev split, selecting by dev log loss. Preserve the existing fit/predict_proba interface and avoid changing evaluation or split logic. The selected final candidate must meet held-out log loss <= 0.4657 and must not reduce held-out AUC by more than 0.01 versus the starting repository.",
-    "deps": [
-     "features"
-    ],
+    "title": "Compare selected model families on dev",
+    "prompt": "For each family selected by the owner, implement and evaluate an independent candidate using only permitted, non-sensitive features. Tune exclusively on the dev split via `python evals/score.py --split dev`, preserving fair-lending compliance; report the candidate's dev metrics and implementation. Agents should work in isolated candidate files/branches so the final selection can be merged cleanly.",
+    "deps": [],
     "done_when": [
      {
       "kind": "metric",
@@ -92,7 +91,7 @@
       "text": "",
       "metric": "auc",
       "op": ">=",
-      "value": 0.01
+      "value": 0.0
      },
      {
       "kind": "test",
@@ -104,22 +103,26 @@
       "value": 0.0
      }
     ],
-    "budget_usd": 1.25,
+    "budget_usd": 3.0,
     "max_rounds": 4,
-    "attempts": 6,
+    "attempts": 10,
     "strategies": [
-     "kNN. Build a scaled k-nearest-neighbors classifier and tune neighborhood size and weighting on dev log loss.",
-     "SVM. Build a scaled SVM classifier with probability estimates; tune kernel regularization and kernel parameters on dev.",
-     "Lasso logistic regression. Build scaled logistic regression with L1 regularization; tune regularization strength on dev log loss.",
-     "Ridge logistic regression. Build scaled logistic regression with L2 regularization; tune regularization strength on dev log loss.",
-     "Random forest. Build a random forest classifier and tune tree count, depth, leaf size, and feature sampling using dev log loss.",
-     "Boosted trees. Build a boosted-tree classifier and tune its depth/leaf complexity, learning rate, and number of estimators on dev log loss."
+     "Plain linear regression (clipped 1–99%). Implement ordinary linear regression on permitted features with predictions clipped to [0.01, 0.99]; tune using dev log loss.",
+     "Plain logistic regression. Implement logistic regression using permitted features; tune regularization and scaling on dev, preserving any existing baseline for comparison.",
+     "Naive Bayes. Implement an appropriate Naive Bayes classifier on permitted features; choose preprocessing and variants using dev log loss.",
+     "Lasso logistic regression. Implement L1-regularized logistic regression; tune regularization and solver on dev log loss.",
+     "Ridge logistic regression. Implement L2-regularized logistic regression; tune regularization and preprocessing on dev log loss.",
+     "kNN. Implement k-nearest neighbors with appropriate feature scaling and probability estimates; tune neighborhood parameters on dev.",
+     "SVM. Implement an SVM classifier with probability outputs or calibration; scale permitted features and tune on dev log loss.",
+     "Single decision tree. Implement a single decision tree; tune depth and leaf constraints against dev log loss.",
+     "Random forest. Implement a random forest; tune tree count and regularization parameters on dev log loss.",
+     "Boosted trees. Implement a boosted-tree classifier available in the repository environment; tune tree complexity, learning rate, and regularization on dev log loss."
     ]
    },
    {
-    "id": "integrate",
-    "title": "Select and lock the best candidate",
-    "prompt": "After candidate implementations are available, compare them on dev split, select the lowest-dev-log-loss candidate, and ensure the final model configuration is the one used by the standard model interface. Run held-out evaluation only for final verification; do not tune against held-out outcomes.",
+    "id": "select",
+    "title": "Integrate best candidate and validate",
+    "prompt": "After candidate work completes, compare candidates by dev log loss, select and integrate the best one without using held-out results for tuning. Ensure the final implementation uses only allowed columns and produces probabilities; run fair-lending tests and held-out evaluation as final verification.",
     "deps": [
      "models"
     ],
@@ -140,7 +143,7 @@
       "text": "",
       "metric": "auc",
       "op": ">=",
-      "value": 0.01
+      "value": 0.0
      },
      {
       "kind": "test",
@@ -153,7 +156,7 @@
      }
     ],
     "budget_usd": 0.5,
-    "max_rounds": 4,
+    "max_rounds": 2,
     "attempts": 1,
     "strategies": []
    }
@@ -161,44 +164,68 @@
   "questions": [
    {
     "id": "families",
-    "question": "Which model families should agents build and compare? Select one or more. Each will be implemented independently against the allowed features and tuned on dev.",
+    "question": "Which model families should agents try? Select all that apply; each selected family will be explored independently.",
     "multi": true,
     "options": [
      {
-      "label": "kNN",
-      "note": "Can capture local nonlinear patterns; requires careful feature scaling.",
+      "label": "Plain linear regression (clipped 1–99%)",
+      "note": "Tests a simple continuous-response baseline with probabilities clipped to valid, stable bounds.",
       "recommended": false,
-      "approach": "Build a scaled k-nearest-neighbors classifier and tune neighborhood size and weighting on dev log loss."
+      "approach": "Implement ordinary linear regression on permitted features with predictions clipped to [0.01, 0.99]; tune using dev log loss."
      },
      {
-      "label": "SVM",
-      "note": "RBF SVM can model nonlinearities but may need probability calibration and careful scaling.",
+      "label": "Plain logistic regression",
+      "note": "Recommended: the known 20-column logistic baseline is already close to the target and is well calibrated.",
+      "recommended": true,
+      "approach": "Implement logistic regression using permitted features; tune regularization and scaling on dev, preserving any existing baseline for comparison."
+     },
+     {
+      "label": "Naive Bayes",
+      "note": "A fast probabilistic baseline that can capture a different set of feature assumptions.",
       "recommended": false,
-      "approach": "Build a scaled SVM classifier with probability estimates; tune kernel regularization and kernel parameters on dev."
+      "approach": "Implement an appropriate Naive Bayes classifier on permitted features; choose preprocessing and variants using dev log loss."
      },
      {
       "label": "Lasso logistic regression",
-      "note": "Regularized linear baseline with feature selection and interpretable effects.",
-      "recommended": true,
-      "approach": "Build scaled logistic regression with L1 regularization; tune regularization strength on dev log loss."
+      "note": "Sparse regularization can select useful signals while controlling overfit.",
+      "recommended": false,
+      "approach": "Implement L1-regularized logistic regression; tune regularization and solver on dev log loss."
      },
      {
       "label": "Ridge logistic regression",
-      "note": "Regularized linear model likely to be a strong robust baseline for correlated history features.",
-      "recommended": true,
-      "approach": "Build scaled logistic regression with L2 regularization; tune regularization strength on dev log loss."
+      "note": "L2 regularization can improve generalization across correlated account-history columns.",
+      "recommended": false,
+      "approach": "Implement L2-regularized logistic regression; tune regularization and preprocessing on dev log loss."
+     },
+     {
+      "label": "kNN",
+      "note": "Can test local pattern similarity, though scaling and class imbalance require care.",
+      "recommended": false,
+      "approach": "Implement k-nearest neighbors with appropriate feature scaling and probability estimates; tune neighborhood parameters on dev."
+     },
+     {
+      "label": "SVM",
+      "note": "A margin-based alternative may find useful nonlinear boundaries with suitable calibration.",
+      "recommended": false,
+      "approach": "Implement an SVM classifier with probability outputs or calibration; scale permitted features and tune on dev log loss."
+     },
+     {
+      "label": "Single decision tree",
+      "note": "An interpretable nonlinear baseline that can model interactions directly.",
+      "recommended": false,
+      "approach": "Implement a single decision tree; tune depth and leaf constraints against dev log loss."
      },
      {
       "label": "Random forest",
-      "note": "Captures interactions and nonlinearities without requiring feature scaling.",
+      "note": "An ensemble of trees can capture nonlinearities and interactions robustly.",
       "recommended": false,
-      "approach": "Build a random forest classifier and tune tree count, depth, leaf size, and feature sampling using dev log loss."
+      "approach": "Implement a random forest; tune tree count and regularization parameters on dev log loss."
      },
      {
       "label": "Boosted trees",
-      "note": "Often strong on tabular credit data, with capacity for nonlinear interactions.",
+      "note": "Recommended alternative: boosting often performs strongly on tabular credit data.",
       "recommended": true,
-      "approach": "Build a boosted-tree classifier and tune its depth/leaf complexity, learning rate, and number of estimators on dev log loss."
+      "approach": "Implement a boosted-tree classifier available in the repository environment; tune tree complexity, learning rate, and regularization on dev log loss."
      }
     ],
     "drives": "models"
@@ -206,388 +233,529 @@
   ]
  },
  "steps": {
-  "features-r1": {
-   "seconds": 1.4,
-   "usd": 0.003654,
-   "report": "I expanded the permitted features to include six-month repayment status, bill and payment histories, utilization and payment fractions, and trend summaries, with standardized logistic regression for the expanded inputs. Tests pass (3 passed); I could not verify the held-out score or whether any `.auc` drops exceed 0.01 because held-out scoring is blocked in this agent environment.",
+  "modelsa-r1": {
+   "seconds": 0.9,
+   "usd": 0.001062,
+   "report": "I expanded the permitted features to include six months of repayment status, bills, and payments, and implemented ordinary linear regression with predictions clipped to [0.01, 0.99]. The fair-lending tests pass, but the dev log loss is 0.5004, so the required loss and AUC conditions are not met; held-out scoring was refused.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file evals/score.py",
+    "read_file creditkit/features.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file README.md",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Inputs: credit limit and September status -> six months of statuses, bills, and payments; logistic regression -> linear regression, probabilities clipped to 1%-99%."
+  },
+  "modelsa-r2": {
+   "seconds": 1.0,
+   "usd": 0.001328,
+   "report": "I expanded the permitted account-history inputs with status-category indicators, history aggregates, and ratios while keeping the predictor ordinary linear regression with predictions clipped to [1%, 99%]; dev log loss was 0.4448 and AUC was 0.7594. The fair-lending tests pass, but held-out scoring was refused, so the held-out log-loss and AUC conditions are not confirmed.",
    "activity": [
     "list_files",
     "read_file creditkit/features.py",
+    "read_file creditkit/model.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file creditkit/__init__.py",
+    "write_file creditkit/features.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added status-category flags, squared statuses, payment-history summaries, bill/payment averages and ratios; retained the original credit, status, bill and payment inputs."
+  },
+  "modelsb-r1": {
+   "seconds": 1.9,
+   "usd": 0.001977,
+   "report": "I changed the features to use all 20 permitted account columns and implemented standardized plain logistic regression, tuned on the dev split (log loss 0.4711, AUC 0.7138). The fair-lending tests pass, but the required log-loss threshold is not met; held-out scoring was refused in this agent environment, so I cannot confirm the held-out conditions.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file creditkit/__init__.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file README.md",
+    "read_file requirements.txt",
+    "read_file scripts/prepare_customers.py",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Inputs expanded from credit limit and September repayment status to education, six months of repayment statuses, bills and payments; model changed to scaled logistic regression, C default -> 0.1, iterations default -> 1,000."
+  },
+  "modelsb-r2": {
+   "seconds": 1.3,
+   "usd": 0.001519,
+   "report": "I added status-category indicators and account-limit-normalized bill/payment features, then retained plain standardized logistic regression; dev log loss improved from 0.4711 to 0.4456 and AUC from 0.7138 to 0.7606. The fair-lending tests pass (3 passed), but held-out scoring was refused in this agent environment, so I can’t verify the held-out conditions.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
     "read_file creditkit/model.py",
     "read_file tests/test_fair_lending.py",
     "read_file creditkit/__init__.py",
-    "read_file evals/score.py",
     "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Added status-category indicators and four bill/payment-to-credit-limit ratios; kept logistic regression and C=0.1, increased max iterations 1000 -> 1500."
+  },
+  "modelsc-r1": {
+   "seconds": 1.7,
+   "usd": 0.002251,
+   "report": "I implemented Gaussian Naive Bayes using 20 permitted account-history features, with signed-log transforms for bill and payment amounts and likelihood tempering; its dev log loss is 0.6529 and AUC is 0.7461. The fair-lending tests pass (3 passed), but the log-loss condition does not; the held-out score was unavailable because the eval refused access.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file creditkit/model.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file requirements.txt",
+    "read_file creditkit/__init__.py",
+    "read_file scripts/prepare_customers.py",
+    "read_file README.md",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Inputs expanded from credit limit and September status to education, six months of status, bill, and payment amounts; logistic regression changed to Gaussian Naive Bayes with temperature 30 and variance smoothing 1e-8."
+  },
+  "modelsc-r2": {
+   "seconds": 1.5,
+   "usd": 0.001954,
+   "report": "I changed the candidate to tempered Gaussian Naive Bayes, preserving the class prior while scaling the feature likelihoods; at temperature 8, dev log loss was 0.4738 and AUC was 0.7461. The tests pass, but the required held-out log loss is not verified and the dev score does not meet the 0.4657 target, so the conditions do not pass.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file creditkit/features.py",
+    "run_eval score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Gaussian Naive Bayes temperature 30 → 10; probability tempering now scales likelihoods while leaving class priors unchanged."
+  },
+  "modelsc-r3": {
+   "seconds": 1.6,
+   "usd": 0.002222,
+   "report": "I kept the predictor as tempered Gaussian Naive Bayes on the 20 permitted features, using a likelihood temperature of 8; dev log loss is 0.4738 and AUC is 0.7461. The fair-lending tests pass (3 passed), but the ≤0.4657 log-loss condition is not met, and held-out scoring was refused, so the conditions do not pass.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file creditkit/__init__.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Gaussian Naive Bayes temperature changed from 10.0 to 8.0; variance smoothing remains 1e-8."
+  },
+  "modelsd-r1": {
+   "seconds": 1.2,
+   "usd": 0.001532,
+   "report": "I expanded the feature set to all 20 permitted non-sensitive columns and implemented scaled L1-regularized logistic regression; its dev log loss was 0.4723 with AUC 0.7106. The fair-lending tests pass, but the required log-loss and AUC conditions are not verified as passing; held-out scoring was refused in this agent context.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file requirements.txt",
+    "read_file creditkit/__init__.py",
+    "read_file scripts/prepare_customers.py",
+    "read_file README.md",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Inputs expanded from credit limit and September status to education, six months of repayment status, bills, and payments; model changed to scaled L1 logistic regression, C 1 -> 0.01, iterations 1000."
+  },
+  "modelsd-r2": {
+   "seconds": 1.2,
+   "usd": 0.001426,
+   "report": "I kept the predictor as a scaled L1-regularized logistic regression using the permitted account-history features; the dev score is log loss 0.4723 and AUC 0.7106. The fair-lending tests pass (3 passed), but the log-loss and AUC conditions are not verified as passing; held-out scoring was refused in this agent context.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file creditkit/model.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file README.md",
+    "write_file creditkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune_lasso.py",
+    "run_eval python scratch/tune_lasso.py",
+    "write_file creditkit/model.py",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "The logistic model’s settings are unchanged; its scaling comment was revised, and a new script tests L1 strength and solver on training and development data."
+  },
+  "modelsd-r3": {
+   "seconds": 1.1,
+   "usd": 0.001363,
+   "report": "I added threshold-indicator features for the six months of payment status while keeping the predictor an L1-regularized logistic regression; dev log loss improved to 0.4496 and AUC to 0.7484. The tests pass (3 passed), but held-out metrics are unavailable in this agent context, so the held-out log-loss and AUC conditions are not verified.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file scratch/tune_lasso.py",
+    "read_file evals/score.py",
+    "read_file creditkit/features.py",
+    "read_file creditkit/__init__.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python scratch/tune_lasso.py",
+    "write_file creditkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added 48 missed-payment threshold flags—8 status levels across 6 months—to the existing credit limit, education, status, bill, and payment inputs."
+  },
+  "modelse-r1": {
+   "seconds": 1.4,
+   "usd": 0.003259,
+   "report": "I replaced the two-feature model with standardized L2-regularized logistic regression using 20 permitted account features; dev log loss is 0.4711 and AUC is 0.7138. The tests pass, but the log-loss and AUC conditions are not met; held-out scoring was refused in this agent environment.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file evals/score.py",
+    "read_file creditkit/__init__.py",
     "read_file requirements.txt",
     "read_file README.md",
     "read_file data/customers.csv",
-    "run_eval python evals/score.py --split dev",
     "write_file creditkit/features.py",
     "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/features.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsa-r1": {
-   "seconds": 1.3,
-   "usd": 0.001209,
-   "report": "I replaced logistic regression with a standardized k-nearest-neighbors classifier using a 400-neighbor uniform vote; its dev log loss is 0.4526. The fair-lending tests pass, but the held-out score is unavailable in this agent environment, so the required held-out log loss and AUC conditions are not confirmed.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "read_file creditkit/model.py",
-    "read_file README.md",
     "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsa-r2": {
-   "seconds": 1.3,
-   "usd": 0.00151,
-   "report": "I changed the model to a scaled kNN using repayment-status history and its summaries, excluding dollar-amount features from the distance calculation. The fair-lending tests pass, but the dev log loss is 0.4522 and held-out scoring is unavailable in this agent environment, so I cannot confirm that the ≤0.44 log-loss condition passes.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file README.md",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "run_eval score.py --split dev",
-    "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsa-r3": {
-   "seconds": 1.4,
-   "usd": 0.001605,
-   "report": "I kept the scaled kNN model using repayment-status history, with 400 uniform neighbors; dev tuning alternatives did not improve on the prior round’s result. The tests pass, but I could not verify the held-out conditions because the evaluator refused to reveal held-out scores in this environment, so the log-loss and AUC conditions are unconfirmed.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsa-r4": {
-   "seconds": 1.5,
-   "usd": 0.001695,
-   "report": "I kept the candidate as scaled kNN using repayment-status history; the dev log loss is 0.4522, so it does not meet the ≤0.44 target, and held-out scoring was refused in this agent environment. The fair-lending tests pass (3 passed), but the overall conditions do not pass.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "read_file README.md",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "write_file creditkit/model.py"
-   ]
-  },
-  "modelsb-r1": {
-   "seconds": 7.0,
-   "usd": 0.001222,
-   "report": "I replaced the logistic regression with a scaled RBF SVM and tuned its kernel settings on the dev split; the best tested dev log loss was 0.4692. The tests pass, but the required held-out log loss and AUC conditions are not verified or met based on the available results.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "read_file requirements.txt",
-    "write_file creditkit/model.py",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
     "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q",
     "run_eval python evals/score.py --split heldout"
-   ]
+   ],
+   "changed": "Added education, six months of payment status, bill amounts and payments; replaced default logistic regression with scaled logistic regression, C 1 -> 0.1, iterations 100 -> 1,000."
   },
-  "modelsb-r2": {
-   "seconds": 0.9,
-   "usd": 0.001176,
-   "report": "I replaced the slow probability-enabled RBF SVC with a scaled LinearSVC and fast probability calibration; the dev score runs in 0.5 seconds, and all tests pass. The conditions do not all pass: dev log loss is 0.4714, and held-out scoring is refused in this agent environment, so I cannot verify the held-out thresholds.",
+  "modelse-r2": {
+   "seconds": 1.7,
+   "usd": 0.001901,
+   "report": "I kept the model as ridge logistic regression and improved its features by encoding repayment statuses categorically and compressing bill/payment amounts with signed log transforms; dev log loss is 0.4430 and AUC is 0.7664. The tests pass (3 passed), but held-out scoring is restricted in this agent environment, so the held-out log-loss and AUC conditions cannot be confirmed here.",
    "activity": [
     "list_files",
-    "read_file evals/score.py",
-    "read_file requirements.txt",
     "read_file creditkit/model.py",
     "read_file creditkit/features.py",
     "read_file tests/test_fair_lending.py",
-    "write_file creditkit/model.py",
-    "run_eval evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_eval python evals/score.py --split dev"
-   ]
-  },
-  "modelsb-r3": {
-   "seconds": 5.0,
-   "usd": 0.001712,
-   "report": "I restored the scaled, calibrated linear SVM after testing an RBF SVM; the RBF candidate scored worse on dev. The fair-lending tests pass, but the required held-out log-loss and AUC conditions are not confirmed: the held-out evaluation was refused in this agent environment, and the prior check reported log loss 0.4662, above the 0.44 target.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "read_file requirements.txt",
-    "read_file README.md",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsb-r4": {
-   "seconds": 4.2,
-   "usd": 0.001545,
-   "report": "I restored the scaled, calibrated linear SVM after the RBF SVM performed worse on dev; the held-out scoring command was blocked by the agent restriction. Tests pass, but the required log-loss and AUC conditions are not confirmed as passing.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
-    "read_file evals/score.py",
-    "read_file README.md",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsc-r1": {
-   "seconds": 1.8,
-   "usd": 0.0016,
-   "report": "I changed the model to a scaled L1-regularized logistic regression, tuned its regularization strength on the dev split, and got dev log loss 0.4710. The tests pass, but the required log loss ≤ 0.44 is not met; held-out scoring was refused in this agent environment, so held-out log loss and AUC are unverified.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "run_tests python -m pytest -q",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsc-r2": {
-   "seconds": 1.5,
-   "usd": 0.001729,
-   "report": "I added per-month delinquency-status indicator features and tuned the L1 logistic regression to improve dev performance; the dev log loss is 0.4456. The tests pass, but the required held-out log loss of 0.44 or lower is not demonstrated, so the conditions do not all pass.",
-   "activity": [
-    "list_files",
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file creditkit/features.py",
     "read_file evals/score.py",
     "run_eval evals/score.py --split dev",
     "run_eval python evals/score.py --split dev",
+    "read_file creditkit/__init__.py",
     "write_file creditkit/model.py",
     "run_eval python evals/score.py --split dev",
-    "read_file creditkit/features.py",
     "write_file creditkit/features.py",
     "run_eval python evals/score.py --split dev",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsd-r1": {
-   "seconds": 0.9,
-   "usd": 0.00107,
-   "report": "I implemented scaled L2-regularized logistic regression with `C=0.01`; the dev score is 0.4709 log loss and 0.7110 AUC. The tests pass, but the required held-out score could not be verified because the evaluator refused it, and the dev result does not establish that the log-loss target is met.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsd-r2": {
-   "seconds": 1.6,
-   "usd": 0.002059,
-   "report": "I added one-hot indicators for each monthly repayment-status category and tuned the model as scaled ridge logistic regression; dev log loss improved to 0.4456. Tests pass, but the held-out score is unavailable in this run, so I can’t verify the ≤0.44 log-loss condition or the held-out AUC condition.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "read_file README.md",
-    "run_eval evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "read_file creditkit/features.py",
     "write_file creditkit/features.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q"
-   ]
-  },
-  "modelse-r1": {
-   "seconds": 0.8,
-   "usd": 0.000894,
-   "report": "I replaced the logistic-regression pipeline with a tuned `RandomForestClassifier`; its dev log loss is 0.4351, and all 3 tests pass. The held-out score and AUC conditions cannot be verified here because the evaluator refused the held-out split, so those conditions are not confirmed.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "read_file tests/test_fair_lending.py",
-    "read_file requirements.txt",
-    "write_file creditkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Repayment status became category indicators (-2 to 2, 3+), bill and payment amounts became signed log values, and logistic regression C increased 0.1 -> 0.5."
   },
   "modelsf-r1": {
-   "seconds": 0.8,
-   "usd": 0.000883,
-   "report": "I replaced the logistic-regression model with a regularized HistGradientBoostingClassifier; its dev log loss is 0.4371, and all tests pass (3 passed). The held-out score is unavailable because the evaluator refused access in agent mode, so I can’t confirm the held-out log-loss and AUC conditions.",
+   "seconds": 1.8,
+   "usd": 0.00187,
+   "report": "I replaced logistic regression with a scaled kNN using 500 uniform neighbors and expanded features to all 19 permitted account-history columns; dev log loss is 0.4513 and AUC is 0.7561. Tests pass, but the held-out score is unavailable in this agent run, so the held-out log-loss and AUC conditions are not confirmed.",
    "activity": [
     "list_files",
     "read_file creditkit/model.py",
     "read_file creditkit/features.py",
     "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
     "read_file requirements.txt",
+    "read_file creditkit/__init__.py",
+    "read_file README.md",
+    "read_file scripts/prepare_customers.py",
+    "write_file creditkit/features.py",
     "write_file creditkit/model.py",
-    "run_eval score.py --split dev",
+    "run_eval evals/score.py --split dev",
     "run_tests python -m pytest -q",
     "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout"
-   ]
-  },
-  "integrate-r1": {
-   "seconds": 0.9,
-   "usd": 0.000838,
-   "report": "I kept the existing random-forest configuration, which scores 0.4351 log loss and 0.7752 AUC on dev; fair-lending tests pass. The held-out conditions remain unverified because the evaluator refused the held-out score in this agent environment.",
-   "activity": [
-    "list_files",
-    "read_file creditkit/model.py",
-    "read_file evals/score.py",
-    "read_file creditkit/features.py",
-    "read_file tests/test_fair_lending.py",
-    "read_file README.md",
-    "run_eval evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Added six months of repayment status, bill, and payment inputs; switched logistic regression to scaled K-nearest neighbors, with 500 neighbors, uniform weights, and Euclidean distance."
+  },
+  "modelsg-r1": {
+   "seconds": 2.0,
+   "usd": 0.00351,
+   "report": "I added the permitted account-history features and implemented a scaled, sigmoid-calibrated RBF SVM; its dev log loss is 0.4675 and AUC is 0.7192. The fair-lending tests pass, but the log-loss target is not met, and held-out scoring was refused in this agent environment.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file creditkit/__init__.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file requirements.txt",
+    "read_file README.md",
+    "read_file data/customers.csv",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Features expanded from credit limit and September status to six months of repayment status, bills, and payments; logistic regression changed to a scaled RBF SVM (C 3, scale gamma) with 3-fold sigmoid calibration."
+  },
+  "modelsh-r1": {
+   "seconds": 1.3,
+   "usd": 0.001479,
+   "report": "I added all 20 permitted account-history features and implemented a single decision tree (depth 4, minimum 500 samples per leaf); on the dev split it scores 0.4489 log loss and 0.7412 AUC. The tests pass, but the held-out score could not be checked because the evaluator refused access, so the held-out conditions are not confirmed.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file creditkit/__init__.py",
+    "read_file requirements.txt",
+    "read_file README.md",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Inputs added education, six months of repayment status, bills, and payments; the model changed from logistic regression to a decision tree (depth 4, minimum 500 customers per leaf, log-loss criterion, random seed 0)."
+  },
+  "modelsi-r1": {
+   "seconds": 1.1,
+   "usd": 0.001293,
+   "report": "I replaced logistic regression with a random forest and expanded the permitted features to all 20 non-sensitive account-history columns; on dev it scored 0.4360 log loss and 0.7719 AUC. The tests pass, but the held-out score and AUC condition are unverified because the evaluator refused the held-out run.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file requirements.txt",
+    "read_file creditkit/__init__.py",
+    "read_file README.md",
+    "read_file scripts/prepare_customers.py",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Inputs expanded from credit limit and September status to education, six months of status, bills, and payments; logistic regression -> 500-tree random forest, depth 12, minimum leaf 30, max features 0.7."
+  },
+  "modelsj-r1": {
+   "seconds": 1.1,
+   "usd": 0.001285,
+   "report": "I replaced the logistic regression with a HistGradientBoostingClassifier and expanded the permitted features to the 20 non-sensitive account-history columns; dev log loss is 0.4365 and AUC is 0.7726. The tests pass (3 passed); the held-out score was unavailable because the evaluation script blocks agents, so the held-out conditions cannot yet be confirmed.",
+   "activity": [
+    "list_files",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file requirements.txt",
+    "run_eval python evals/score.py --split dev",
+    "read_file creditkit/__init__.py",
+    "read_file README.md",
+    "read_file scripts/prepare_customers.py",
+    "write_file creditkit/features.py",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Inputs: credit_limit/status_sep -> credit_limit, education, six-month status/bill/payment history; logistic regression -> histogram gradient boosting (250 iterations, rate .04, 7 leaves, L2 5, minimum leaf 40)."
+  },
+  "select-r1": {
+   "seconds": 1.4,
+   "usd": 0.001293,
+   "report": "I compared the random forest and regularized logistic regression on dev, and kept the random forest: its dev log loss was 0.4360 versus 0.4712. Tests pass (3 passed); the held-out eval was refused in this agent environment, so I could not verify the final held-out conditions here.",
+   "activity": [
+    "list_files",
+    "read_file evals/score.py",
+    "read_file creditkit/model.py",
+    "read_file creditkit/features.py",
+    "read_file tests/test_fair_lending.py",
+    "read_file README.md",
+    "read_file creditkit/__init__.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file creditkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "No code changed this round."
   }
  },
  "checker": {
-  "modelsc-r2": {
+  "modelsa-r2": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000273,
+   "usd": 0.000266,
    "judged": {
-    "log_loss ≤ 0.44": {
+    "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4399"
+     "evidence": "0.4722 → 0.436"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 1.89s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.51s"
+    },
+    "reviewer: The model that makes the predictions is a Plain linear regression (clipped 1–99%). Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`ClippedLinearRegression.fit()` fits `sklearn.linear_model.LinearRegression` directly to the supplied features and labels; `predict_proba()` clips its predictions to [0.01, 0.99]. `make_model()` returns this estimator, with no blending or alternate model."
+    }
+   }
+  },
+  "modelsb-r2": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.00022,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4722 → 0.439"
+    },
+    "no auc drops more than 0.00": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 1.41s"
+    },
+    "reviewer: The model that makes the predictions is a Plain logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `LogisticRegression(C=0.1, max_iter=1500)`; no other predictor or blend is introduced."
+    }
+   }
+  },
+  "modelsd-r3": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.000261,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4722 → 0.4393"
+    },
+    "no auc drops more than 0.00": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 1.38s"
     },
     "reviewer: The model that makes the predictions is a Lasso logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "creditkit/model.py builds a pipeline with StandardScaler and LogisticRegression(penalty=\"l1\", solver=\"liblinear\", C=1.0)."
+     "evidence": "`make_model()` returns a pipeline ending in `LogisticRegression(l1_ratio=1.0, C=0.01, solver=\"liblinear\", max_iter=1000)`, preceded only by `StandardScaler`; this is L1-regularized logistic regression, not a different model or blend."
     }
    }
   },
-  "modelsd-r2": {
+  "modelse-r2": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000197,
+   "usd": 0.000271,
    "judged": {
-    "log_loss ≤ 0.44": {
+    "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.44"
+     "evidence": "0.4722 → 0.4325"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 1.50s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.42s"
     },
     "reviewer: The model that makes the predictions is a Ridge logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), LogisticRegression(C=0.1, solver=\"lbfgs\", max_iter=3000))`; this is scaled L2-regularized logistic regression, with no alternative model or blend."
+     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `LogisticRegression(C=0.5, max_iter=1000)`. Scikit-learn LogisticRegression uses L2 regularization by default; no alternate model or blend is present."
     }
    }
   },
-  "modelse-r1": {
+  "modelsf-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000144,
+   "usd": 0.000207,
    "judged": {
-    "log_loss ≤ 0.44": {
+    "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4227"
+     "evidence": "0.4722 → 0.4433"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
@@ -595,124 +763,101 @@
      "met": true,
      "evidence": "...                                                                      [100%]\n3 passed in 1.55s"
     },
-    "reviewer: The model that makes the predictions is a Random forest. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+    "reviewer: The model that makes the predictions is a kNN. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `RandomForestClassifier(...)`; no other estimator or blending logic is present in the diff."
+     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `KNeighborsClassifier(n_neighbors=500, weights=\"uniform\", p=2, n_jobs=-1)`."
     }
    }
   },
-  "modelsf-r1": {
+  "modelsg-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.00015,
-   "judged": {
-    "log_loss ≤ 0.44": {
-     "met": true,
-     "evidence": "0.4659 → 0.4239"
-    },
-    "no auc drops more than 0.01": {
-     "met": true,
-     "evidence": "none of 1 dropped"
-    },
-    "tests pass: python -m pytest -q": {
-     "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 6.58s"
-    },
-    "reviewer: The model that makes the predictions is a Boosted trees. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
-     "met": true,
-     "evidence": "`make_model()` returns `HistGradientBoostingClassifier(...)`, a boosted-tree classifier; no alternative model or blend appears in the diff."
-    }
-   }
-  },
-  "modelsb-r1": {
-   "verdict": "pass",
-   "reasons": [],
-   "usd": 0.00015,
+   "usd": 0.000225,
    "judged": {
     "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4565"
+     "evidence": "0.4722 → 0.4558"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 2.05s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.46s"
     },
     "reviewer: The model that makes the predictions is a SVM. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), SVC(C=10.0, kernel=\"rbf\", gamma=0.01, probability=True, random_state=17))`."
+     "evidence": "`make_model()` returns a pipeline ending in `CalibratedClassifierCV(SVC(C=3, kernel=\"rbf\", gamma=\"scale\"), ...)`; calibration supplies probabilities for the SVM."
     }
    }
   },
-  "modelsd-r1": {
+  "modelsh-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000165,
+   "usd": 0.000217,
    "judged": {
     "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4657"
+     "evidence": "0.4722 → 0.4421"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 2.07s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.59s"
     },
-    "reviewer: The model that makes the predictions is a Ridge logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+    "reviewer: The model that makes the predictions is a Single decision tree. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), LogisticRegression(C=0.01, penalty=\"l2\", solver=\"lbfgs\", max_iter=2000))`."
+     "evidence": "`make_model()` returns a single `DecisionTreeClassifier(max_depth=4, min_samples_leaf=500, random_state=0, criterion=\"log_loss\")`; no other model or blend is introduced."
     }
    }
   },
-  "modelsa-r1": {
+  "modelsi-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.0002,
+   "usd": 0.000182,
    "judged": {
     "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4428"
+     "evidence": "0.4722 → 0.4247"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 2.14s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.73s"
     },
-    "reviewer: The model that makes the predictions is a kNN. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+    "reviewer: The model that makes the predictions is a Random forest. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `KNeighborsClassifier(n_neighbors=400, weights=\"uniform\", n_jobs=-1)`; no other predictive model or blend is present."
+     "evidence": "`make_model()` returns `RandomForestClassifier(...)`; no other model or blend is used."
     }
    }
   },
-  "modelsc-r1": {
+  "modelsj-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000197,
+   "usd": 0.000202,
    "judged": {
     "log_loss ≤ 0.4657": {
      "met": true,
-     "evidence": "0.4659 → 0.4656"
+     "evidence": "0.4722 → 0.4265"
     },
-    "no auc drops more than 0.01": {
+    "no auc drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
     "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "...                                                                      [100%]\n3 passed in 2.11s"
+     "evidence": "...                                                                      [100%]\n3 passed in 1.81s"
     },
-    "reviewer: The model that makes the predictions is a Lasso logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+    "reviewer: The model that makes the predictions is a Boosted trees. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), LogisticRegression(penalty=\"l1\", solver=\"liblinear\", C=0.2, max_iter=2000))`."
+     "evidence": "`make_model()` returns `HistGradientBoostingClassifier(...)`, a boosted-tree classifier; no alternate model or blend is introduced."
     }
    }
   }

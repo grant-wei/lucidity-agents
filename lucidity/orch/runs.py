@@ -23,8 +23,8 @@ from .. import config
 from ..agents import planner as planner_agent
 from ..guard import BudgetExceeded
 from ..llm import ModelCallFailed
-from . import contracts, demo, gate, worktrees
-from ..agents.checker import RefusedCommand, check_eval_command
+from . import contracts, demo, gate, rounds, worktrees
+from ..agents.checker import TIMEOUT_S, RefusedCommand, check_eval_command
 from .workers import LIVE, DemoWorker
 
 ACTIVE = ("queued", "running")
@@ -65,6 +65,7 @@ class Run:
         self._t0 = time.time() - (data.get("elapsed_s") or 0)
         self._last_sample = 0.0
         self._last_save = 0.0
+        self._texts = {}   # per task: each changed file as the last round left it, for round-by-round diffs
         self.dir, self.wdir = runs_dir(), work_dir()   # fixed at creation, so a run never writes somewhere else
 
     # ---------- bookkeeping ----------
@@ -440,8 +441,12 @@ class Run:
                 n["spans"].append(span)
             self.event("round", f"{n['id']}: round {rnd} started", node=n["id"])
             remaining = max(0.0, n["budget_usd"] - n["spent_usd"])
-            res = self.worker.run(n, rnd, self._prompt(n), n["worktree"], remaining,
-                                  emit=lambda line, nid=n["id"]: self.event("activity", line, node=nid),
+            acts = []
+
+            def emit(line, nid=n["id"]):
+                acts.append(line)
+                self.event("activity", line, node=nid)
+            res = self.worker.run(n, rnd, self._prompt(n), n["worktree"], remaining, emit=emit,
                                   cancelled=self.cancel.is_set)
             span["end"] = self.elapsed()
             self.spend(res.get("usd") or 0.0, n)
@@ -451,7 +456,9 @@ class Run:
             _snapshot(self.id, n, rnd, files)
             with self.lock:
                 n["files"] = files
-                n["reports"].append({"round": rnd, "text": (res.get("report") or "")[:2000]})
+                n["reports"].append({"round": rnd, "text": (res.get("report") or "")[:2000],
+                                     "usd": res.get("usd") or 0.0, "activity": acts[-60:]})
+            self._round_change(n, rnd, files, res)
             if self.cancel.is_set():
                 return self._stopped(n)
             # the gate
@@ -504,6 +511,62 @@ class Run:
                                                 f"and the check still fails.")
             if rnd >= n["max_rounds"]:
                 return self._needs(n, "rounds", f"Still failing after {rnd} round{'s' if rnd > 1 else ''}.")
+            stalled = self._stalled(n, mech, rnd)
+            if stalled:
+                return self._needs(n, "stalled", stalled)
+
+    def _round_change(self, n, rnd, files, res):
+        """Keep this round's code change (vs the round before) on disk, and a one-line summary of it
+        written from the diff alone. A replayed demo brings the line the live run wrote."""
+        now = rounds.texts(n["worktree"], files)
+        before = self._texts.get(n["id"], {})
+        text, changed, added, removed = rounds.diff(n["worktree"], n["start_commit"], before, now)
+        self._texts[n["id"]] = {**before, **now}
+        if res.get("changed"):
+            line, usd = res["changed"], 0.0
+        elif getattr(self.worker, "name", "") == "demo":   # a replay never calls a model
+            line, usd = rounds.plain(changed, added, removed), 0.0
+        else:
+            line, usd = rounds.summarize(text, changed, added, removed, self.id)
+        if usd:
+            self.spend(usd, n, what="round summaries")
+        out = self.wdir / self.id / "rounds"
+        try:
+            out.mkdir(parents=True, exist_ok=True)
+            (out / f"{n['id']}-r{rnd}.diff").write_text(text, encoding="utf-8")
+        except OSError:
+            pass
+        with self.lock:
+            n.setdefault("rounds", []).append({"round": rnd, "files": changed, "added": added, "removed": removed,
+                                               "changed": line})
+
+    def round_diff(self, nid, rnd):
+        """The code one round of one task (or agent) changed, as a unified diff."""
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,60}", nid or "") or not 0 < int(rnd) < 100:
+            raise RunError("no such round")
+        p = self.wdir / self.id / "rounds" / f"{nid}-r{int(rnd)}.diff"
+        return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+    def _stalled(self, n, mech, rnd):
+        """From round 3 on: stop a task whose last two rounds both failed to beat its best before them
+        (the start included) by at least 0.05%. One weak round is often a dud try; two in a row means
+        more rounds of the same rarely help, and they cost money and tune to noise."""
+        m = next((c for c in mech if c.get("kind") == "metric" and isinstance(c.get("value"), (int, float))), None)
+        if rnd < 3 or m is None:
+            return None
+        lower = "≤" in m["label"] or "<" in m["label"]
+        vals = [m["before"]] if isinstance(m.get("before"), (int, float)) else []
+        vals += [c["value"] for ch in n["checks"] if not ch.get("recheck")
+                 for c in ch.get("conditions") or [] if c.get("kind") == "metric" and isinstance(c.get("value"), (int, float))]
+        if len(vals) < 3:
+            return None
+        pick = min if lower else max
+        best, recent = pick(vals[:-2]), pick(vals[-2:])
+        gain = (best - recent) if lower else (recent - best)
+        if gain >= 0.0005 * max(abs(best), 1e-9):
+            return None
+        return (f"Stopped early after round {rnd}: two rounds in a row without real gain over its best so far "
+                f"({best:.4f} → {vals[-1]:.4f}), so more rounds were unlikely to help.")
 
     def _fan_out(self, n):
         """Several agents take the same task at once, each with its own strategy and worktree. Each is
@@ -622,13 +685,41 @@ class Run:
             if res.get("metrics"):
                 shown = ", ".join(f"{k} {v:g}" for k, v in list(res["metrics"].items())[:40])
                 lines.append(f"Scores from `{cmd}` when this task started (no_regression compares against these): {shown}")
+        lines += ["", f"Each eval or test run stops after {TIMEOUT_S} seconds. If a model is slow to fit, fit it on a "
+                  "sample of the training rows or choose faster settings.",
+                  "Put scratch files (tuning scripts, notes) in scratch/. Anything you add or change under "
+                  f"{', '.join(d + '/' for d in PROTECTED_DIRS)} fails the round unscored."]
+        if n["reports"]:
+            lines += ["", "Your notes from earlier rounds (the code in this folder is where you left it):"]
+            lines += [f"- Round {r['round']}: {_trim(r['text'], 400)}" for r in n["reports"][-3:]]
         if n["checks"]:
             last = n["checks"][-1]
             lines += ["", f"Your round {last['round']} was checked and did NOT pass:"]
-            lines += [f"- {r}" for r in last["reasons"][:6]]
-            lines.append("Fix exactly that, then check again.")
+            lines += [f"- {r}" for r in _feedback(last)[:6]]
+            lines.append("Scores on the test data stay hidden from you, so you can't tune to them. Improve on the "
+                         "dev split, then check again. If tuning settings stopped helping, the bigger gains "
+                         "usually come from better inputs built from the data you have.")
+        others = self._sibling_notes(n)
+        if others:
+            lines += ["", "Notes from the agents building other kinds of model on this same task (their own words, "
+                      "not checked; their test scores are hidden too). Borrow an input idea if it fits; keep your "
+                      "own model type:"] + others
         lines += ["", "When you are finished, reply in two sentences: what you changed, and whether the conditions pass."]
         return "\n".join(lines)
+
+    def _sibling_notes(self, n):
+        if not n.get("parent"):
+            return []
+        try:
+            agents = self.node(n["parent"]).get("agents") or []
+        except RunError:
+            return []
+        out = []
+        for a in agents:
+            if a is not n and a.get("reports"):
+                r = a["reports"][-1]
+                out.append(f"- {a.get('label') or a['id']} (round {r['round']}): {_trim(_mask(r['text']), 250)}")
+        return out[:9]
 
     def _merge(self, n, agent=None):
         """Merge passed work into the run branch: "merged", "needs" (it went to you) or "stale" (it passed
@@ -831,6 +922,34 @@ class Run:
             self._ensure_loop()
 
 
+def _trim(text, k):
+    text = re.sub(r"\s+", " ", text or "").strip()
+    return text if len(text) <= k else text[:k - 1] + "…"
+
+
+def _mask(text):
+    """Long decimals in feedback could be test scores; agents only see the bar, never the score."""
+    return re.sub(r"\d*\.\d{3,}", "[hidden]", text)
+
+
+def _feedback(check):
+    """Why a round failed, in words an agent can act on, without the test-data scores themselves:
+    seeing them round after round would let an agent tune to the test data."""
+    failed = [m for m in check.get("conditions") or [] if m.get("met") is False]
+    if check.get("by") != "program" or check.get("tampered") or not failed:
+        return [_mask(r) for r in check["reasons"]]
+    out = []
+    for m in failed:
+        if m["kind"] == "metric" and "value" in m:
+            out.append(f"{m['label']}: not reached on the test data.")
+        elif m["kind"] == "no_regression" and m.get("drops"):
+            out.append(f"{m['label']}: {', '.join(str(d.get('metric')) for d in m['drops'])} on the test data "
+                       "fell below where it started.")
+        else:
+            out.append(_mask(f"{m['label']}: {(m.get('evidence') or '')[-300:]}"))
+    return out
+
+
 def _snapshot(rid, n, rnd, files):
     """LUCIDITY_RECORD_DIR set: keep each round's changed files, so a live run can become a demo."""
     out = os.environ.get("LUCIDITY_RECORD_DIR")
@@ -846,7 +965,7 @@ def _snapshot(rid, n, rnd, files):
 
 # What decides a score. An agent that edits these could grade itself, so its work fails unscored.
 PROTECTED_DIRS = ("evals", "eval", "data")
-MAX_AGENTS = 6   # parallel agents on one task, one per approach
+MAX_AGENTS = 10   # parallel agents on one task, one per approach
 
 
 def _actions_for(n):
@@ -860,7 +979,7 @@ def _actions_for(n):
 
 def _new_node(n):
     return {**n, "state": "queued", "phase": "", "reason": "", "needs_kind": None, "round": 0, "attempt": 1,
-            "spent_usd": 0.0, "started": None, "finished": None, "spans": [], "checks": [], "reports": [],
+            "spent_usd": 0.0, "started": None, "finished": None, "spans": [], "checks": [], "reports": [], "rounds": [],
             "files": [], "worktree": None, "branch": None, "start_commit": None, "weak": False}
 
 

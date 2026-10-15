@@ -1,9 +1,12 @@
-"""Standardized L2-regularized logistic regression."""
+"""L1-regularized (lasso) logistic classifier."""
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    # Moderate ridge shrinkage, selected using the development period.
-    return make_pipeline(StandardScaler(), LogisticRegression(C=0.1, solver="lbfgs", max_iter=2000))
+    # Scaling is essential for a meaningful L1 penalty across return horizons.
+    return make_pipeline(
+        StandardScaler(),
+        LogisticRegression(penalty="l1", solver="liblinear", C=0.03, max_iter=500),
+    )

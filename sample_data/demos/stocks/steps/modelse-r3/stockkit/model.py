@@ -1,9 +1,10 @@
-"""Dev-tuned random forest classifier."""
-from sklearn.ensemble import RandomForestClassifier
+"""Ridge-regularized logistic regression for industry return classification."""
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def make_model():
-    return RandomForestClassifier(
-        n_estimators=800, max_depth=1, min_samples_leaf=25,
-        max_features=1.0, class_weight=None, random_state=17, n_jobs=-1,
-    )
+    # Scaling puts the two return horizons on comparable footing; L2 regularization
+    # then controls their combined contribution.
+    return make_pipeline(StandardScaler(), LogisticRegression(C=0.1, penalty="l2", max_iter=500))

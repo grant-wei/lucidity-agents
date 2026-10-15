@@ -1,9 +1,8 @@
-"""Scaled support-vector classifier."""
+"""Plain logistic regression with standardized permitted account features."""
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
 
 
 def make_model():
-    return make_pipeline(StandardScaler(), SVC(C=10.0, kernel="rbf", gamma=0.01,
-                                                probability=True, random_state=17))
+    return make_pipeline(StandardScaler(), LogisticRegression(C=0.1, max_iter=1000))

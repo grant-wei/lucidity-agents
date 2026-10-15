@@ -1,15 +1,9 @@
-"""Conservative gradient-boosted tree candidate."""
-from sklearn.ensemble import HistGradientBoostingClassifier
+"""Scaled k-nearest-neighbor model for industry-month observations."""
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
 
 
 def make_model():
-    # Very small boosting steps reduce overconfident probabilities on noisy monthly labels.
-    return HistGradientBoostingClassifier(
-        max_iter=30,
-        learning_rate=0.01,
-        max_leaf_nodes=3,
-        min_samples_leaf=100,
-        l2_regularization=5.0,
-        early_stopping=False,
-        random_state=7,
-    )
+    # Broad uniform neighborhood reduces noisy probabilities on the limited industry panel.
+    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=200, weights="uniform"))

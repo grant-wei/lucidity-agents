@@ -342,16 +342,28 @@ def auc(p, y):
     return wins / (len(pos) * len(neg))
 
 
+def std_err(xs):
+    """Standard error of the mean: std(xs, ddof=1) / sqrt(n). A rough "could be luck" range."""
+    m = sum(xs) / len(xs)
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1) / len(xs)) if len(xs) > 1 else 0.0
+
+
 def metrics(model, X, y):
     if KIND == "regression":
         pred = [float(v) for v in model.predict(X)]
         mean = sum(y) / len(y)
-        sse = sum((a - b) ** 2 for a, b in zip(pred, y))
+        sq = [(a - b) ** 2 for a, b in zip(pred, y)]
+        sse = sum(sq)
         sst = sum((b - mean) ** 2 for b in y) or 1.0
-        return {{"rmse": round(math.sqrt(sse / len(y)), 4), "r2": round(1 - sse / sst, 4)}}
+        rmse = math.sqrt(sse / len(y))
+        # Delta method: the standard error of the mean squared error, scaled by d(rmse)/d(mse) = 1/(2 rmse).
+        rmse_se = std_err(sq) / (2 * rmse) if rmse > 0 else 0.0
+        return {{"rmse": round(rmse, 4), "rmse_se": round(rmse_se, 5), "r2": round(1 - sse / sst, 4)}}
     P = probs(model, X)
     idx = [CLASSES.index(t) for t in y]
+    losses = [-math.log(p[i]) for p, i in zip(P, idx)]
     out = {{"log_loss": round(-sum(math.log(p[i]) for p, i in zip(P, idx)) / len(y), 4),
+            "log_loss_se": round(std_err(losses), 5),
             "accuracy": round(sum(max(range(len(p)), key=p.__getitem__) == i for p, i in zip(P, idx)) / len(y), 4)}}
     if KIND == "binary":
         out["auc"] = round(auc([p[0] for p in P], [i == 0 for i in idx]), 4)
@@ -613,8 +625,9 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
             f"scores {_fmt(best['value'])}; the repo scores {_fmt(test)}) "
             f"for predicting {plain} from {src.name}, {keep}. Tune on the dev split; the tests must keep passing. "
             f"The starting model uses only {len(names)} of {len(info['numeric'])} numeric columns. Ask the owner which "
-            f"model families to try (for example regularized {'linear' if kind == 'regression' else 'logistic'} "
-            f"regression on all columns, random forest, boosted trees), then build each one in parallel and keep the best.")
+            f"model families to try (up to ten, simple to complex: plain {'linear' if kind == 'regression' else 'logistic'} "
+            f"regression on all columns, lasso, ridge, {'' if kind == 'regression' else 'naive Bayes, '}kNN, SVM, a single decision tree, random forest, "
+            f"boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.")
     about = {"repo": str(repo), "eval_command": "python evals/score.py", "goal": goal, "budget_usd": 1.0,
              "title": f"{src.stem} · predict {t}", "kind": kind, "metric": metric, "target": t, "rows": len(rows),
              "columns": len(header), "numeric_columns": len(info["numeric"]), "start_dev": dev, "start_test": test,

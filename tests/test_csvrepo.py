@@ -36,7 +36,7 @@ def test_bundled_example_builds_and_locks_the_test_split(tmp_path):
     refused = _score(repo, role="agent")
     assert refused.returncode == 2 and "referee" in refused.stdout
     dev = json.loads(_score(repo, "--split", "dev", role="agent").stdout)
-    assert set(dev["metrics"]) == {"log_loss", "accuracy", "auc"}
+    assert set(dev["metrics"]) == {"log_loss", "log_loss_se", "accuracy", "auc"}
     tests = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=repo, capture_output=True, text=True)
     assert tests.returncode == 0, tests.stdout
     assert csvrepo.build("examples/breast_cancer.csv", "diagnosis", tmp_path) == a   # same table, same repo
@@ -54,7 +54,7 @@ def test_regression_and_multiclass_tables(tmp_path):
              round(3 * x + 2 * z + rnd.gauss(0, 1), 3)] for _ in range(300)]
     a = csvrepo.build(_write(tmp_path / "house.csv", ["size", "age", "zone", "price"], rows), None, tmp_path / "r")
     assert a["kind"] == "regression" and a["metric"] == "rmse" and a["target"] == "price"
-    assert set(json.loads(_score(Path(a["repo"]), "--split", "dev").stdout)["metrics"]) == {"rmse", "r2"}
+    assert set(json.loads(_score(Path(a["repo"]), "--split", "dev").stdout)["metrics"]) == {"rmse", "rmse_se", "r2"}
     rows = [[rnd.uniform(0, 1), rnd.choice(["red", "green", "blue"])] for _ in range(200)]
     a = csvrepo.build(_write(tmp_path / "colors.csv", ["x", "color"], rows), "color", tmp_path / "m")
     assert a["kind"] == "multiclass" and a["metric"] == "log_loss"

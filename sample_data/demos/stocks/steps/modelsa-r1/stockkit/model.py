@@ -1,9 +1,21 @@
-"""Scaled, distance-weighted k-nearest-neighbor classifier."""
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KNeighborsClassifier
+"""Plain least-squares regression used as a probability predictor."""
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+
+class ClippedLinearRegression:
+    """Ordinary linear regression with outputs clipped to probability bounds."""
+    def __init__(self):
+        self.regression = LinearRegression()
+
+    def fit(self, X, y):
+        self.regression.fit(X, y)
+        return self
+
+    def predict_proba(self, X):
+        p = np.clip(self.regression.predict(X), 0.01, 0.99)
+        return np.column_stack((1.0 - p, p))
 
 
 def make_model():
-    # Broad neighborhood limits variance in the noisy cross-industry monthly labels.
-    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=501, weights="distance", p=2))
+    return ClippedLinearRegression()

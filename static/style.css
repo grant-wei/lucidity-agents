@@ -11,7 +11,7 @@
   --needs: #935610; --needs-mark: #c87619; --needs-soft: #fbf3e8; --needs-line: #ecc896;
   --fail: #ac2f33; --fail-soft: #fbeced;
   --code-bg: #f6f7f9;
-  --c1: #2d72d2; --c2: #00a396; --c3: #c87619; --c4: #7961db; --c5: #db2c6f; --c6: #5f6b7c; --c7: #147eb3; --c8: #9d3f9d;
+  --c1: #2d72d2; --c2: #00a396; --c3: #c87619; --c4: #7961db; --c5: #db2c6f; --c6: #5f6b7c; --c7: #147eb3; --c8: #9d3f9d; --c9: #6b8e23; --c10: #b0413e;
   --shadow: none;
   --shadow-lg: 0 4px 16px rgba(17, 20, 24, .08);
   --r-sm: 2px; --r: 3px; --r-lg: 4px;
@@ -31,7 +31,7 @@
   --needs: #fbbf24; --needs-mark: #f59e0b; --needs-soft: #2b2210; --needs-line: #5c4512;
   --fail: #f87171; --fail-soft: #2e1515;
   --code-bg: #121316;
-  --c1: #60a5fa; --c2: #22d3ee; --c3: #fbbf24; --c4: #f472b6; --c5: #a3e635; --c6: #c4b5fd; --c7: #2dd4bf; --c8: #94a3b8;
+  --c1: #60a5fa; --c2: #22d3ee; --c3: #fbbf24; --c4: #f472b6; --c5: #a3e635; --c6: #c4b5fd; --c7: #2dd4bf; --c8: #94a3b8; --c9: #bef264; --c10: #fb7185;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, .45);
   color-scheme: dark;
@@ -48,7 +48,7 @@
   --needs: #fbbf24; --needs-mark: #f59e0b; --needs-soft: #2b2210; --needs-line: #5c4512;
   --fail: #f87171; --fail-soft: #2e1515;
   --code-bg: #121316;
-  --c1: #60a5fa; --c2: #22d3ee; --c3: #fbbf24; --c4: #f472b6; --c5: #a3e635; --c6: #c4b5fd; --c7: #2dd4bf; --c8: #94a3b8;
+  --c1: #60a5fa; --c2: #22d3ee; --c3: #fbbf24; --c4: #f472b6; --c5: #a3e635; --c6: #c4b5fd; --c7: #2dd4bf; --c8: #94a3b8; --c9: #bef264; --c10: #fb7185;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, .45);
   color-scheme: dark;
@@ -753,3 +753,24 @@ ul.refs li.best { border-left: 3px solid var(--accent, currentColor); padding-le
 .setup .kind-param .kind-h b { color: var(--accent); }
 .setup .kind-nonparam { border-left-color: var(--done); }
 .setup .kind-nonparam .kind-h b { color: var(--done); }
+
+/* What changed each round */
+.panel.rc { margin-top: 14px; }
+.rc-agent { border-left: 3px solid var(--col); margin: 8px 0; padding: 2px 0 2px 10px; }
+.rc-agent summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 4px 0; }
+.rc-agent summary .sw { width: 10px; height: 10px; border-radius: 2px; background: var(--col); align-self: center; }
+.rc-name { font-weight: 600; }
+.rc-list { list-style: none; margin: 4px 0 6px; padding: 0; }
+.rc-r { border-top: 1px solid var(--line, rgba(127,127,127,.2)); padding: 8px 0; min-width: 0; }
+.rc-h { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.rc-n { font-weight: 600; }
+.rc-l { margin-top: 4px; }
+.rc-l .lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+.rc-l p { margin: 2px 0 0; overflow-wrap: anywhere; }
+.rc-stop { font-style: italic; }
+button.linkish { background: none; border: 0; padding: 0; margin-top: 6px; color: var(--accent); cursor: pointer; font: inherit; font-size: 13px; text-decoration: underline; }
+.rc-diff { max-height: 360px; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; padding: 8px; border-radius: 6px; background: var(--bg2, rgba(127,127,127,.08)); }
+.rc-diff .add { color: var(--done); }
+.rc-diff .del { color: var(--bad, #c0392b); }
+.rc-diff .hunk { opacity: .6; }
+.lb-luck { grid-column: 1 / -1; font-size: 12px; color: var(--muted, #6b7280); font-style: italic; margin-top: -2px; }

@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -71,8 +72,15 @@ def add(repo, path, branch, base):
     """New worktree at `path` on a new `branch` cut from `base`."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with _ADMIN:
-        git(repo, "worktree", "add", "-q", "-b", branch, str(path), base, check=True)
-    return str(path)
+        for tries in range(3):   # a busy machine can fail git with no message; a moment later it works
+            r = git(repo, "worktree", "add", "-q", "-b", branch, str(path), base)
+            if r.returncode == 0:
+                return str(path)
+            git(repo, "worktree", "prune")
+            git(repo, "branch", "-D", branch)
+            shutil.rmtree(path, ignore_errors=True)
+            time.sleep(1 + 2 * tries)
+        raise GitError((r.stderr or r.stdout).strip()[-400:] or f"git worktree add {branch} failed")
 
 
 def commit_all(path, message):

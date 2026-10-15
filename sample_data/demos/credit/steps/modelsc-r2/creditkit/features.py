@@ -1,29 +1,8 @@
-"""Permitted account-history features, as of September 2005.
-
-Protected traits (sex, marriage and age) are deliberately excluded.
-"""
-MONTHS = ("sep", "aug", "jul", "jun", "may", "apr")
-NAMES = (
-    "credit_limit",
-    *(f"status_{m}" for m in MONTHS),
-    *(f"status_{m}_is_{v}" for m in MONTHS for v in range(-2, 9)),
-    *(f"bill_{m}" for m in MONTHS),
-    *(f"paid_{m}" for m in MONTHS),
-    *(f"utilization_{m}" for m in MONTHS),
-    *(f"payment_fraction_{m}" for m in MONTHS),
-    "status_mean", "status_worsening", "bill_change", "payment_change",
-)
+"""Permitted account-history features; protected traits are deliberately excluded."""
+MONTHS = ["sep", "aug", "jul", "jun", "may", "apr"]
+NAMES = ["credit_limit", "education"] + [f"status_{m}" for m in MONTHS] + [f"bill_{m}" for m in MONTHS] + [f"paid_{m}" for m in MONTHS]
 
 
 def features(customer):
-    """One list of numbers in NAMES order."""
-    bills = [customer[f"bill_{m}"] for m in MONTHS]
-    paid = [customer[f"paid_{m}"] for m in MONTHS]
-    statuses = [customer[f"status_{m}"] for m in MONTHS]
-    limit = max(customer["credit_limit"], 1)
-    utilization = [b / limit for b in bills]
-    fraction = [p / max(abs(b), 1000) for p, b in zip(paid, bills)]
-    status_categories = [float(s == v) for s in statuses for v in range(-2, 9)]
-    return [customer["credit_limit"], *statuses, *status_categories, *bills, *paid,
-            *utilization, *fraction, sum(statuses) / len(statuses),
-            statuses[0] - statuses[-1], bills[0] - bills[-1], paid[0] - paid[-1]]
+    """One list of numbers, in NAMES order."""
+    return [customer[n] for n in NAMES]

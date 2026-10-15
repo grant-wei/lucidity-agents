@@ -1,14 +1,7 @@
-"""The model: anything scikit-learn-shaped with fit() and predict_proba()."""
-from sklearn.ensemble import RandomForestClassifier
+"""The model: L2-regularized logistic regression for home-win probabilities."""
+from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    # A moderate ensemble of shallow trees regularizes noisy win percentages.
-    return RandomForestClassifier(
-        n_estimators=400,
-        max_depth=3,
-        min_samples_leaf=20,
-        max_features=1.0,
-        random_state=17,
-        n_jobs=-1,
-    )
+    # C controls inverse L2 regularization strength; selected on the dev split.
+    return LogisticRegression(penalty="l2", C=1.0, solver="lbfgs", max_iter=1000)

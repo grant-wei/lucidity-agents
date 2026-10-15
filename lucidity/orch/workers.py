@@ -60,7 +60,7 @@ class DemoWorker(Worker):
                     dst = Path(cwd) / src.relative_to(step["files_dir"])
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(src, dst)
-        return {"report": step["report"], "usd": step["usd"], "error": None}
+        return {"report": step["report"], "usd": step["usd"], "error": None, "changed": step.get("changed")}
 
 
 class BuiltinWorker(Worker):

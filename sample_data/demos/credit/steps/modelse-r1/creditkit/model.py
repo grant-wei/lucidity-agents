@@ -1,15 +1,9 @@
-"""The model: a scikit-learn-shaped random forest classifier."""
-from sklearn.ensemble import RandomForestClassifier
+"""Ridge-regularized logistic regression model."""
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def make_model():
-    return RandomForestClassifier(
-        n_estimators=500,
-        max_depth=10,
-        min_samples_leaf=20,
-        max_features=0.8,
-        bootstrap=True,
-        max_samples=0.8,
-        n_jobs=-1,
-        random_state=42,
-    )
+    # Scaling allows the L2 penalty to regularize each account variable comparably.
+    return make_pipeline(StandardScaler(), LogisticRegression(C=0.1, max_iter=1000))

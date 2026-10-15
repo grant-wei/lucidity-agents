@@ -1,7 +1,7 @@
-"""Random forest model with probability output."""
-from sklearn.ensemble import RandomForestClassifier
+"""The model: L2-regularized logistic regression for home-win probabilities."""
+from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    return RandomForestClassifier(n_estimators=500, max_depth=4, min_samples_leaf=35,
-                                  max_features=1.0, random_state=17, n_jobs=-1)
+    # C controls inverse L2 regularization strength; selected on the dev split.
+    return LogisticRegression(penalty="l2", C=1.0, solver="lbfgs", max_iter=1000)

@@ -1,8 +1,39 @@
 {
- "about": "A demo run, replayed from a live gpt-6-luna run (1014-161622-05e8) at about 25x speed. The planner's question, every agent's edits and reports, and the checker model's rulings are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks, merges and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 3 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out seasons; only Lucidity scored them. Game results are from FiveThirtyEight's NBA Elo data (CC BY 4.0).",
+ "about": "A demo run, replayed from a live gpt-6-luna run (1015-140835-607f) at about 25x speed. The planner's question, every agent's edits and reports, and the checker model's rulings are that run's; in the live run the owner tried all ten model families, and here you choose. The tests, checks, merges and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 3 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out seasons; only Lucidity scored them. Game results are from FiveThirtyEight's NBA Elo data (CC BY 4.0).",
  "title": "NBA game forecasts",
- "card": {"ask": "Will the home team win? Using only what was known before tip-off.", "stats": [["Starts at", "0.623"], ["Goal", "0.6068"], ["FiveThirtyEight", "0.608"]], "parts": [["Train", "2001–2012"], ["Tune", "2013"], ["Test", "2014–2015"]], "why": "FiveThirtyEight's published forecast for the same games, the best answer here without agents."},
- "blurb": "A model predicts the chance the home team wins an NBA game, using only what was known before tip-off. It scores 0.623 log loss; FiveThirtyEight's Elo forecast scores 0.608, so the goal is 0.6068. Six kinds of model are tried at once, one agent each. Lucidity scores every attempt on two seasons the agents never see, checks each agent really built the model it was given, and recommends the best.",
+ "card": {
+  "ask": "Will the home team win? Using only what was known before tip-off.",
+  "stats": [
+   [
+    "Starts at",
+    "0.623"
+   ],
+   [
+    "Goal",
+    "0.6068"
+   ],
+   [
+    "FiveThirtyEight",
+    "0.608"
+   ]
+  ],
+  "parts": [
+   [
+    "Train",
+    "2001–2012"
+   ],
+   [
+    "Tune",
+    "2013"
+   ],
+   [
+    "Test",
+    "2014–2015"
+   ]
+  ],
+  "why": "FiveThirtyEight's published forecast for the same games, the best answer here without agents."
+ },
+ "blurb": "A model predicts the chance the home team wins an NBA game, using only what was known before tip-off. It scores 0.623 log loss; FiveThirtyEight's Elo forecast scores 0.608, so the goal is 0.6068. Ten kinds of model are tried at once, one agent each. Lucidity scores every attempt on two seasons the agents never see, checks each agent really built the model it was given, and recommends the best.",
  "split": "Trained on the 2001-2012 seasons, tuned on 2013, tested on 2014-2015. Agents never see the test seasons; only Lucidity scores them.",
  "references": [
   {
@@ -31,23 +62,75 @@
  "repo_name": "hoopkit",
  "about_repo": "bundled NBA win-probability model: 19,274 games 2001-2015, logistic regression, evals/score.py",
  "commit_message": "hoopkit: season win % + logistic regression, NBA games 2001-2015, evals/score.py",
- "goal": "Get held-out log loss to 0.6068 or lower (FiveThirtyEight's Elo forecast scores 0.608) without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees, Elo), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
- "budget_usd": 2.0,
+ "goal": "Get held-out log loss to 0.6068 or lower (FiveThirtyEight's Elo forecast scores 0.608) without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (plain linear regression with predictions clipped to 1-99%, plain logistic regression, naive Bayes, lasso logistic regression, ridge logistic regression, kNN, SVM, a single decision tree, random forest, boosted trees), any of them may use Elo-style team ratings built from earlier games as inputs, then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "budget_usd": 3.5,
  "planner": {
-  "seconds": 0.3,
-  "usd": 0.000459,
+  "seconds": 0.7,
+  "usd": 0.000682,
   "activity": [
    "reading hoopkit (gpt-6-luna)"
   ]
  },
  "plan": {
-  "summary": "Compare owner-selected model families on the dev split, retain the strongest model that meets the held-out log-loss goal without reducing accuracy, and verify lookahead safety. All experiments must respect the $2.00 total budget; each scoring-code task uses the required held-out no-regression check.",
+  "summary": "Ask the owner which model families to try before work begins. Run the selected approaches in parallel; each attempt can tune on dev, and the final held-out evaluation gates the winning implementation at log loss ≤ 0.6068 with accuracy not below baseline.",
   "nodes": [
    {
     "id": "models",
-    "title": "Implement and compare selected model families",
-    "prompt": "Implement the model families selected by the owner, keeping each option compatible with the repository's fit/predict_proba contract and using only pregame information. Tune hyperparameters on dev only; compare log loss and accuracy, then retain the best model that meets held-out log loss <= 0.6068 without accuracy below the repository baseline. Do not use held-out results to tune.",
+    "title": "Implement and dev-tune selected model families",
+    "prompt": "For each family selected by the owner, implement a separate scikit-learn-shaped estimator path compatible with the repo's model/features interface. Tune using only the dev split; optional Elo-style team ratings must use earlier games only and preserve the tracker’s no-lookahead behavior. Compare candidates on dev log loss and accuracy, and retain the best viable candidate.",
     "deps": [],
+    "done_when": [
+     {
+      "kind": "test",
+      "command": "python -m pytest -q",
+      "path": "",
+      "text": "",
+      "metric": "",
+      "op": ">=",
+      "value": 0.0
+     },
+     {
+      "kind": "metric",
+      "command": "python evals/score.py --split heldout",
+      "path": "",
+      "text": "",
+      "metric": "log_loss",
+      "op": "<=",
+      "value": 0.6068
+     },
+     {
+      "kind": "no_regression",
+      "command": "python evals/score.py --split heldout",
+      "path": "",
+      "text": "",
+      "metric": "*.accuracy",
+      "op": ">=",
+      "value": 0.0
+     }
+    ],
+    "budget_usd": 3.0,
+    "max_rounds": 4,
+    "attempts": 10,
+    "strategies": [
+     "Plain linear regression (clip 1–99%). Build a linear regression classifier, converting its output to probabilities by clipping to [0.01, 0.99]; tune only on dev.",
+     "Plain logistic regression. Build and dev-tune standard logistic regression, including reasonable feature scaling where appropriate.",
+     "Naive Bayes. Build and dev-tune a suitable Naive Bayes classifier with any needed feature transformations.",
+     "Lasso logistic regression. Build and dev-tune logistic regression with L1 regularization, including regularization strength.",
+     "Ridge logistic regression. Build and dev-tune logistic regression with L2 regularization, including regularization strength.",
+     "kNN. Build a scaled k-nearest-neighbors classifier and dev-tune neighbor count and relevant distance settings.",
+     "SVM. Build and dev-tune a scaled SVM classifier with probability outputs or calibration.",
+     "Single decision tree. Build and dev-tune a single decision tree classifier, controlling depth and leaf size.",
+     "Random forest. Build and dev-tune a random forest classifier with sensible limits on depth and leaf size.",
+     "Boosted trees. Build and dev-tune a boosted-tree classifier using available project dependencies; constrain complexity to avoid overfit."
+    ]
+   },
+   {
+    "id": "heldout_gate",
+    "title": "Validate final held-out performance",
+    "prompt": "After model changes are complete, run the required held-out evaluation and report the JSON scores. If the chosen model misses the target or loses accuracy versus the starting held-out baseline, make only minimal fixes supported by dev evaluation and revalidate.",
+    "deps": [
+     "models"
+    ],
     "done_when": [
      {
       "kind": "metric",
@@ -77,92 +160,77 @@
       "value": 0.0
      }
     ],
-    "budget_usd": 1.7,
+    "budget_usd": 0.5,
     "max_rounds": 4,
-    "attempts": 6,
-    "strategies": [
-     "kNN. Implement a scaled k-nearest-neighbors classifier in the model-selection workflow; tune neighbor count and weighting on dev.",
-     "SVM. Implement a scaled probabilistic SVM in the model-selection workflow; tune kernel and regularization on dev.",
-     "Lasso logistic regression. Implement logistic regression with L1 regularization in the model-selection workflow; tune regularization strength on dev.",
-     "Ridge logistic regression. Implement logistic regression with L2 regularization in the model-selection workflow; tune regularization strength on dev.",
-     "Random forest. Implement a random forest classifier in the model-selection workflow; tune tree count, depth, and leaf size on dev.",
-     "Boosted trees. Implement a boosted-tree classifier in the model-selection workflow; tune estimator count, learning rate, depth, and leaf size on dev."
-    ]
-   },
-   {
-    "id": "verify",
-    "title": "Verify no-lookahead and scoring integration",
-    "prompt": "Review the selected model integration and tests for temporal leakage. Add or adjust automated tests so that predictions use only information available before tip-off, and verify the model's scoring interface remains valid.",
-    "deps": [
-     "models"
-    ],
-    "done_when": [
-     {
-      "kind": "test",
-      "command": "python -m pytest -q",
-      "path": "",
-      "text": "",
-      "metric": "",
-      "op": ">=",
-      "value": 0.0
-     },
-     {
-      "kind": "no_regression",
-      "command": "python evals/score.py --split heldout",
-      "path": "",
-      "text": "",
-      "metric": "*.accuracy",
-      "op": ">=",
-      "value": 0.0
-     }
-    ],
-    "budget_usd": 0.3,
-    "max_rounds": 2,
     "attempts": 1,
     "strategies": []
    }
   ],
   "questions": [
    {
-    "id": "q1",
-    "question": "Which model families should agents try? Select the families to implement and compare on dev.",
+    "id": "families",
+    "question": "Which model families should agents try? Select any; each selected family will be implemented and tuned on the dev split in parallel.",
     "multi": true,
     "options": [
      {
-      "label": "kNN",
-      "note": "Tests whether similarity among historical team-game profiles improves forecasts; requires feature scaling.",
+      "label": "Plain linear regression (clip 1–99%)",
+      "note": "Simple baseline; clamp predicted probabilities away from 0 and 1.",
       "recommended": false,
-      "approach": "Implement a scaled k-nearest-neighbors classifier in the model-selection workflow; tune neighbor count and weighting on dev."
+      "approach": "Build a linear regression classifier, converting its output to probabilities by clipping to [0.01, 0.99]; tune only on dev."
      },
      {
-      "label": "SVM",
-      "note": "A nonlinear margin-based classifier may capture interactions after scaling.",
+      "label": "Plain logistic regression",
+      "note": "Interpretable probabilistic baseline.",
+      "recommended": true,
+      "approach": "Build and dev-tune standard logistic regression, including reasonable feature scaling where appropriate."
+     },
+     {
+      "label": "Naive Bayes",
+      "note": "Fast generative baseline that may benefit from transformed features.",
       "recommended": false,
-      "approach": "Implement a scaled probabilistic SVM in the model-selection workflow; tune kernel and regularization on dev."
+      "approach": "Build and dev-tune a suitable Naive Bayes classifier with any needed feature transformations."
      },
      {
       "label": "Lasso logistic regression",
-      "note": "Sparse regularization can select a compact subset of the available pregame features.",
+      "note": "Sparse regularized logistic model.",
       "recommended": false,
-      "approach": "Implement logistic regression with L1 regularization in the model-selection workflow; tune regularization strength on dev."
+      "approach": "Build and dev-tune logistic regression with L1 regularization, including regularization strength."
      },
      {
       "label": "Ridge logistic regression",
-      "note": "A regularized logistic baseline is a compact, robust comparison.",
+      "note": "Regularized logistic model robust to correlated inputs.",
+      "recommended": true,
+      "approach": "Build and dev-tune logistic regression with L2 regularization, including regularization strength."
+     },
+     {
+      "label": "kNN",
+      "note": "Can capture local patterns; scaling is important.",
       "recommended": false,
-      "approach": "Implement logistic regression with L2 regularization in the model-selection workflow; tune regularization strength on dev."
+      "approach": "Build a scaled k-nearest-neighbors classifier and dev-tune neighbor count and relevant distance settings."
+     },
+     {
+      "label": "SVM",
+      "note": "Margin-based model; probability calibration may matter.",
+      "recommended": false,
+      "approach": "Build and dev-tune a scaled SVM classifier with probability outputs or calibration."
+     },
+     {
+      "label": "Single decision tree",
+      "note": "Captures nonlinear interactions with limited complexity.",
+      "recommended": false,
+      "approach": "Build and dev-tune a single decision tree classifier, controlling depth and leaf size."
      },
      {
       "label": "Random forest",
-      "note": "Tree ensembles can learn nonlinear feature interactions without feature scaling.",
+      "note": "Robust nonlinear ensemble baseline.",
       "recommended": false,
-      "approach": "Implement a random forest classifier in the model-selection workflow; tune tree count, depth, and leaf size on dev."
+      "approach": "Build and dev-tune a random forest classifier with sensible limits on depth and leaf size."
      },
      {
       "label": "Boosted trees",
-      "note": "Boosting may improve probability estimates by fitting residual structure in the team features.",
+      "note": "Can model nonlinear feature interactions effectively.",
       "recommended": true,
-      "approach": "Implement a boosted-tree classifier in the model-selection workflow; tune estimator count, learning rate, depth, and leaf size on dev."
+      "approach": "Build and dev-tune a boosted-tree classifier using available project dependencies; constrain complexity to avoid overfit."
      }
     ],
     "drives": "models"
@@ -171,343 +239,344 @@
  },
  "steps": {
   "modelsa-r1": {
-   "seconds": 1.5,
-   "usd": 0.001652,
-   "report": "I replaced logistic regression with a scaled kNN classifier and conservative probability calibration, but its dev log loss (0.6660) and accuracy (0.6139) are worse than the baseline. The tests pass, but the score conditions do not pass; held-out scoring was refused in this agent environment.",
+   "seconds": 1.2,
+   "usd": 0.001191,
+   "report": "I replaced logistic regression with plain linear regression and clipped its predicted probabilities to [0.01, 0.99]. The tests pass, but the dev log loss is 0.6254 and held-out scoring was refused in this environment, so I can’t verify that the score and accuracy conditions pass.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
     "read_file evals/score.py",
     "read_file tests/test_no_lookahead.py",
-    "read_file requirements.txt",
-    "read_file hoopkit/__init__.py",
     "run_eval evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
     "run_eval python evals/score.py --split dev",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Model changed from logistic regression to linear regression, with predicted probabilities clipped from unrestricted to 1%–99%."
   },
   "modelsa-r2": {
-   "seconds": 1.1,
-   "usd": 0.001274,
-   "report": "I adjusted the scaled kNN to use 250 distance-weighted neighbors with moderate probability shrinkage; on dev it scores 0.6385 log loss and 0.6512 accuracy, and the tests pass. The held-out score could not be checked because the agent environment refuses held-out evaluation, so the required held-out conditions are not confirmed as passing.",
+   "seconds": 1.3,
+   "usd": 0.001169,
+   "report": "I added a date-safe Elo difference feature while keeping the predictor as plain linear regression with probabilities clipped to 1–99%; dev log loss improved from 0.6254 to 0.6072, with accuracy improving from 0.6535 to 0.6679. The tests pass, but the held-out score is unavailable here, so the log-loss and accuracy conditions cannot be verified.",
    "activity": [
-    "run_eval score.py --split heldout",
     "list_files",
-    "read_file evals/score.py",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
-    "read_file README.md",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
     "read_file hoopkit/__init__.py",
     "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
+    "write_file hoopkit/features.py",
     "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Added season-based Elo ratings, starting at 1500 with a 65-point home advantage and 20-point updates; added normalized home-away Elo difference to win percentages as a model input."
   },
   "modelsa-r3": {
-   "seconds": 1.1,
-   "usd": 0.001504,
-   "report": "I added pregame Elo ratings to the features and kept the predictor as a scaled kNN; on dev it scores 0.6032 log loss and 0.6695 accuracy. Tests pass, but the held-out score could not be verified: the eval refused access to held-out results in this agent environment.",
+   "seconds": 1.8,
+   "usd": 0.002258,
+   "report": "I kept the predictor as plain linear regression with probabilities clipped to [0.01, 0.99], and retained the date-safe Elo feature with its original K=20 update rate after testing alternatives on dev. The tests pass and dev log loss is 0.6072, but the held-out eval is restricted here, so I cannot verify the held-out log-loss or accuracy conditions.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
-    "read_file README.md",
     "read_file hoopkit/features.py",
     "read_file evals/score.py",
-    "read_file requirements.txt",
-    "read_file hoopkit/__init__.py",
-    "write_file hoopkit/features.py",
-    "write_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
     "run_eval score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "run_tests python -m pytest -q",
     "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
     "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "No code changed this round."
   },
   "modelsa-r4": {
-   "seconds": 1.7,
-   "usd": 0.002214,
-   "report": "I kept the scaled kNN model and selected its 100-neighbor, distance-weighted configuration with 0.7 shrinkage; dev log loss is 0.6032 and accuracy is 0.6695. Tests pass, but I could not verify the held-out conditions because the evaluation script refused held-out scoring in this agent environment, so those conditions are not confirmed.",
+   "seconds": 1.1,
+   "usd": 0.001468,
+   "report": "I added date-safe, shrinkage-adjusted scoring-margin and games-played-difference features while keeping the predictor as plain linear regression with probabilities clipped to [0.01, 0.99]; dev log loss improved to 0.6008, but dev accuracy fell from 0.6679 to 0.6649. Tests pass, but held-out scoring is restricted here, so the held-out log-loss and accuracy conditions are unverified and cannot be claimed to pass.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
-    "read_file evals/score.py",
     "read_file hoopkit/features.py",
-    "read_file README.md",
+    "read_file evals/score.py",
     "read_file tests/test_no_lookahead.py",
-    "run_eval score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "run_eval evals/score.py --split dev",
     "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "write_file hoopkit/model.py",
+    "write_file hoopkit/features.py",
     "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_eval python evals/score.py --split dev",
-    "run_tests python -m pytest -q"
-   ]
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Added average scoring-margin difference and games-played difference as inputs; added margin tracking, shrinking estimates toward average over 8 games."
   },
   "modelsb-r1": {
-   "seconds": 5.6,
-   "usd": 0.001559,
-   "report": "I replaced the default logistic regression with a scaled probabilistic RBF SVM and selected C=0.1 based on dev log loss (0.6224). The tests pass, but the held-out score could not be checked in this agent environment, so the log-loss and accuracy conditions are unverified.",
+   "seconds": 1.0,
+   "usd": 0.001325,
+   "report": "I added an earlier-games-only Elo-style rating difference feature while keeping the predictor as plain `LogisticRegression`; dev log loss improved to 0.5958 and accuracy to 0.6801. Tests pass, but held-out conditions cannot be verified here because the eval refuses held-out scoring in the agent environment.",
    "activity": [
     "list_files",
-    "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
-    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/model.py",
     "read_file evals/score.py",
-    "read_file requirements.txt",
-    "read_file hoopkit/__init__.py",
-    "write_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file README.md",
     "run_eval evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Added Elo difference input starting at 1500, updated after each game with K=20; retained home and away win percentages."
   },
   "modelsb-r2": {
-   "seconds": 2.8,
-   "usd": 0.001141,
-   "report": "I changed the model to a scaled linear probabilistic SVM, which improved dev log loss to 0.6185 while keeping dev accuracy at 0.6558. Tests pass; the held-out score condition remains unverified because the evaluation script refused the held-out run in this agent environment.",
+   "seconds": 1.3,
+   "usd": 0.00108,
+   "report": "I kept the predictor as plain logistic regression and added standardized inputs with regularization tuned on the dev split; dev log loss is 0.5958 and accuracy is 0.6801. Tests pass, but held-out scoring was refused in this environment, so the held-out log-loss and accuracy conditions cannot be verified.",
    "activity": [
     "list_files",
-    "read_file hoopkit/model.py",
-    "read_file hoopkit/features.py",
-    "read_file tests/test_no_lookahead.py",
     "read_file evals/score.py",
-    "read_file README.md",
-    "list_files",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
     "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "read_file scripts/prepare_games.py",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Model changed from default LogisticRegression to StandardScaler + LogisticRegression (C 1 → 0.3; max iterations 100 → 500)."
   },
   "modelsb-r3": {
-   "seconds": 2.2,
-   "usd": 0.001449,
-   "report": "I added a pregame Elo matchup feature and kept the predictor as a scaled probabilistic SVM; dev log loss is 0.6097 with 0.6847 accuracy. Tests pass, but held-out conditions are not verified: the held-out score was refused, so I cannot confirm the required log loss or accuracy.",
+   "seconds": 1.3,
+   "usd": 0.001463,
+   "report": "I added season win-percentage difference and games-played inputs while keeping the predictor as scaled plain logistic regression; dev log loss remained 0.5958, with accuracy 0.6794. Tests pass, but the held-out score was blocked in this environment, so the held-out log-loss and accuracy conditions cannot be verified.",
    "activity": [
     "list_files",
+    "read_file hoopkit/features.py",
+    "read_file tests/test_no_lookahead.py",
     "read_file hoopkit/model.py",
     "read_file evals/score.py",
-    "read_file README.md",
-    "read_file tests/test_no_lookahead.py",
-    "read_file hoopkit/features.py",
     "read_file hoopkit/__init__.py",
-    "write_file hoopkit/features.py",
-    "write_file hoopkit/model.py",
-    "run_eval evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout"
-   ]
-  },
-  "modelsb-r4": {
-   "seconds": 2.9,
-   "usd": 0.0011,
-   "report": "I changed the model to a scaled linear probabilistic SVM; its dev log loss is 0.5919 and accuracy is 0.6824. Tests pass, but the held-out score is not available in this agent environment, so I cannot confirm the held-out score and accuracy conditions pass.",
-   "activity": [
-    "list_files",
-    "read_file hoopkit/features.py",
-    "read_file hoopkit/model.py",
-    "read_file evals/score.py",
     "read_file README.md",
-    "read_file tests/test_no_lookahead.py",
+    "write_file hoopkit/features.py",
     "run_eval evals/score.py --split dev",
-    "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Adds season win-percentage difference and home/away games played; retains home/away win percentages and Elo difference, with no model settings changed."
   },
   "modelsc-r1": {
-   "seconds": 1.3,
-   "usd": 0.001554,
-   "report": "I implemented L1-regularized logistic regression and added pregame team win-rate and point-differential features; dev log loss is 0.6037 and accuracy is 0.6725. Tests pass, but the held-out score could not be verified because this environment refused the held-out evaluation, so I can’t confirm all conditions pass.",
+   "seconds": 1.0,
+   "usd": 0.001167,
+   "report": "I replaced logistic regression with a Gaussian Naive Bayes classifier using transformed team win-rate features; dev log loss is 0.6177 and the tests pass. The held-out score and accuracy conditions are not verified—the held-out eval was refused in this environment.",
    "activity": [
     "list_files",
-    "read_file hoopkit/features.py",
     "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
     "read_file evals/score.py",
     "read_file tests/test_no_lookahead.py",
-    "read_file requirements.txt",
     "read_file hoopkit/__init__.py",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
     "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/features.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Game-outcome model changed from logistic regression to Gaussian Naive Bayes (variance smoothing 0.05), using team rates as difference and average features."
   },
   "modelsc-r2": {
-   "seconds": 0.8,
-   "usd": 0.000871,
-   "report": "I changed the Lasso logistic regression’s regularization strength from `C=0.1` to `C=1.0`; dev log loss is 0.6037 with accuracy 0.6725. Tests pass, but held-out scoring was refused by the environment, so I can’t confirm whether the required held-out log loss and accuracy conditions pass.",
+   "seconds": 0.9,
+   "usd": 0.001243,
+   "report": "I added an earlier-games-only Elo difference feature and kept the predictor as a Gaussian Naive Bayes classifier; the dev log loss is 0.6343, worse than the prior 0.6177, so this change does not meet the log-loss target. Tests pass, but held-out scoring was refused, so the held-out log-loss and accuracy conditions are unverified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
-    "read_file evals/score.py",
     "read_file hoopkit/features.py",
+    "read_file evals/score.py",
     "read_file tests/test_no_lookahead.py",
-    "read_file README.md",
-    "run_eval evals/score.py --split dev",
-    "run_eval python evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Added season-specific pregame Elo difference (initial rating 1500, update factor 20); Gaussian Naive Bayes now uses win-rate difference and Elo, dropping average win rate, smoothing 0.05 -> 0.02."
   },
   "modelsc-r3": {
-   "seconds": 0.8,
-   "usd": 0.000954,
-   "report": "I kept the predictor as L1-regularized logistic regression and tuned its regularization strength on the dev split, changing `C` from 1.0 to 0.3; dev log loss is 0.6034 and accuracy is 0.6725. Tests pass, but the held-out score is unavailable because the evaluator refused the request, so I can’t confirm that all conditions pass.",
-   "activity": [
-    "list_files",
-    "read_file hoopkit/model.py",
-    "read_file evals/score.py",
-    "read_file hoopkit/features.py",
-    "read_file tests/test_no_lookahead.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsc-r4": {
-   "seconds": 0.9,
-   "usd": 0.001399,
-   "report": "I kept the predictor as L1-regularized logistic regression and set its regularization strength to C=0.3; the tests pass. The held-out score could not be checked because the evaluator refused access, so the log-loss and accuracy conditions are not confirmed.",
+   "seconds": 1.4,
+   "usd": 0.001577,
+   "report": "I kept the predictor as Gaussian Naive Bayes and changed its feature transformation and smoothing; dev log loss is 0.6370, worse than the earlier 0.6177. Tests pass, but the required log-loss condition is not met, and held-out scoring was refused, so accuracy is unverified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
-    "read_file tests/test_no_lookahead.py",
     "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
     "read_file hoopkit/__init__.py",
     "run_eval evals/score.py --split dev",
     "run_eval python evals/score.py --split dev",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
+    "write_file scratch/tune.py",
+    "run_eval python scratch/tune.py",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "GaussianNB variance smoothing changed 0.02 -> 1e-9; inputs remain win-rate difference and Elo, kept as separate features."
   },
   "modelsd-r1": {
    "seconds": 1.1,
-   "usd": 0.001184,
-   "report": "I made the model explicitly use L2-regularized logistic regression, with regularization strength C=1.0, and increased the iteration limit. The tests pass; the held-out score was refused by the evaluation script, so I can’t verify the log-loss or accuracy conditions.",
+   "usd": 0.001533,
+   "report": "I added an earlier-games-only Elo edge feature and tuned a scaled L1-regularized logistic regression on dev; dev log loss is 0.5963 with accuracy 0.6771, and all tests pass. Held-out scoring was refused in this agent environment, so I can’t confirm the held-out log-loss or accuracy conditions.",
    "activity": [
     "list_files",
-    "read_file evals/score.py",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
     "read_file tests/test_no_lookahead.py",
-    "list_files",
+    "read_file evals/score.py",
+    "read_file README.md",
     "read_file hoopkit/__init__.py",
-    "run_eval evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "write_file hoopkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval score.py --split heldout",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev"
+   ],
+   "changed": "Added Elo home-edge to team win-percentage inputs; changed default logistic regression to scaled L1 logistic regression (C 1.0 → 0.25; iterations 100 → 1000)."
+  },
+  "modelsd-r2": {
+   "seconds": 1.8,
+   "usd": 0.001503,
+   "report": "I added shrinkage-adjusted season-to-date strength and games-played features, keeping the predictor an L1-regularized logistic regression; dev log loss is 0.5960 and accuracy is 0.6809. Tests pass, but the held-out eval was refused in this environment, so the held-out log-loss and accuracy conditions cannot be confirmed.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
+    "write_file hoopkit/model.py",
+    "run_eval score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added season win-rate edge and home/away games played (capped at 40) to the three existing inputs; lowered logistic regression C from 0.25 to 0.12."
+  },
+  "modelsd-r3": {
+   "seconds": 1.1,
+   "usd": 0.001554,
+   "report": "I added a date-safe, shrinkage-adjusted season scoring-margin feature and kept the predictor as L1-regularized logistic regression; dev log loss improved to 0.5925 with accuracy at 0.6801. Tests pass, but the held-out eval was refused in this environment, so the held-out log-loss and accuracy conditions are unverified.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/features.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/__init__.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Adds a season scoring-margin edge input, tracking each team’s points-for minus points-against and shrinking its average over games played plus 5."
+  },
+  "modelse-r1": {
+   "seconds": 2.1,
+   "usd": 0.00177,
+   "report": "I made the model explicitly use L2-regularized logistic regression and set its regularization strength to C=1.0; the dev score remains log loss 0.6182 and accuracy 0.6565. Tests pass, but the held-out score was refused in this agent environment, so I can’t verify that the score conditions pass.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file README.md",
+    "read_file hoopkit/__init__.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune.py",
+    "run_eval python scratch/tune.py",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split heldout",
     "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q",
     "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
-  },
-  "modelsd-r2": {
-   "seconds": 0.8,
-   "usd": 0.001258,
-   "report": "I added pregame Elo ratings as features for the L2-regularized logistic regression; dev log loss is 0.5969, and the tests pass. The held-out score was unavailable in this run, so I can’t confirm that the held-out log-loss and accuracy conditions pass.",
-   "activity": [
-    "list_files",
-    "read_file hoopkit/features.py",
-    "read_file hoopkit/model.py",
-    "read_file evals/score.py",
-    "read_file tests/test_no_lookahead.py",
-    "read_file README.md",
-    "read_file hoopkit/__init__.py",
-    "write_file hoopkit/features.py",
-    "run_eval python evals/score.py --split dev",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
-  },
-  "modelse-r1": {
-   "seconds": 1.2,
-   "usd": 0.001174,
-   "report": "I implemented a Random Forest classifier and tuned its tree count, depth, and leaf size on the dev split; it scored 0.6152 log loss and 0.6634 accuracy. Tests pass, but the held-out score could not be checked because the environment refused access, so the required log-loss condition is not confirmed.",
-   "activity": [
-    "list_files",
-    "read_file hoopkit/model.py",
-    "read_file hoopkit/features.py",
-    "read_file evals/score.py",
-    "read_file tests/test_no_lookahead.py",
-    "read_file requirements.txt",
-    "list_files",
-    "write_file hoopkit/model.py",
-    "run_eval score.py --split dev",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split heldout",
-    "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Replaced default logistic regression with L2 logistic regression (C 1.0, lbfgs solver, 1000 iterations); added a dev-set tuning script."
   },
   "modelse-r2": {
    "seconds": 1.3,
-   "usd": 0.001855,
-   "report": "I kept the predictor as a random forest, added pregame features for games played, point margin, and prior-season win rate, and tuned the forest on dev, where it scored 0.6036 log loss and 0.6634 accuracy. The tests pass; held-out scoring was refused by the evaluator, so I can’t verify the held-out log-loss or accuracy conditions.",
+   "usd": 0.001541,
+   "report": "I added an earlier-games-only Elo rating difference feature and kept the predictor as L2-regularized logistic regression; dev log loss is 0.5958 and accuracy is 0.6801. Tests pass, but the held-out score was refused in this environment, so the held-out log-loss and accuracy conditions are unverified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
+    "read_file scratch/tune.py",
     "read_file evals/score.py",
-    "read_file tests/test_no_lookahead.py",
-    "read_file README.md",
     "read_file hoopkit/__init__.py",
     "write_file hoopkit/features.py",
+    "run_eval evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune.py",
+    "run_eval python scratch/tune.py"
+   ],
+   "changed": "Added normalized Elo rating difference to win percentages, updating ratings by 20 points per game; narrowed logistic regression C values from 0.001–1000 to 0.01–100."
+  },
+  "modelse-r3": {
+   "seconds": 1.3,
+   "usd": 0.001631,
+   "report": "I added shrinkage-adjusted, earlier-games-only team net-rating features and standardized inputs for an L2-regularized logistic regression, tuned to C=0.08; dev log loss is 0.5919 and accuracy is 0.6801. Tests pass, but the held-out score was refused in this environment, so I can’t verify the held-out log-loss or accuracy conditions.",
+   "activity": [
+    "list_files",
+    "read_file scratch/tune.py",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/__init__.py",
     "write_file hoopkit/features.py",
     "write_file hoopkit/model.py",
     "run_eval score.py --split dev",
     "run_tests python -m pytest -q",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout"
-   ]
+   ],
+   "changed": "Added home/away net-rating inputs; logistic regression now standardizes features, with L2 strength C changing 1.0 -> 0.08."
   },
   "modelsf-r1": {
-   "seconds": 1.2,
-   "usd": 0.001214,
-   "report": "I replaced logistic regression with a tuned `GradientBoostingClassifier`; on dev it scores 0.6125 log loss and 0.6588 accuracy. The tests pass, but the held-out eval was refused in this agent environment, so the held-out loss and accuracy conditions are unverified.",
+   "seconds": 1.6,
+   "usd": 0.001303,
+   "report": "I replaced the logistic regression with a scaled kNN classifier using 1,200 uniform-weight neighbors; dev log loss is 0.6097, and the tests pass. The held-out score and accuracy condition are not verified: the held-out eval is restricted in this agent environment, so I can’t confirm that all conditions pass.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
@@ -515,171 +584,411 @@
     "read_file evals/score.py",
     "read_file tests/test_no_lookahead.py",
     "read_file requirements.txt",
+    "write_file hoopkit/model.py",
+    "run_eval score.py --split heldout",
+    "run_eval score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "The model changed from logistic regression to standardized k-nearest neighbors, with 1,200 neighbors, uniform weighting, and Euclidean distance."
+  },
+  "modelsf-r2": {
+   "seconds": 1.3,
+   "usd": 0.001502,
+   "report": "I added an earlier-games-only Elo win-probability feature and tuned the scaled kNN to 800 neighbors; dev log loss is 0.6058 and accuracy is 0.6679. Tests pass, but the held-out eval is restricted here, so the held-out log-loss and accuracy conditions are unverified.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added an Elo-based home-win probability input, starting ratings at 1500 with a 65-point home advantage and 20-point updates; KNN neighbors decreased from 1200 to 800."
+  },
+  "modelsf-r3": {
+   "seconds": 1.1,
+   "usd": 0.001259,
+   "report": "I tuned the scaled kNN neighborhood on the dev split and retained 800 uniform-weight neighbors; dev log loss is 0.6058 and accuracy is 0.6679. Tests pass, but the held-out eval is restricted here, so the held-out log-loss and accuracy conditions remain unverified.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Only the comment changed in hoopkit/model.py; model settings stayed the same: 800 neighbors, uniform weights, p=2."
+  },
+  "modelsf-r4": {
+   "seconds": 1.4,
+   "usd": 0.001822,
+   "report": "I retained the date-safe Elo features and scaled kNN classifier; the added feature experiment worsened dev log loss, so I reverted it to the previously tuned setup. Tests pass, but the held-out score and accuracy conditions remain unverified because this environment refuses held-out evaluation.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/features.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Clarified that same-day games use earlier results only; Elo update remains 20 × (home result − expected), with the temporary outcome variable removed."
+  },
+  "modelsg-r1": {
+   "seconds": 2.4,
+   "usd": 0.001486,
+   "report": "I added earlier-games-only Elo features and replaced logistic regression with a scaled, probability-calibrated SVM; dev log loss is 0.6117. The tests pass, but held-out scoring was refused in this agent environment, so the log-loss and accuracy conditions are not confirmed.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/features.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file README.md",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
     "write_file hoopkit/model.py",
     "run_eval evals/score.py --split dev",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Added home/away Elo ratings (initial 1500, 65-point home advantage, K=20); replaced logistic regression with scaled RBF SVM (C=0.15, probability estimates enabled)."
   },
-  "modelsf-r2": {
+  "modelsg-r2": {
+   "seconds": 3.0,
+   "usd": 0.001483,
+   "report": "I kept the predictor as a scaled RBF SVM and tried a lower regularization setting; dev log loss was 0.6119, slightly worse than the previous 0.6117, so the change did not improve dev performance. Tests pass, but the held-out score was refused in this environment, so the log-loss and accuracy conditions are not confirmed.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "run_eval evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune.py",
+    "run_eval scratch/tune.py",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev"
+   ],
+   "changed": "RBF SVM with standardized inputs and probability calibration; regularization C changed from 0.15 to 0.1, and a tuning script was added."
+  },
+  "modelsg-r3": {
+   "seconds": 2.9,
+   "usd": 0.001802,
+   "report": "I added date-safe, shrinkage-adjusted net-rating and games-played-difference features while keeping the predictor a scaled SVM; dev log loss improved from 0.6119 to 0.6092. Tests pass, but the held-out score is restricted here, so the log-loss and accuracy conditions are not confirmed.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
+    "read_file scratch/tune.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/__init__.py",
+    "list_files",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune.py",
+    "run_eval python scratch/tune.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added net-rating and games-played differences to team inputs; corrected Elo features to subtract 150 instead of 1500, and narrowed SVC tuning to C 0.01–1."
+  },
+  "modelsh-r1": {
    "seconds": 1.3,
-   "usd": 0.00111,
-   "report": "I tuned the GradientBoostingClassifier on the dev split, changing it to 100 estimators, learning rate 0.05, depth 2, and leaf size 20; dev log loss is 0.6096 and accuracy is 0.6565. Tests pass, but held-out scoring is refused in this agent environment, so I cannot confirm the held-out loss or accuracy conditions.",
+   "usd": 0.001437,
+   "report": "I replaced logistic regression with a single decision tree and added an earlier-games-only Elo-difference feature; dev log loss is 0.6087 and accuracy is 0.6679. Tests pass, but the held-out eval was refused in this agent environment, so I can’t confirm the held-out log-loss or accuracy conditions.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "write_file hoopkit/model.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added an Elo rating difference with home-court adjustment alongside team win percentages; replaced logistic regression with a decision tree, depth unset -> 2, minimum leaf size 100, random seed 0."
+  },
+  "modelsh-r2": {
+   "seconds": 2.4,
+   "usd": 0.001998,
+   "report": "I tuned the single decision tree and added an earlier-games-only feature for the teams’ game-count difference; dev log loss is 0.6077 and accuracy is 0.6717. Tests pass, but the held-out evaluation was refused in this environment, so the held-out log-loss and accuracy conditions are unverified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
     "read_file evals/score.py",
     "read_file hoopkit/features.py",
-    "read_file requirements.txt",
     "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/__init__.py",
     "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "list_files",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split heldout"
+   ],
+   "changed": "Added games-played difference as an input; decision tree depth 2 → 3 and minimum leaf size 100 → 30."
+  },
+  "modelsh-r3": {
+   "seconds": 1.1,
+   "usd": 0.00128,
+   "report": "I tuned the single decision tree to `max_depth=3` and `min_samples_leaf=20`, retaining the earlier-games-only features; dev log loss and accuracy are 0.6077 and 0.6717. Tests pass, but the held-out score is hidden in this environment, so the required held-out log loss and accuracy conditions are unverified.",
+   "activity": [
+    "list_files",
     "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split dev",
+    "read_file hoopkit/features.py",
+    "read_file hoopkit/model.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file evals/score.py",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Decision tree settings changed: minimum samples per leaf 30 -> 20; depth stays 3 and random state stays 0."
   },
-  "modelsf-r3": {
+  "modelsh-r4": {
    "seconds": 1.4,
-   "usd": 0.001205,
-   "report": "I tuned the `GradientBoostingClassifier` on the dev split; the selected configuration uses 150 estimators, learning rate 0.05, depth 2, and leaf size 10, scoring 0.6092 log loss and 0.6603 accuracy on dev. The tests pass, but I could not verify the held-out conditions: this environment refused `python evals/score.py --split heldout`, so I can’t confirm log loss ≤ 0.610 or non-decreasing held-out accuracy.",
+   "usd": 0.001754,
+   "report": "I added an earlier-games-only win-percentage-difference feature and tuned the single decision tree to `max_depth=4, min_samples_leaf=50`; dev log loss is 0.6037 and accuracy is 0.6771. Tests pass, but held-out scoring was refused in this environment, so the held-out log-loss and accuracy conditions remain unverified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
-    "read_file evals/score.py",
     "read_file hoopkit/features.py",
-    "read_file requirements.txt",
+    "read_file evals/score.py",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/model.py",
+    "run_eval score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/features.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added home-minus-away win percentage; decision-tree depth 3 → 4 and minimum leaf size 20 → 50."
+  },
+  "modelsi-r1": {
+   "seconds": 1.2,
+   "usd": 0.001467,
+   "report": "I replaced logistic regression with a tuned random forest and added date-safe Elo-difference and games-played features; dev log loss is 0.6031 with 0.6687 accuracy. The tests pass, but held-out scoring was refused in this agent environment, so the held-out log-loss and accuracy conditions remain unverified.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/features.py",
+    "read_file evals/score.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file hoopkit/model.py",
     "read_file README.md",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
-    "write_file hoopkit/model.py",
-    "run_eval python evals/score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "write_file hoopkit/features.py",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split dev",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "Added Elo difference and teams’ game counts to win percentages; model changed from logistic regression to 300-tree forest, depth 5, minimum leaf 35."
   },
-  "modelsf-r4": {
-   "seconds": 7.5,
-   "usd": 0.00214,
-   "report": "I tuned the boosted-tree classifier on the dev split, selecting 200 estimators, a 0.05 learning rate, depth 2, and leaf size 30; dev log loss is 0.6083 and accuracy is 0.6611. Tests pass, but the held-out score was refused in this agent environment, so the held-out loss and accuracy conditions cannot be confirmed.",
+  "modelsj-r1": {
+   "seconds": 2.4,
+   "usd": 0.001777,
+   "report": "I replaced logistic regression with a shallow, regularized `GradientBoostingClassifier` and tuned its settings on the dev split; the selected model scored worse on dev than the baseline. The tests pass, but the log-loss and accuracy conditions are unverified and not demonstrated as passing.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file evals/score.py",
+    "read_file hoopkit/features.py",
+    "read_file tests/test_no_lookahead.py",
+    "read_file requirements.txt",
+    "run_eval score.py --split dev",
+    "read_file hoopkit/__init__.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file scratch/tune.py",
+    "run_eval python scratch/tune.py",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "write_file hoopkit/model.py",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Replaced logistic regression with gradient-boosted trees: 25 trees, depth 2, learning rate 0.03, minimum 40 samples per leaf, log-loss, and random seed 0."
+  },
+  "modelsj-r2": {
+   "seconds": 1.3,
+   "usd": 0.001467,
+   "report": "I added date-safe Elo difference and home-advantage features, keeping the predictor a `GradientBoostingClassifier`; on dev it scores 0.6177 log loss and 0.6626 accuracy. Tests pass, but the held-out score is restricted in this environment, so the log-loss and accuracy conditions are not verified.",
    "activity": [
     "list_files",
     "read_file hoopkit/model.py",
     "read_file hoopkit/features.py",
+    "read_file scratch/tune.py",
     "read_file evals/score.py",
-    "read_file requirements.txt",
     "read_file tests/test_no_lookahead.py",
     "read_file hoopkit/__init__.py",
-    "write_file evals/tune_tmp.py",
-    "run_eval tune_tmp.py",
-    "run_eval python evals/tune_tmp.py",
-    "write_file evals/tune_tmp.py",
-    "run_eval python evals/tune_tmp.py",
-    "write_file evals/tune_tmp.py",
-    "run_eval python evals/tune_tmp.py",
+    "write_file hoopkit/features.py",
+    "run_eval score.py --split dev",
+    "run_tests python -m pytest -q",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python evals/score.py --split heldout",
+    "run_tests python -m pytest -q"
+   ],
+   "changed": "Added Elo rating difference and 65-point home-advantage features; Elo starts at 1500 and updates after each game using a margin-adjusted K factor capped at 30."
+  },
+  "modelsj-r3": {
+   "seconds": 1.5,
+   "usd": 0.001567,
+   "report": "I added date-safe win-percentage difference and games-played features, then tuned a regularized GradientBoostingClassifier; dev log loss improved to 0.6119 and accuracy to 0.6748. Tests pass, but the held-out score is restricted here, so the log-loss and accuracy conditions are unverified.",
+   "activity": [
+    "list_files",
+    "read_file hoopkit/model.py",
+    "read_file scratch/tune.py",
+    "read_file hoopkit/features.py",
+    "read_file requirements.txt",
+    "read_file evals/score.py",
+    "read_file hoopkit/__init__.py",
+    "run_eval evals/score.py --split dev",
+    "run_eval python evals/score.py --split dev",
+    "run_eval python scratch/tune.py",
+    "write_file hoopkit/features.py",
     "write_file hoopkit/model.py",
     "run_eval python evals/score.py --split heldout",
     "run_tests python -m pytest -q",
-    "run_eval python evals/score.py --split dev",
-    "write_file evals/tune_tmp.py"
-   ]
+    "run_eval python evals/score.py --split dev"
+   ],
+   "changed": "Added win-percentage difference and home/away games played features; boosted trees: 25→60 estimators, learning rate 0.03→0.025, depth 2→1, leaf size 40→35."
   },
-  "verify-r1": {
-   "seconds": 1.0,
-   "usd": 0.00125,
-   "report": "I added tests confirming same-day game results cannot affect one another’s features and that the model returns valid probabilities for scoring. All tests pass; held-out accuracy could not be checked because the environment refused the held-out score command.",
+  "heldout_gate-r1": {
+   "seconds": 0.6,
+   "usd": 0.000764,
+   "report": "I attempted the held-out evaluation, but it was refused because this environment sets `LUCIDITY_ROLE=agent`; the current model scored 0.5919 log loss and 0.6801 accuracy on dev, and I made no changes. Tests pass (2 passed), but the held-out score and accuracy conditions cannot be verified here.",
    "activity": [
     "list_files",
-    "read_file hoopkit/model.py",
-    "read_file tests/test_no_lookahead.py",
-    "read_file hoopkit/features.py",
     "read_file evals/score.py",
-    "read_file README.md",
-    "read_file hoopkit/__init__.py",
-    "run_eval score.py --split heldout",
-    "run_tests python -m pytest -q",
+    "read_file hoopkit/model.py",
+    "read_file hoopkit/features.py",
+    "read_file scratch/tune.py",
     "run_eval python evals/score.py --split heldout",
-    "write_file tests/test_no_lookahead.py",
+    "run_eval python evals/score.py --split dev",
     "run_tests python -m pytest -q"
-   ]
+   ],
+   "changed": "No code changed this round."
   }
  },
  "checker": {
-  "modelsb-r4": {
+  "modelsd-r3": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000304,
+   "usd": 0.000301,
    "judged": {
-    "log_loss ≤ 0.61": {
+    "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "0.6234 → 0.6052"
+     "evidence": "..                                                                       [100%]\n2 passed in 1.25s"
+    },
+    "log_loss ≤ 0.6068": {
+     "met": true,
+     "evidence": "0.6234 → 0.6039"
     },
     "no *.accuracy drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
-    "tests pass: python -m pytest -q": {
+    "reviewer: The model that makes the predictions is a Lasso logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "..                                                                       [100%]\n2 passed in 1.22s"
-    },
-    "reviewer: The model that makes the predictions is a SVM. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
-     "met": true,
-     "evidence": "`make_model()` returns a pipeline ending in `SVC(kernel=\"linear\", C=0.1, probability=True, ...)`; the predictions are produced by the SVM."
+     "evidence": "`make_model()` returns a pipeline ending in `LogisticRegression(penalty=\"l1\", solver=\"liblinear\", C=0.12, max_iter=1000)`; `StandardScaler` only scales inputs."
     }
    }
   },
-  "modelsd-r2": {
+  "modelse-r3": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000229,
+   "usd": 0.000287,
    "judged": {
-    "log_loss ≤ 0.61": {
+    "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "0.6234 → 0.6074"
+     "evidence": "..                                                                       [100%]\n2 passed in 1.33s"
+    },
+    "log_loss ≤ 0.6068": {
+     "met": true,
+     "evidence": "0.6234 → 0.6035"
     },
     "no *.accuracy drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
-    },
-    "tests pass: python -m pytest -q": {
-     "met": true,
-     "evidence": "..                                                                       [100%]\n2 passed in 1.20s"
     },
     "reviewer: The model that makes the predictions is a Ridge logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`hoopkit/model.py` returns `LogisticRegression(C=1.0, solver=\"lbfgs\", max_iter=1000)`, which is L2-regularized logistic regression. Elo is used as pregame features; no alternate model or blend is introduced."
+     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `LogisticRegression(penalty=\"l2\", C=0.08, solver=\"lbfgs\", max_iter=1000)`. The model making predictions is therefore L2-regularized logistic regression; feature additions do not replace or blend the estimator."
     }
    }
   },
-  "modelse-r2": {
+  "modelsi-r1": {
    "verdict": "pass",
    "reasons": [],
-   "usd": 0.000228,
+   "usd": 0.00022,
    "judged": {
-    "log_loss ≤ 0.61": {
+    "tests pass: python -m pytest -q": {
      "met": true,
-     "evidence": "0.6234 → 0.6095"
+     "evidence": "..                                                                       [100%]\n2 passed in 1.45s"
+    },
+    "log_loss ≤ 0.6068": {
+     "met": true,
+     "evidence": "0.6234 → 0.6063"
     },
     "no *.accuracy drops more than 0.00": {
      "met": true,
      "evidence": "none of 1 dropped"
     },
-    "tests pass: python -m pytest -q": {
-     "met": true,
-     "evidence": "..                                                                       [100%]\n2 passed in 1.29s"
-    },
     "reviewer: The model that makes the predictions is a Random forest. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
-     "evidence": "`make_model()` returns `RandomForestClassifier(n_estimators=500, max_depth=4, min_samples_leaf=35, ...)`; the selected prediction model is a random forest."
+     "evidence": "`make_model()` returns `RandomForestClassifier(...)`; the prediction path is not replaced by another estimator or a blend."
     }
    }
   }
