@@ -208,6 +208,16 @@ class Handler(BaseHTTPRequestHandler):
             except (runs.RunError, runs.worktrees.GitError) as e:
                 return self._send(400, {"error": str(e)})
             return self._send(201, run.view())
+        if u.path == "/api/csv/upload":
+            # The raw file from the composer's Upload button; the name rides in the query string.
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > csvrepo.MAX_BYTES:
+                return self._send(400, {"error": "keep the CSV under 50 MB"})
+            try:
+                name = (parse_qs(u.query).get("name") or ["table.csv"])[0]
+                return self._send(200, {"path": csvrepo.save_upload(name, self.rfile.read(n))})
+            except csvrepo.CsvError as e:
+                return self._send(400, {"error": str(e)})
         if u.path in ("/api/csv", "/api/csv/columns"):
             # Bring a CSV: list a table's columns, or build a small repo around it so a live run can
             # improve a model on it.

@@ -52,6 +52,20 @@ def _num(v):
     return x if math.isfinite(x) else None
 
 
+def save_upload(name, data):
+    """Keep an uploaded CSV under state/uploads/ and return its path. Same bytes, same file."""
+    if not data:
+        raise CsvError("that file is empty")
+    if len(data) > MAX_BYTES:
+        raise CsvError("keep the CSV under 50 MB")
+    stem = _slug(Path(name or "table.csv").stem) or "table"
+    out = config.STATE_DIR / "uploads" / f"{stem}-{hashlib.sha1(data).hexdigest()[:8]}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not out.exists():
+        out.write_bytes(data)
+    return str(out)
+
+
 def read_table(path):
     path = Path(str(path).strip().strip('"')).expanduser()
     if not path.is_absolute() and not path.is_file() and (config.ROOT / path).is_file():

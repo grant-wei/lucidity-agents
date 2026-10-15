@@ -130,10 +130,13 @@ function renderComposer() {
         <button type="button" class="opt demo-opt ${d.name === form.demo ? "on" : ""}" data-demo="${esc(d.name)}" role="radio" aria-checked="${d.name === form.demo}">
           <b>${esc(d.title)}</b><span>${esc(d.short || "")}</span></button>`).join("")}</div>
     </div>` : ""}
-    ${demo ? "" : `<div class="field">
+    ${demo ? `<div class="hint owncsv">Have your own table? ${opts.find(o => o.name === "builtin" && o.ok)
+      ? `<a href="#" id="goown">Upload a CSV</a> and agents will try to beat a model on it.`
+      : `Upload a CSV once an OpenAI key is set (OPENAI_API_KEY); agents then try to beat a model on it.`}</div>` : `<div class="field">
       <label class="f" for="csv">Start from a CSV</label>
       <div class="csvrow">
-        <input type="text" id="csv" placeholder="path to a .csv file" value="${esc(form.csv)}">
+        <label class="btn primary" id="csvup" tabindex="0" role="button">Upload a CSV<input type="file" id="csvfile" accept=".csv,text/csv" hidden></label>
+        <input type="text" id="csv" placeholder="or type a path to a .csv file" value="${esc(form.csv)}">
         ${form.csvCols ? "" : `<button type="button" class="btn" id="csvcols">Read columns</button>`}
       </div>
       ${form.csvCols ? csvPicker(form.csvCols) : ""}
@@ -190,8 +193,30 @@ function renderComposer() {
   };
   if ($("#csv")) $("#csv").onchange = () => { if (form.csvCols && $("#csv").value.trim() !== form.csvCols.path) { saveForm(); form.csvCols = null; form.csvAbout = null; renderComposer(); } };
   if ($("#csvgo")) $("#csvgo").onclick = () => setupCsv();
+  if ($("#goown")) $("#goown").onclick = e => { e.preventDefault(); saveForm(); form.worker = "builtin"; renderComposer(); $("#csvup").focus(); };
+  if ($("#csvfile")) $("#csvfile").onchange = () => uploadCsv($("#csvfile").files[0]);
+  if ($("#csvup")) $("#csvup").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#csvfile").click(); } };
   if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = "examples/breast_cancer.csv"; if (await readColumns("diagnosis")) setupCsv(); };
   f.onsubmit = submit;
+}
+
+// Upload: the server keeps the file under state/uploads/, then it's read like a typed path.
+async function uploadCsv(file) {
+  if (!file) return;
+  $("#cerr").textContent = "";
+  const up = $("#csvup");
+  up.firstChild.textContent = "Uploading…";
+  try {
+    const r = await fetch("/api/csv/upload?name=" + encodeURIComponent(file.name), {method: "POST", body: file});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "upload failed");
+    $("#csv").value = d.path;
+    form.csvCols = null; form.csvAbout = null;
+    await readColumns();
+  } catch (err) {
+    $("#cerr").textContent = err.message;
+    up.firstChild.textContent = "Upload a CSV";
+  }
 }
 
 // Bring a CSV, step 1: read the table's columns so the target and the split are picked, not typed.

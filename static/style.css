@@ -725,3 +725,7 @@ details.more > summary .muted { font-weight: 400; margin-left: 6px; }
 .lb-row.bench { border-top: 1px dashed var(--line, #ccc); padding-top: 7px; }
 .lb-row.bench .lb-name { font-style: italic; }
 .lb-row.bench .lb-bar, .lb-bench-key { background: repeating-linear-gradient(45deg, var(--ink-2) 0 3px, transparent 3px 6px) !important; opacity: .55; }
+
+/* Upload button: a label around a hidden file input. */
+#csvup { cursor: pointer; }
+.owncsv { margin: -4px 0 14px; }

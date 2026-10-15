@@ -125,3 +125,13 @@ def test_benchmark_is_plain_regression_on_every_column(tmp_path):
     assert b["model"] == "LinearRegression" and b["penalty"] == "none" and b["columns"] == a["numeric_columns"]
     assert b["value"] < a["start_test"]   # all ten columns beat the two-column start
     assert [r for r in a["references"] if r.get("benchmark")] == [{"label": b["label"], "value": b["value"], "benchmark": True}]
+
+
+def test_upload_is_saved_once_and_readable(tmp_path, monkeypatch):
+    monkeypatch.setattr(csvrepo.config, "STATE_DIR", tmp_path)
+    data = Path("examples/diabetes.csv").read_bytes()
+    a, b = csvrepo.save_upload("My Table.csv", data), csvrepo.save_upload("My Table.csv", data)
+    assert a == b and Path(a).parent == tmp_path / "uploads" and Path(a).read_bytes() == data
+    assert csvrepo.columns(a)["rows"] > 100
+    with pytest.raises(csvrepo.CsvError):
+        csvrepo.save_upload("empty.csv", b"")
