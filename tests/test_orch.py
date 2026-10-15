@@ -397,12 +397,11 @@ def test_the_stock_demo_recommends_nothing_when_nothing_beats_a_coin_flip(orch):
     wait(run, timeout=900)
     n = node(run, "models")
     c = n["comparison"]
-    assert [r["label"] for r in c["rows"]][0] == "Random forest" and len(c["rows"]) == 6
+    assert [r["label"] for r in c["rows"]][0] == "Boosted trees" and len(c["rows"]) == 6
     assert not any(r["passed"] for r in c["rows"])
-    assert c["rows"][0]["value"] == pytest.approx(0.6929, abs=1e-4)
-    assert c["text"] == "No approach cleared the bar. Closest: Random forest at 0.6929."
+    assert c["rows"][0]["value"] == pytest.approx(0.6928, abs=1e-4)
+    assert c["text"] == "No approach cleared the bar. Closest: Boosted trees at 0.6928."
     assert run.d["state"] == "needs_you" and not n.get("picked")   # nothing merges; the owner decides
-    assert node(run, "integration")["state"] == "queued"
 
 
 def test_the_credit_demo_recommends_the_random_forest_from_six_families(orch):

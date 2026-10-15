@@ -1,7 +1,9 @@
-"""L1-regularized logistic regression model."""
+"""Standardized L1-penalized logistic regression."""
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 
 
 def make_model():
-    # Returns are in percentage points; C controls the strength of L1 shrinkage.
-    return LogisticRegression(solver="liblinear", l1_ratio=1.0, C=10.0, max_iter=2000)
+    return make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear", l1_ratio=1, C=0.003,
+                                                              max_iter=2000, random_state=0))

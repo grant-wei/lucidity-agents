@@ -1,26 +1,15 @@
-"""Regularized gradient-boosted tree classifier for industry outcomes."""
-from sklearn.ensemble import GradientBoostingClassifier
-
-
-class BoostedTrees:
-    def __init__(self, max_depth=1, learning_rate=0.005, n_estimators=100, shrink=0.02):
-        self.max_depth = max_depth
-        self.learning_rate = learning_rate
-        self.n_estimators = n_estimators
-        self.shrink = shrink
-
-    def fit(self, X, y):
-        self.estimator_ = GradientBoostingClassifier(
-            max_depth=self.max_depth, learning_rate=self.learning_rate,
-            n_estimators=self.n_estimators, min_samples_leaf=30,
-            subsample=0.8, random_state=0,
-        ).fit(X, y)
-        return self
-
-    def predict_proba(self, X):
-        raw = self.estimator_.predict_proba(X)
-        return 0.5 + self.shrink * (raw - 0.5)
+"""Gradient-boosted tree candidate tuned on the 2010-2016 dev split."""
+from sklearn.ensemble import HistGradientBoostingClassifier
 
 
 def make_model():
-    return BoostedTrees()
+    # Conservative dev-selected configuration avoids overfitting noisy monthly labels.
+    return HistGradientBoostingClassifier(
+        max_iter=80,
+        learning_rate=0.01,
+        max_leaf_nodes=8,
+        min_samples_leaf=100,
+        l2_regularization=5.0,
+        early_stopping=False,
+        random_state=7,
+    )

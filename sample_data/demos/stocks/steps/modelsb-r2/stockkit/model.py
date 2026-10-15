@@ -1,12 +1,14 @@
-"""SVM classifier with scaled inputs and training-only probability calibration."""
-from sklearn.calibration import CalibratedClassifierCV
+"""Standardized, probability-calibrated RBF SVM candidate.
+
+Dev assessment (2010-2016): RBF SVC C=0.1 produced log loss 0.6948 and
+accuracy 0.4990. Features are lagged returns, lagged factors, and industry
+characteristics available at feature time; calibration uses training data only.
+"""
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 
 def make_model():
-    # Strongly regularized linear SVM avoids overfitting this weak two-feature signal.
-    # The calibrator uses stratified folds from the supplied fit data only.
-    svm = make_pipeline(StandardScaler(), SVC(kernel="linear", C=0.01))
-    return CalibratedClassifierCV(svm, method="sigmoid", cv=5)
+    return make_pipeline(StandardScaler(), SVC(C=0.1, kernel="rbf", gamma="scale", probability=True,
+                                                random_state=17, class_weight=None))

@@ -22,7 +22,8 @@ Four demos need no API key. Each replays a real run on real data, and the scorin
   unemployment. Random forest wins at 0.2723 on 2015-2026.
 - **Credit default**: which credit-card customers miss a payment, without using sex, age or marital
   status. Random forest wins at 0.4227.
-- **Stock returns**: which industries beat the median next month. No model beats a coin flip by enough
+- **Stock returns**: which industries beat the median next month, from past returns plus the Fama-French
+  factors, momentum and each industry's size and book-to-market. No model beats a coin flip by enough
   to count, so nothing is kept. That's the right answer, and the point of a referee.
 
 With an `OPENAI_API_KEY` the same loop runs live on any CSV (see [Bring a CSV](#bring-a-csv-a-live-run-on-data-that-isnt-a-demo)),

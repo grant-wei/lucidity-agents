@@ -13,9 +13,11 @@ and the budget cap really stops a task.
             (1985-2026, held out from 2015); the contract is held-out log loss <= 0.3409 (plain regression
             scores 0.3416, the repo 0.462). Replayed from a live run: random forest wins at 0.2723, kNN
             also passes, and the 3-month yield's gap over the Fed's rate is its biggest predictor.
-  stocks    which of 49 industries beats the median next month, from monthly returns 1970-2026; the
-            contract is held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run:
-            six model families race, none clears the bar, and nothing merges. The honest answer.
+  stocks    which of 49 industries beats the median next month, from monthly returns 1970-2026 plus the
+            Fama-French factors, momentum and each industry's size and book-to-market; the contract is
+            held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run: six model
+            families race, all use the factor data, none clears the bar (boosted trees come closest at
+            0.6928), and nothing merges. The honest answer.
   credit    which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
             marital status; the contract is held-out log loss <= 0.4657 (plain regression scores 0.4666). Replayed
             from a live run: six families race, random forest wins at 0.4227, and all six
