@@ -747,3 +747,9 @@ ul.refs li { margin: 0; overflow-wrap: anywhere; }
 ul.refs li span { color: var(--ink-2); font-size: 13px; }
 ul.refs li.best { border-left: 3px solid var(--accent, currentColor); padding-left: 8px; }
 .case .bench-why { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
+.setup .kind { margin-top: 10px; padding-left: 10px; border-left: 3px solid var(--line-strong); }
+.setup .kind-h { margin-bottom: 6px; font-size: 13px; }
+.setup .kind-param { border-left-color: var(--accent); }
+.setup .kind-param .kind-h b { color: var(--accent); }
+.setup .kind-nonparam { border-left-color: var(--done); }
+.setup .kind-nonparam .kind-h b { color: var(--done); }

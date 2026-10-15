@@ -903,17 +903,33 @@ function raceBlock(v, n, us, key, tg) {
     </div></div>`;
 }
 
+// Model families split by whether they learn a fixed set of weights (parametric) or grow with the data.
+const KINDS = [["param", "Parametric", "a fixed set of weights, one per input"],
+               ["nonparam", "Nonparametric", "flexible; grows with the data"], ["other", "Other", ""]];
+function modelKind(label) {
+  const l = String(label).toLowerCase();
+  if (/knn|neighbo|forest|boost|tree|svm|support vector/.test(l)) return "nonparam";
+  if (/regression|lasso|ridge|elastic|bayes|discriminant|lda|logit/.test(l)) return "param";
+  return "";
+}
+
 // The owner's judgment calls before agents start: options with the planner's recommendations ticked.
 function setupForm(v) {
   const qs = v.questions.map(q => {
     const n = q.drives ? v.nodes.find(x => x.id === q.drives) : null;
-    const opts = q.options.map(o => `<label class="opt${o.recommended ? " rec" : ""}">
+    const opt = o => `<label class="opt${o.recommended ? " rec" : ""}">
         <input type="${q.multi ? "checkbox" : "radio"}" name="q-${esc(q.id)}" value="${esc(o.label)}"${o.recommended || (n && q.multi) ? " checked" : ""}>
-        <span><b>${esc(o.label)}</b>${o.recommended ? `<i class="tag">${n ? "Expected best" : "Recommended"}</i>` : ""}${o.note ? `<em>${esc(o.note)}</em>` : ""}</span></label>`).join("");
+        <span><b>${esc(o.label)}</b>${o.recommended ? `<i class="tag">${n ? "Expected best" : "Recommended"}</i>` : ""}${o.note ? `<em>${esc(o.note)}</em>` : ""}</span></label>`;
+    const kinds = q.options.map(o => modelKind(o.label));
+    const opts = kinds.some(k => k) ? KINDS.map(([k, title, sub]) => {
+        const mine = q.options.filter((o, i) => (kinds[i] || "other") === k);
+        return mine.length ? `<div class="kind kind-${k}"><div class="kind-h"><b>${title}</b> <span class="small muted">${sub}</span></div>
+          <div class="opts">${mine.map(opt).join("")}</div></div>` : "";
+      }).join("") : `<div class="opts">${q.options.map(opt).join("")}</div>`;
     return `<fieldset class="q" data-q="${esc(q.id)}"${n ? ` data-drives="${esc(n.id)}"` : ""}>
       <legend>${esc(q.question)}</legend>
       ${n ? `<p class="small muted">All are ticked: each gets its own agent, Lucidity scores them all on the same test data, and the run recommends the best. Untick any you don't want tried.</p>` : q.multi ? `<p class="small muted">Pick any.</p>` : ""}
-      <div class="opts">${opts}</div></fieldset>`;
+      ${opts}</fieldset>`;
   }).join("");
   const drv = v.questions.find(q => q.drives);
   const k = drv ? (drv.multi ? drv.options.length : 1) : 0;
