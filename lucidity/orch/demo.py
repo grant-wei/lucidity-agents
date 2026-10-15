@@ -63,7 +63,7 @@ class Scenario:
         """What the composer shows for this demo."""
         return {"name": self.name, "title": self.title, "blurb": self.blurb, "goal": self.goal,
                 "budget_usd": self.budget_usd, "repo_name": self.repo_name, "about_repo": self.data["about_repo"],
-                "split": self.data.get("split"), "references": self.data.get("references", [])}
+                "split": self.data.get("split"), "card": self.data.get("card"), "references": self.data.get("references", [])}
 
     def step(self, node_id, round_no):
         key = f"{node_id}-r{round_no}"

@@ -1,6 +1,7 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-173225-96b1) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out customers; only Lucidity scored them. Data is UCI's \"Default of Credit Card Clients\" (CC BY 4.0).",
  "title": "Credit default",
+ "card": {"ask": "Which card customers miss next month's payment? Without using sex, age or marital status.", "stats": [["Starts at", "0.472"], ["Goal", "0.440"], ["Plain regression", "0.467"]], "parts": [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]]},
  "blurb": "A model predicts which of 30,000 credit-card customers miss next month's payment, from six months of account history, without using sex, age or marital status. The repo scores 0.472 log loss and the goal is 0.440. Six kinds of model are tried at once, one agent each, tuning on dev customers. Lucidity scores every attempt on held-out customers the agents never see, and recommends the best.",
  "split": "Customers are split by ID: 60% to train, 20% to tune, 20% to test. Agents never see the test customers; only Lucidity scores them.",
  "references": [

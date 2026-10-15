@@ -1,6 +1,7 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-165840-9408) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out years; only Lucidity scored them. Returns are from Kenneth French's Data Library (49 industry portfolios, built from CRSP).",
  "title": "Stock returns",
+ "card": {"ask": "Which industries beat the median next month? From past returns only.", "stats": [["Coin flip", "0.6931"], ["Goal", "0.6925"]], "parts": [["Train", "1971–2009"], ["Tune", "2010–2016"], ["Test", "2017–2026"]]},
  "blurb": "A model predicts which of 49 industries will beat the median industry next month, from past returns only. A coin flip scores 0.6931 log loss and the goal is 0.6925. Six kinds of model are tried at once, one agent each, tuning on 2010-2016. Lucidity scores every attempt on 2017-2026, years the agents never see, and recommends the best, or tells you none of them works.",
  "split": "Trained on 1971-2009, tuned on 2010-2016, tested on 2017-2026. Agents never see the test years; only Lucidity scores them.",
  "references": [

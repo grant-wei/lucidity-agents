@@ -1,6 +1,7 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-161622-05e8) at about 25x speed. The planner's question, every agent's edits and reports, and the checker model's rulings are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks, merges and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 3 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out seasons; only Lucidity scored them. Game results are from FiveThirtyEight's NBA Elo data (CC BY 4.0).",
  "title": "NBA game forecasts",
+ "card": {"ask": "Will the home team win? Using only what was known before tip-off.", "stats": [["Starts at", "0.623"], ["Goal", "0.610"], ["FiveThirtyEight", "0.608"]], "parts": [["Train", "2001–2012"], ["Tune", "2013"], ["Test", "2014–2015"]]},
  "blurb": "A model predicts the chance the home team wins an NBA game, using only what was known before tip-off. It scores 0.623 log loss; FiveThirtyEight's Elo forecast scores 0.608 and the goal is 0.610. Six kinds of model are tried at once, one agent each. Lucidity scores every attempt on two seasons the agents never see, checks each agent really built the model it was given, and recommends the best.",
  "split": "Trained on the 2001-2012 seasons, tuned on 2013, tested on 2014-2015. Agents never see the test seasons; only Lucidity scores them.",
  "references": [

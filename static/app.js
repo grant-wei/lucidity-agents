@@ -141,11 +141,11 @@ function renderComposer() {
       </div>
       ${form.csvCols ? csvPicker(form.csvCols) : ""}
       <div class="hint">Any table works. Lucidity makes a small repo from it with a starting model and a scoring script, splits the rows into train, tune and test, and fills in the goal below. Or <a href="#" id="csvex">use the bundled example</a> (breast-cancer diagnosis, 569 rows, not one of the demos).</div>
-      ${form.csvAbout ? `<div class="demo-card"><b>${esc(form.csvAbout.title)}</b><p>${esc(form.csvAbout.blurb)}</p><p class="split">${esc(form.csvAbout.split)}</p></div>` : ""}
+      ${form.csvAbout ? caseCard(form.csvAbout.title, csvCard(form.csvAbout), form.csvAbout.blurb, form.csvAbout.split) : ""}
     </div>`}
     <div class="field">
       <label class="f" for="goal">${demo ? "The demo" : "Goal"}</label>
-      ${demo ? `<div class="demo-card"><b>${esc(dm.title)}</b><p>${esc(dm.blurb)}</p>${dm.split ? `<p class="split">${esc(dm.split)}</p>` : ""}</div>
+      ${demo ? `${caseCard(dm.title, dm.card, dm.blurb, dm.split)}
         <div class="hint">A replay of a real run, sped up to under a minute. The agents' edits are recorded; the scoring and the checks run for real. No API key needed.</div>`
              : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>
         ${form.csvAbout && form.csvAbout.goal_value != null ? goalHow(form.csvAbout) : ""}`}
@@ -198,6 +198,29 @@ function renderComposer() {
   if ($("#csvup")) $("#csvup").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#csvfile").click(); } };
   if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = "examples/breast_cancer.csv"; if (await readColumns("diagnosis")) setupCsv(); };
   f.onsubmit = submit;
+}
+
+// The case at a glance: the question, the scores that matter, and how the rows are split. Prose only as a fallback.
+function caseCard(title, c, blurb, split) {
+  if (!c) return `<div class="demo-card"><b>${esc(title)}</b><p>${esc(blurb)}</p>${split ? `<p class="split">${esc(split)}</p>` : ""}</div>`;
+  return `<div class="demo-card case">
+      <b>${esc(title)}</b>
+      <p>${esc(c.ask)}</p>
+      <div class="stats">${c.stats.map(([k, v]) => `<span class="${k === "Goal" ? "goal" : ""}"><small>${esc(k)}</small>${esc(v)}</span>`).join("")}</div>
+      <div class="parts">${c.parts.map(([k, v]) => `<span class="${k === "Test" ? "test" : ""}"><small>${esc(k)}</small>${esc(v)}</span>`).join("")}</div>
+      <p class="split">${esc(c.metric || "Log loss")}, lower is better. Agents never see the test rows; only Lucidity scores them.</p>
+    </div>`;
+}
+
+// The same card for an uploaded table, from what setup measured.
+function csvCard(a) {
+  if (a.start_test == null) return null;
+  const n = v => String(+(+v).toFixed(4)), m = /(\d[\d,]*) to train, (\d[\d,]*) to tune, (\d[\d,]*) to test/.exec(a.split || "");
+  const tm = /trained on (.+?) \((\d+) rows\), tuned on (.+?) \((\d+)\), tested on (.+?) \((\d+)\)/.exec(a.split || "");
+  return {ask: `Predict ${a.target} from the other columns (${(a.rows || 0).toLocaleString()} rows).`,
+    stats: [["Starts at", n(a.start_test)], ["Goal", n(a.goal_value)], ...(a.benchmark ? [["Plain regression", n(a.benchmark.value)]] : [])],
+    metric: a.metric === "rmse" ? "RMSE (typical error)" : "Log loss",
+    parts: tm ? [["Train", tm[1]], ["Tune", tm[3]], ["Test", tm[5]]] : m ? [["Train", m[1] + " rows"], ["Tune", m[2] + " rows"], ["Test", m[3] + " rows"]] : [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]]};
 }
 
 // Upload: the server keeps the file under state/uploads/, then it's read like a typed path.

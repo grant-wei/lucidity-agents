@@ -729,3 +729,14 @@ details.more > summary .muted { font-weight: 400; margin-left: 6px; }
 /* Upload button: a label around a hidden file input. */
 #csvup { cursor: pointer; }
 .owncsv { margin: -4px 0 14px; }
+
+/* Case card: question, score chips, split bar. */
+.demo-card.case p { font-size: 14px; }
+.case .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.case .stats span { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 8px; background: var(--surface, #fff); font-weight: 600; font-variant-numeric: tabular-nums; }
+.case .stats span.goal { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.case small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.case .parts { display: grid; grid-template-columns: 3fr 1fr 1fr; gap: 3px; margin-top: 10px; font-size: 13px; }
+.case .parts span { display: flex; flex-direction: column; padding: 5px 8px; background: var(--surface, #fff); min-width: 0; overflow-wrap: anywhere; }
+.case .parts span:first-child { border-radius: 6px 0 0 6px; } .case .parts span:last-child { border-radius: 0 6px 6px 0; }
+.case .parts span.test { background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 7px), var(--surface, #fff); }
