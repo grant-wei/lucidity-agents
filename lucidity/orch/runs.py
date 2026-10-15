@@ -57,6 +57,7 @@ class Run:
     def __init__(self, data, worker=None):
         self.d = data
         self.lock = threading.RLock()
+        self._approving = False
         self.merge_lock = threading.Lock()
         self.cancel = threading.Event()
         self.worker = worker
@@ -207,19 +208,27 @@ class Run:
 
     def approve(self, answers=None):
         with self.lock:
-            if self.d["state"] != "plan_ready":
-                raise RunError(f"the run is {self.d['state']}, not waiting for approval")
-            self._apply_answers(answers or {})
-            self.d["awaiting_owner"] = False
-            if not self.d.get("integration"):
-                path = self.wdir / self.id / "_integration"
-                branch = f"lucidity/{self.id}"
-                worktrees.add(self.d["repo"], path, branch, self.d["base_commit"])
-                self.d["integration"] = {"path": str(path), "branch": branch}
-            self.d["started"] = _now()
-        self._record_scores("start", None)
-        self.event("run", "plan approved; running up to %d tasks at a time" % self.d["max_parallel"])
-        self.set_state("running")
+            if self.d["state"] != "plan_ready" or self._approving:   # two clicks (or auto-run and a click) start it once
+                raise RunError(f"the run is {'starting' if self._approving else self.d['state']}, not waiting for approval")
+            self._approving = True
+            try:
+                self._apply_answers(answers or {})
+                self.d["awaiting_owner"] = False
+                if not self.d.get("integration"):
+                    path = self.wdir / self.id / "_integration"
+                    branch = f"lucidity/{self.id}"
+                    worktrees.add(self.d["repo"], path, branch, self.d["base_commit"])
+                    self.d["integration"] = {"path": str(path), "branch": branch}
+                self.d["started"] = _now()
+            except Exception:
+                self._approving = False
+                raise
+        try:
+            self._record_scores("start", None)
+            self.event("run", "plan approved; running up to %d tasks at a time" % self.d["max_parallel"])
+            self.set_state("running")
+        finally:
+            self._approving = False
         self._ensure_loop()
 
     def _apply_answers(self, answers):
@@ -262,7 +271,7 @@ class Run:
                          "rounds": a["round"], "usd": round(a["spent_usd"], 4), "why": why})
         by_id = {a["id"]: a for a in agents}
         rows.sort(key=lambda r: (not r["passed"], r["value"] is None, -score(by_id[r["agent"]])))
-        name, op = target["metric"].replace("_", " "), target.get("op", ">=")
+        name, op = contracts.bare_metric(target["metric"]).replace("_", " "), target.get("op", ">=")
         top = rows[0]
         if top["passed"]:
             others = [r for r in rows[1:] if r["value"] is not None]
@@ -550,14 +559,18 @@ class Run:
         target = next((c for c in n["done_when"] if c["kind"] == "metric"), None) or next(
             (c for m in self.d["nodes"] for c in m["done_when"] if c["kind"] == "metric"), None)
 
+        def got(c):   # this check's held-out score on the target metric, as the referee measured it
+            m = ((c.get("scores") or {}).get(target["command"]) or {}) if target else {}
+            return m.get(contracts.metric_key(m, target["metric"])) if target else None
+
         def raw(a):
-            best = None   # an agent's best held-out score over its rounds, as the referee measured it
+            best = None   # an agent's best held-out score over its rounds
             for c in a["checks"]:
-                v = ((c.get("scores") or {}).get(target["command"]) or {}).get(target["metric"]) if target else None
+                v = got(c)
                 if isinstance(v, (int, float)) and (best is None or (v > best if target.get("op", ">=") == ">=" else v < best)):
                     best = v
             if a["state"] == "passed" and a["checks"]:   # what merges is the last round, so a winner ranks by that
-                last = ((a["checks"][-1].get("scores") or {}).get(target["command"]) or {}).get(target["metric"]) if target else None
+                last = got(a["checks"][-1])
                 best = last if isinstance(last, (int, float)) else best
             return best
 

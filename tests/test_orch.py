@@ -473,3 +473,32 @@ def test_an_agent_cannot_score_the_held_out_split(tmp_path):
     assert r.returncode == 2 and "only shown to the referee" in r.stdout
     r = subprocess.run([sys.executable, "evals/score.py", "--split", "dev"], cwd=repo, env=env, capture_output=True, text=True)
     assert r.returncode == 0 and json.loads(r.stdout)["split"] == "dev"
+
+
+def test_a_split_prefixed_metric_reads_flat_scores():
+    # A planner may write "held_out.rmse" for an eval that prints {"rmse": ...} for the split it scored.
+    c = {"kind": "metric", "command": "python evals/score.py", "metric": "held_out.rmse", "op": "<=", "value": 69.154}
+    r = contracts._metric(c, {"rmse": 55.1, "r2": 0.45}, {"rmse": 76.84, "r2": 0.01})
+    assert r["met"] is True and r["evidence"] == "76.84 → 55.10"
+    assert contracts._no_regression({"metric": "*.r2", "value": 0}, {"r2": 0.45}, {"r2": 0.01})["met"] is True
+    assert contracts.metric_key({"currency.f1": 0.9, "f1": 0.5}, "currency.f1") == "currency.f1"
+    assert contracts.metric_key({"f1": 0.5}, "currency.f1") == "currency.f1"   # not a split name: no guessing
+
+
+def test_a_plan_starts_once(orch):
+    import threading
+    run = wait(runs.create("", worker="demo", demo_name="shop", demo_speed=0))
+    errors = []
+
+    def click():
+        try:
+            run.approve()
+        except runs.RunError as e:
+            errors.append(str(e))
+    clicks = [threading.Thread(target=click) for _ in range(2)]
+    for t in clicks:
+        t.start()
+    for t in clicks:
+        t.join()
+    assert len(errors) == 1   # auto-run and a click, or a double click, start the run once
+    assert sum(e["text"].startswith("plan approved") for e in run.d["events"]) == 1

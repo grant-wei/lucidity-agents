@@ -148,8 +148,24 @@ def evaluate(conditions, cwd, before=None, scores=None):
     return out
 
 
+def metric_key(metrics, name):
+    """The key a condition's metric name means in these scores. A planner may write "held_out.rmse" or
+    "test.rmse" for an eval that prints {"rmse": ...} for the split it was run on: that means "rmse"."""
+    bare = bare_metric(name)
+    return bare if metrics and name not in metrics and bare in metrics else name
+
+
+def bare_metric(name):
+    """"held_out.rmse" -> "rmse"; "currency.f1" (a real key, not a split) stays as it is."""
+    split, _, bare = name.partition(".")
+    return bare if bare and split.lower() in SPLIT_NAMES else name
+
+
+SPLIT_NAMES = {"held_out", "heldout", "holdout", "test", "dev"}
+
+
 def _metric(c, now, was):
-    name = c["metric"]
+    name = metric_key(now, c["metric"])
     if name not in now:
         return {"met": False, "evidence": f"the eval printed no {name}"}
     v = now[name]
