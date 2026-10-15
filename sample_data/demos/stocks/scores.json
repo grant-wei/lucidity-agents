@@ -1,0 +1,178 @@
+{
+"1198bef269a8cb5545d85c52c626e7bb63abcf28a3f822d709a41c08ffc14466": {
+"metrics": {
+"accuracy": 0.504,
+"log_loss": 0.6931,
+"spread_pct": 0.121
+},
+"usd": 0.0
+},
+"15ae3a9de9a494b646e41aeb93960cc3b2631e39666ceee3238a613e2ecfa2e5": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"168f267e3db802e3c8e0d79315f460e8f6f2fe46e1d12f344eb6faa7f789b9da": {
+"metrics": {
+"accuracy": 0.5084,
+"log_loss": 0.6931,
+"spread_pct": 0.121
+},
+"usd": 0.0
+},
+"18bfc3f18a1b2cf9968cbfecedaf1fde954bd55a1e632b5de934a83b68da4b1c": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"2522849256e696da530396650aaaac881adfd7dd95b46dbbcbe1d846502f994f": {
+"metrics": {
+"accuracy": 0.5132,
+"log_loss": 0.6931,
+"spread_pct": 0.51
+},
+"usd": 0.0
+},
+"255d7da53589eb184939a7e4e0fdc74d8c8252b238741bc77e7d46d5d8b3de10": {
+"metrics": {
+"accuracy": 0.5127,
+"log_loss": 0.6931,
+"spread_pct": 0.52
+},
+"usd": 0.0
+},
+"2ff49e965f37bcafa89e9c15e3f98b735e6ed4c92d29b35173264c0dd90f4723": {
+"metrics": {
+"accuracy": 0.5127,
+"log_loss": 0.6929,
+"spread_pct": 0.692
+},
+"usd": 0.0
+},
+"37901d57de099b82a3110eb5ea66eb9c8e1901ae843da0a0b2f7ea52cfa11abf": {
+"metrics": {
+"accuracy": 0.5127,
+"log_loss": 0.6931,
+"spread_pct": 0.692
+},
+"usd": 0.0
+},
+"3ddb82bf7642a3c915b36a12fc7e0264261f4e466dd007caf462d3b140331fb7": {
+"metrics": {
+"accuracy": 0.5132,
+"log_loss": 0.6931,
+"spread_pct": 0.51
+},
+"usd": 0.0
+},
+"42f0f4f6e6a371efd77c31f485915230c1fced1bba65db7f9acbf165ff63dfe2": {
+"metrics": {
+"accuracy": 0.5127,
+"log_loss": 0.6931,
+"spread_pct": 0.52
+},
+"usd": 0.0
+},
+"56520120fb47c0e4587f33c577ff982d464dc4847935b0259b68955382a40744": {
+"metrics": {
+"accuracy": 0.5134,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"67dc5b29775fc519b6f251b6b6951c5e98c3caa7dcb935c15c99691b9e3f24c8": {
+"metrics": {
+"accuracy": 0.5152,
+"log_loss": 0.6932,
+"spread_pct": 0.685
+},
+"usd": 0.0
+},
+"845db5a3870b5e5c1c9b58e48a3631968c63c2cabd324f78b5cf197e7c12b20c": {
+"metrics": {
+"accuracy": 0.5137,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"90f61177c32f11978f3ba3d34fb07d24404338e3199ed0216a40023546013ed8": {
+"metrics": {
+"accuracy": 0.5128,
+"log_loss": 0.6935,
+"spread_pct": 0.681
+},
+"usd": 0.0
+},
+"a35bd612330a8fe356ac939800d967393486714fd89b6255c4cdeab2d77b76a7": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"bccda1b7e6ced0e840e899dd9bdadb8be2e6beaa8b83138947820afe0cb4470f": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"bf327d441e4c0f0f10f9833c929a0dee41a6fca81b50815d89ce14354495cd79": {
+"metrics": {
+"accuracy": 0.5118,
+"log_loss": 0.6935,
+"spread_pct": 0.653
+},
+"usd": 0.0
+},
+"c1083abd5b59535a5ce8f3001abec207cc1e0c3b1c840dee71e9f57fd074da7c": {
+"metrics": {
+"accuracy": 0.5116,
+"log_loss": 0.6935,
+"spread_pct": 0.653
+},
+"usd": 0.0
+},
+"d10a9a546e4430f57a4c111cdfb7a478f24b894b3dbd52bd3ca4489948165c10": {
+"metrics": {
+"accuracy": 0.504,
+"log_loss": 0.6931,
+"spread_pct": 0.121
+},
+"usd": 0.0
+},
+"d22d53a49969a54524438b94f365732a9567c51c516496366c0e02b096fb0803": {
+"metrics": {
+"accuracy": 0.5136,
+"log_loss": 0.6933,
+"spread_pct": 0.762
+},
+"usd": 0.0
+},
+"da8529e795a5e5aa8380a0c46e6504bbe549bfb1917a75e48bbbe5408bcc9e9d": {
+"metrics": {
+"accuracy": 0.5128,
+"log_loss": 0.6935,
+"spread_pct": 0.681
+},
+"usd": 0.0
+},
+"fcab883337bc167294cd4e4eff517c468024bee2e05f309f679c4efb2a86689c": {
+"metrics": {
+"accuracy": 0.5127,
+"log_loss": 0.693,
+"spread_pct": 0.692
+},
+"usd": 0.0
+}
+}

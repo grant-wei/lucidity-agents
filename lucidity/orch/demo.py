@@ -5,9 +5,24 @@ CLI or network is needed. Everything else is the real loop: each task gets a rea
 the done-when tests and evals really run, the gate really decides, passing work is really merged,
 and the budget cap really stops a task.
 
-  complaints  an LLM router for real CFPB consumer complaints; contracts are held-out accuracy and
-            "no product's F1 drops more than 0.05". Replayed from a live run; one agent reports 0.85
-            when the eval measures 0.847. The model's answers ship with the demo, so no key is needed.
+  nba       NBA home-win probabilities from 15 seasons of real results; the contract is held-out log
+            loss <= 0.610 with no accuracy drop. Replayed from a live run: the planner asks which model
+            families to try, the person picks, and one agent per pick builds it. The SVM wins at 0.6052,
+            beating FiveThirtyEight's 0.608.
+  fed       will the Fed raise rates next month, from FRED Treasury yields, unemployment and CPI
+            (1985-2026, held out from 2015); the contract is held-out log loss <= 0.340 (the repo scores
+            0.462, the base rate 0.421). Replayed from a live run: random forest wins at 0.2723, kNN
+            also passes, and the 3-month yield's gap over the Fed's rate is its biggest predictor.
+  stocks    which of 49 industries beats the median next month, from monthly returns 1970-2026; the
+            contract is held-out log loss <= 0.6925 (a coin flip scores 0.6931). Replayed from a live run:
+            six model families race, none clears the bar, and nothing merges. The honest answer.
+  credit    which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
+            marital status; the contract is held-out log loss <= 0.440 (the repo scores 0.472). Replayed
+            from a live run: six families race, random forest wins at 0.4227, kNN and SVM miss.
+  complaints  (runnable by name, not in the picker) an LLM router for real CFPB consumer complaints; contracts are held-out accuracy and
+            "no product's F1 drops more than 0.05". Replayed from a live run: two prompt strategies,
+            two agents each, race in parallel with a parser task; one of five agents passes and merges.
+            The model's answers ship with the demo, so no key is needed.
   invoices  an invoice field extractor; contracts are eval scores (F1 per field on a held-out
             set) and "no field gets worse". One agent claims success while breaking another field.
   shop      a toy shop gets discount codes; contracts are unit and acceptance tests."""
@@ -16,10 +31,14 @@ import shutil
 from pathlib import Path
 
 from .. import config
-from . import worktrees
+from . import contracts, worktrees
 
 DEMOS_DIR = config.SAMPLE_DIR / "demos"
-DEFAULT = "complaints"
+DEFAULT = "nba"
+SHOWN = {"nba": "Six models race to beat FiveThirtyEight",       # the composer's picker, in this order
+         "fed": "Six models call the Fed's next hike",
+         "credit": "Six models predict who misses a payment",
+         "stocks": "Six models try to beat a coin flip on stocks"}
 
 
 def names():
@@ -33,6 +52,7 @@ class Scenario:
         self.name = name
         self.folder = DEMOS_DIR / name
         self.data = json.loads((self.folder / "scenario.json").read_text(encoding="utf-8"))
+        contracts.load_known_scores(self.folder)
 
     def __getattr__(self, key):
         if key in ("goal", "budget_usd", "planner", "plan", "repo_name", "title", "blurb"):
@@ -42,7 +62,8 @@ class Scenario:
     def card(self):
         """What the composer shows for this demo."""
         return {"name": self.name, "title": self.title, "blurb": self.blurb, "goal": self.goal,
-                "budget_usd": self.budget_usd, "repo_name": self.repo_name, "about_repo": self.data["about_repo"]}
+                "budget_usd": self.budget_usd, "repo_name": self.repo_name, "about_repo": self.data["about_repo"],
+                "split": self.data.get("split"), "references": self.data.get("references", [])}
 
     def step(self, node_id, round_no):
         key = f"{node_id}-r{round_no}"
@@ -53,9 +74,9 @@ class Scenario:
 
 
 def cards():
-    out = [Scenario(n).card() for n in names()]
-    out.sort(key=lambda c: c["name"] != DEFAULT)
-    return out
+    """The demos the composer offers. The others still run by name."""
+    have = set(names())
+    return [{**Scenario(n).card(), "short": s} for n, s in SHOWN.items() if n in have]
 
 
 def prepare_repo(dest, scenario):

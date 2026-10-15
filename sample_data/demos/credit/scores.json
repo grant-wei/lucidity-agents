@@ -1,0 +1,278 @@
+{
+"11838befb61098416fcfc073f9141a149be928f5e569586906e09a0180a0b424": {
+"metrics": {
+"accuracy": 0.8083,
+"auc": 0.7228,
+"log_loss": 0.4657
+},
+"usd": 0.0
+},
+"144dd332c553d799c04088bb027c28d7be70e9227d13db060332ac7915dbfe30": {
+"metrics": {
+"accuracy": 0.8115,
+"auc": 0.7191,
+"log_loss": 0.4722
+},
+"usd": 0.0
+},
+"1f03a82b8a6c717d62df79b3f7089d6701c4c6717a47d9468bbe59645cf864a6": {
+"metrics": {
+"accuracy": 0.8102,
+"auc": 0.719,
+"log_loss": 0.4662
+},
+"usd": 0.0
+},
+"30f500e8d2d8577848ea227e8906b701f7eae5eccbccc49064d94e3292e15519": {
+"metrics": {
+"accuracy": 0.8195,
+"auc": 0.7248,
+"log_loss": 0.4565
+},
+"usd": 0.0
+},
+"3beb80c4b27696ba8da9bdc507117fd10bc0aeb0b3b837f9830e8122e4b55eda": {
+"metrics": {
+"accuracy": 0.8165,
+"auc": 0.7428,
+"log_loss": 0.4454
+},
+"usd": 0.0
+},
+"5d164d5a782a7fd468db8b3f88927ad939630eb6c724b66fca72d96f230c5565": {
+"metrics": {
+"accuracy": 0.8098,
+"auc": 0.7226,
+"log_loss": 0.4659
+},
+"usd": 0.0
+},
+"615e5a42ef9676f4419fafcbf7872d0474d31127abfb002f3ab2943cc3527fb9": {
+"metrics": {
+"accuracy": 0.8102,
+"auc": 0.719,
+"log_loss": 0.4662
+},
+"usd": 0.0
+},
+"6e0f45462248afe4a449a1dd4c4024c68678e1b6d1b62cad2d6c8bcc5e7622f9": {
+"metrics": {
+"accuracy": 0.8218,
+"auc": 0.7717,
+"log_loss": 0.4399
+},
+"usd": 0.0
+},
+"7311b618e7368b828a2319e36c96e447d6a159123335042dafae9a2d7d05e1ed": {
+"metrics": {
+"accuracy": 0.8218,
+"auc": 0.7715,
+"log_loss": 0.44
+},
+"usd": 0.0
+},
+"7311b618e7368b828a2319e36c96e447d6a159123335042dafae9a2d7d05e1ed:explain": {
+"importance": {
+"bill_apr": 0.0001,
+"bill_aug": 0.0019,
+"bill_change": -0.0001,
+"bill_jul": 0.0005,
+"bill_jun": 0.0012,
+"bill_may": 0.0002,
+"bill_sep": 0.0001,
+"credit_limit": 0.0053,
+"paid_apr": 0.0003,
+"paid_aug": 0.0026,
+"paid_jul": 0.0,
+"paid_jun": -0.0001,
+"paid_may": 0.0005,
+"paid_sep": 0.0013,
+"payment_change": 0.0003,
+"payment_fraction_apr": 0.0001,
+"payment_fraction_aug": 0.0002,
+"payment_fraction_jul": 0.0002,
+"payment_fraction_jun": -0.0,
+"payment_fraction_may": -0.0,
+"payment_fraction_sep": -0.0001,
+"status_apr": 0.0005,
+"status_apr_is_-1": -0.0,
+"status_apr_is_-2": -0.0,
+"status_apr_is_0": 0.0009,
+"status_apr_is_1": 0.0,
+"status_apr_is_2": 0.0015,
+"status_apr_is_3": 0.0015,
+"status_apr_is_4": 0.0001,
+"status_apr_is_5": -0.0,
+"status_apr_is_6": -0.0001,
+"status_apr_is_7": 0.0,
+"status_apr_is_8": 0.0,
+"status_aug": 0.0001,
+"status_aug_is_-1": 0.0003,
+"status_aug_is_-2": -0.0001,
+"status_aug_is_0": 0.0,
+"status_aug_is_1": 0.0,
+"status_aug_is_2": 0.0001,
+"status_aug_is_3": 0.0,
+"status_aug_is_4": -0.0001,
+"status_aug_is_5": -0.0002,
+"status_aug_is_6": -0.0,
+"status_aug_is_7": 0.0,
+"status_aug_is_8": 0.0,
+"status_jul": 0.001,
+"status_jul_is_-1": 0.0002,
+"status_jul_is_-2": -0.0,
+"status_jul_is_0": 0.0001,
+"status_jul_is_1": 0.0,
+"status_jul_is_2": 0.0011,
+"status_jul_is_3": 0.0,
+"status_jul_is_4": 0.0,
+"status_jul_is_5": 0.0001,
+"status_jul_is_6": 0.0064,
+"status_jul_is_7": -0.0001,
+"status_jul_is_8": -0.0019,
+"status_jun": 0.0001,
+"status_jun_is_-1": 0.0001,
+"status_jun_is_-2": 0.0,
+"status_jun_is_0": 0.0003,
+"status_jun_is_1": 0.0,
+"status_jun_is_2": 0.0009,
+"status_jun_is_3": -0.0,
+"status_jun_is_4": 0.0002,
+"status_jun_is_5": 0.0001,
+"status_jun_is_6": 0.0011,
+"status_jun_is_7": 0.0,
+"status_jun_is_8": 0.0,
+"status_may": 0.0009,
+"status_may_is_-1": 0.0002,
+"status_may_is_-2": -0.0,
+"status_may_is_0": 0.0,
+"status_may_is_1": 0.0,
+"status_may_is_2": 0.0003,
+"status_may_is_3": 0.0,
+"status_may_is_4": -0.0002,
+"status_may_is_5": 0.0001,
+"status_may_is_6": -0.0,
+"status_may_is_7": 0.003,
+"status_may_is_8": 0.0,
+"status_mean": 0.0013,
+"status_sep": 0.0044,
+"status_sep_is_-1": 0.0019,
+"status_sep_is_-2": -0.0001,
+"status_sep_is_0": 0.0156,
+"status_sep_is_1": 0.0004,
+"status_sep_is_2": 0.0214,
+"status_sep_is_3": 0.002,
+"status_sep_is_4": 0.0002,
+"status_sep_is_5": -0.0,
+"status_sep_is_6": 0.0002,
+"status_sep_is_7": -0.0,
+"status_sep_is_8": 0.0018,
+"status_worsening": 0.0014,
+"utilization_apr": 0.0002,
+"utilization_aug": 0.0048,
+"utilization_jul": -0.0001,
+"utilization_jun": 0.0021,
+"utilization_may": 0.0001,
+"utilization_sep": 0.0023
+},
+"metrics": {
+"accuracy": 0.8218,
+"auc": 0.7715,
+"log_loss": 0.44
+},
+"usd": 0.0
+},
+"74b20df98cf3bfef9d441ee633d53e8db4357eec46c4078f320fa02e12b39e51": {
+"metrics": {
+"accuracy": 0.81,
+"auc": 0.7228,
+"log_loss": 0.4656
+},
+"usd": 0.0
+},
+"82fd1af797d294fa7d0e5b3e31de6a36f8c6db441462966a5e65432b8f8a7eca": {
+"metrics": {
+"accuracy": 0.8102,
+"auc": 0.719,
+"log_loss": 0.4662
+},
+"usd": 0.0
+},
+"85055319c1d06f0bbb2be8b59d912699fabe6bf4986c6c82785a58c99e826144": {
+"metrics": {
+"accuracy": 0.8165,
+"auc": 0.7428,
+"log_loss": 0.4454
+},
+"usd": 0.0
+},
+"9f8a2f294b99cd6e01755c51910c7215b9df414ac6bb6d2af008f4c1c0f0062c": {
+"metrics": {
+"accuracy": 0.8115,
+"auc": 0.7695,
+"log_loss": 0.4428
+},
+"usd": 0.0
+},
+"e6d3b085c2bb50109583278faf7dd70de6d3f7e8a13da903bac9897e7a218204": {
+"metrics": {
+"accuracy": 0.823,
+"auc": 0.7925,
+"log_loss": 0.4227
+},
+"usd": 0.0
+},
+"e6d3b085c2bb50109583278faf7dd70de6d3f7e8a13da903bac9897e7a218204:explain": {
+"importance": {
+"bill_apr": -0.0001,
+"bill_aug": 0.0008,
+"bill_change": 0.0012,
+"bill_jul": 0.0,
+"bill_jun": 0.0002,
+"bill_may": -0.0,
+"bill_sep": 0.0055,
+"credit_limit": 0.0052,
+"paid_apr": 0.0003,
+"paid_aug": 0.0012,
+"paid_jul": 0.0016,
+"paid_jun": 0.0002,
+"paid_may": 0.0001,
+"paid_sep": 0.0036,
+"payment_change": 0.0002,
+"payment_fraction_apr": 0.0005,
+"payment_fraction_aug": 0.0005,
+"payment_fraction_jul": 0.0006,
+"payment_fraction_jun": 0.001,
+"payment_fraction_may": 0.0004,
+"payment_fraction_sep": 0.0006,
+"status_apr": 0.0004,
+"status_aug": 0.0026,
+"status_jul": 0.001,
+"status_jun": 0.0001,
+"status_may": 0.0002,
+"status_mean": 0.0231,
+"status_sep": 0.0661,
+"status_worsening": 0.0001,
+"utilization_apr": 0.0002,
+"utilization_aug": 0.0028,
+"utilization_jul": 0.0004,
+"utilization_jun": 0.0005,
+"utilization_may": 0.0002,
+"utilization_sep": 0.0021
+},
+"metrics": {
+"accuracy": 0.823,
+"auc": 0.7925,
+"log_loss": 0.4227
+},
+"usd": 0.0
+},
+"e74d9d4a92609139523228ad1936399826f822097dea5f92ca109fc2947338bc": {
+"metrics": {
+"accuracy": 0.8233,
+"auc": 0.7917,
+"log_loss": 0.4239
+},
+"usd": 0.0
+}
+}

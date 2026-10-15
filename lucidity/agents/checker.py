@@ -3,6 +3,7 @@ diff, and runs the task's own test command (allowlisted, no shell, with a timeou
 returns verified or not verified with the missing evidence. A program runs the tests;
 the model only weighs the evidence against the contract, so it can't be talked into a pass."""
 import shlex
+import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -112,10 +113,11 @@ def eval_cost(data):
     return float(usd) if isinstance(usd, (int, float)) and not isinstance(usd, bool) and usd > 0 else 0.0
 
 
-def run_eval_command(cmd, cwd):
+def run_eval_command(cmd, cwd, env=None):
     """Run an eval script and read the scores it prints: the last line of stdout that is a JSON
     object, either {"metrics": {...}} or the metrics themselves (nested dicts are flattened).
-    Returns {"metrics": {...}, "usd": <the eval's own model spend>} or {"error": "..."}."""
+    Returns {"metrics": {...}, "usd": <the eval's own model spend>} or {"error": "..."}. An eval that
+    also prints "importance" ({input: how much the score worsens without it}) has that passed along."""
     import json
     try:
         argv = check_eval_command(cmd)
@@ -123,7 +125,8 @@ def run_eval_command(cmd, cwd):
         return {"error": f"refused: {e}"}
     try:
         r = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           timeout=TIMEOUT_S, stdin=subprocess.DEVNULL, shell=False)
+                           timeout=TIMEOUT_S, stdin=subprocess.DEVNULL, shell=False,
+                           env={**os.environ, **(env or {}), "LUCIDITY_ROLE": "referee"})
     except subprocess.TimeoutExpired:
         return {"error": f"timed out after {TIMEOUT_S}s"}
     except OSError as e:
@@ -140,7 +143,12 @@ def run_eval_command(cmd, cwd):
             scored = data["metrics"] if isinstance(data.get("metrics"), dict) else {k: v for k, v in data.items() if k != "cost"}
             metrics = flatten_metrics(scored)
             if metrics:
-                return {"metrics": metrics, "usd": eval_cost(data)}
+                out = {"metrics": metrics, "usd": eval_cost(data)}
+                imp = data.get("importance")
+                if isinstance(imp, dict):
+                    out["importance"] = {str(k): float(v) for k, v in imp.items()
+                                         if isinstance(v, (int, float)) and not isinstance(v, bool)}
+                return out
     return {"error": "the eval printed no JSON line of scores"}
 
 

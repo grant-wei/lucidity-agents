@@ -9,6 +9,7 @@ Every task (node) lives in its own git worktree off the run's integration branch
 only when the gate passes it AND its branch merges cleanly; the run is done when every task is.
 State is kept in memory, written to state/runs/<id>.json on every change, and is what the page draws."""
 import json
+import os
 import re
 import shutil
 import threading
@@ -92,6 +93,9 @@ class Run:
             self.d["spent_usd"] = round(self.d["spent_usd"] + usd, 6)
             if node is not None:
                 node["spent_usd"] = round(node["spent_usd"] + usd, 6)
+                if node.get("parent"):
+                    parent = self.node(node["parent"])
+                    parent["spent_usd"] = round(parent["spent_usd"] + usd, 6)
             self.d["spend_by"][what] = round(self.d["spend_by"].get(what, 0) + usd, 6)
         self.sample(force=True)
 
@@ -137,6 +141,10 @@ class Run:
         out["elapsed_s"] = self.elapsed() if out["state"] in ("planning", "running") else out.get("elapsed_s", 0)
         out["targets"] = {}
         out["eval_command"] = cmd = self.eval_command()
+        sc = getattr(self.worker, "scenario", None)
+        if sc is not None:
+            out["title"], out["blurb"] = sc.data.get("title"), sc.data.get("blurb")
+            out["split"], out["references"] = sc.data.get("split"), sc.data.get("references", [])
         for n in out["nodes"]:
             for c in n["done_when"]:
                 c["label"] = contracts.label(c)
@@ -162,7 +170,8 @@ class Run:
                 for line in sc.planner["activity"]:
                     self.event("planner", line)
                     time.sleep(pause)
-                clean, problems = planner_agent.validate_plan(planner_agent.Plan.model_validate(sc.plan), self.d["budget_usd"])
+                clean, problems = planner_agent.validate_plan(planner_agent.Plan.model_validate(sc.plan), self.d["budget_usd"],
+                                                              self.d.get("eval_command"))
                 self.spend(sc.planner["usd"], what="planner")
             else:
                 self.event("planner", f"reading {self.d['repo_name']} ({config.MODEL})")
@@ -177,12 +186,15 @@ class Run:
                 self.d["problems"] = problems
                 self.d["nodes"] = [_new_node(n) for n in clean["nodes"]]
                 self.d["order"] = clean["order"]
+                self.d["questions"] = clean.get("questions") or []
             for p in problems:
                 self.event("plan_problem", p, level="warn")
-            self.event("plan", f"{len(clean['nodes'])} tasks planned: {clean['summary']}")
+            self.event("plan", f"{len(clean['nodes'])} task{'' if len(clean['nodes']) == 1 else 's'} planned: {clean['summary']}")
             self.set_state("plan_ready")
-            if self.d.get("auto_run"):
-                self.approve()
+            if self.d.get("auto_run") and self.d["mode"] == "demo" and self.d["questions"]:
+                self.d["awaiting_owner"] = True   # a demo still lets the person make the judgment calls
+            elif self.d.get("auto_run"):
+                self.approve(self._recorded("owner", "answers"))
         except (BudgetExceeded, ModelCallFailed, RunError, worktrees.GitError) as e:
             self.event("error", f"planning failed: {e}", level="error")
             self.set_state("failed", f"Planning failed: {e}")
@@ -193,10 +205,12 @@ class Run:
 
     # ---------- running ----------
 
-    def approve(self):
+    def approve(self, answers=None):
         with self.lock:
             if self.d["state"] != "plan_ready":
                 raise RunError(f"the run is {self.d['state']}, not waiting for approval")
+            self._apply_answers(answers or {})
+            self.d["awaiting_owner"] = False
             if not self.d.get("integration"):
                 path = self.wdir / self.id / "_integration"
                 branch = f"lucidity/{self.id}"
@@ -207,6 +221,79 @@ class Run:
         self.event("run", "plan approved; running up to %d tasks at a time" % self.d["max_parallel"])
         self.set_state("running")
         self._ensure_loop()
+
+    def _apply_answers(self, answers):
+        """The owner's picks: a question that drives a task sets that task's agents, one per picked
+        option; every answer is written into each agent's instructions. No answer means the recommended ones."""
+        chosen = []
+        for q in self.d.get("questions") or []:
+            labels = [o["label"] for o in q["options"]]
+            got = [a for a in (answers.get(q["id"]) or []) if a in labels]
+            if not got:   # no answer: try every approach a race offers; elsewhere take the recommendation
+                got = labels if q.get("drives") else [o["label"] for o in q["options"] if o["recommended"]]
+            if not q["multi"]:
+                got = got[:1]
+            q["answer"] = got
+            chosen.append(f"{q['question']} {', '.join(got)}")
+            n = self.node(q["drives"]) if q.get("drives") else None
+            if n is not None:
+                picked = [(i, o) for i, o in enumerate(q["options"]) if o["label"] in got][:MAX_AGENTS]
+                n["attempts"] = len(picked)
+                n["strategies"] = [f"{o['label']}. {o['approach'] or o['note']}".strip() for _, o in picked]
+                n["agent_letters"] = [chr(97 + i) for i, _ in picked]   # stable ids: option 2 is always agent c
+                n["agent_labels"] = [o["label"] for _, o in picked]
+        self.d["owner_choices"] = chosen
+        if chosen:
+            self.event("you", "you chose: " + "; ".join(chosen))
+
+    def _compare(self, n, agents, target, raw, score):
+        """After a race: every approach ranked by its held-out score, and a recommendation in plain words."""
+        if len(agents) < 2 or not target:
+            return
+        rows = []
+        for a in agents:
+            v = raw(a)
+            why = ""
+            if a["state"] != "passed":
+                last = a["checks"][-1] if a["checks"] else {}
+                why = "changed the scorer" if last.get("tampered") else (
+                    f"missed the bar after {a['round']} round{'s' if a['round'] != 1 else ''}" if v is not None else "never produced a score")
+            rows.append({"agent": a["id"], "label": a.get("label") or a["id"], "value": v, "passed": a["state"] == "passed",
+                         "rounds": a["round"], "usd": round(a["spent_usd"], 4), "why": why})
+        by_id = {a["id"]: a for a in agents}
+        rows.sort(key=lambda r: (not r["passed"], r["value"] is None, -score(by_id[r["agent"]])))
+        name, op = target["metric"].replace("_", " "), target.get("op", ">=")
+        top = rows[0]
+        if top["passed"]:
+            others = [r for r in rows[1:] if r["value"] is not None]
+            text = (f"Recommended: {top['label']}. Its held-out {name} of {contracts._num(top['value'])} is the best of "
+                    f"{len(rows)} approaches, and it passed every check.")
+            if others:
+                r = others[0]
+                text += f" Runner-up: {r['label']} at {contracts._num(r['value'])}" + ("." if r["passed"] else f" ({r['why']}).")
+        else:
+            scored = [r for r in rows if r["value"] is not None]
+            best = min(scored, key=lambda r: r["value"] if op == "<=" else -r["value"]) if scored else None
+            text = (f"No approach cleared the bar. Closest: {best['label']} at {contracts._num(best['value'])}."
+                    if best else "No approach cleared the bar.")
+        with self.lock:
+            n["comparison"] = {"metric": target["metric"], "op": op, "bar": target["value"], "rows": rows, "text": text}
+        self.event("recommend", text, node=n["id"], level="ok" if top["passed"] else "warn")
+
+    def _explain(self, n, winner, target):
+        """Why the winner predicts what it does: its eval rerun once asking how much each input matters
+        (the score's change when that input is scrambled). Shown beside the recommendation."""
+        if not target or not n.get("comparison") or not winner.get("worktree"):
+            return
+        res = contracts.score(target["command"], winner["worktree"], explain=True)
+        imp = res.get("importance")
+        with self.lock:
+            n["comparison"]["importance"] = (
+                {"agent": winner["id"], "label": winner.get("label") or winner["id"],
+                 "rows": sorted(([k, v] for k, v in imp.items()), key=lambda kv: -kv[1])[:12]} if imp else None)
+        if imp:
+            top = ", ".join(k for k, _ in n["comparison"]["importance"]["rows"][:3])
+            self.event("explain", f"{winner.get('label') or winner['id']} leans most on {top}", node=n["id"], level="ok")
 
     def _ensure_loop(self):
         if self.thread and self.thread.is_alive():
@@ -236,6 +323,8 @@ class Run:
         by_id = {n["id"]: n for n in nodes}
         running = [n for n in nodes if n["state"] == "running"]
         over = self.d["spent_usd"] >= self.d["budget_usd"]
+        if self._replay_decisions():
+            return
         for n in nodes:
             if n["state"] != "queued":
                 continue
@@ -263,12 +352,32 @@ class Run:
                 self.d["needs_kind"] = "node"
                 self.set_state("needs_you", f"Waiting on you: {', '.join(waiting)}")
 
+    def _recorded(self, kind, key):
+        """Demo replay: what the live run's checker model said, or what its owner decided."""
+        if self.d["mode"] != "demo":
+            return None
+        return (self.worker.scenario.data.get(kind) or {}).get(key)
+
+    def _replay_decisions(self):
+        """Demo replay: when a task would wait on you, take the decision the owner made in the live run."""
+        acted = False
+        for n in self.d["nodes"]:
+            dec = n["state"] == "needs_you" and self._recorded("decisions", n["id"])
+            if dec:
+                self.event("you", f"{n['id']}: replaying the owner's decision from the live run ({dec['why']})", node=n["id"])
+                self.act(dec["action"], node=n["id"], amount=dec.get("amount", 0))
+                acted = True
+        return acted
+
     def _finish(self):
         integ = self.d["integration"]
         self.d["merged_commit"] = worktrees.head(integ["path"])
         self.d["files_changed"] = worktrees.changed_files(integ["path"], self.d["base_commit"])
+        skipped = [n["id"] for n in self.d["nodes"] if n["state"] == "skipped"]
         self.event("run", f"all tasks done and merged into {integ['branch']}")
-        self.set_state("done", f"Every task passed its checks and is merged into {integ['branch']}.")
+        self.set_state("done", (f"Every task that ran passed its checks and is merged into {integ['branch']}; "
+                                f"you skipped {', '.join(skipped)}.") if skipped else
+                       f"Every task passed its checks and is merged into {integ['branch']}.")
 
     def _start_node(self, n):
         n["state"], n["phase"], n["reason"] = "running", "starting", ""
@@ -279,6 +388,8 @@ class Run:
 
     def _work(self, n):
         try:
+            if n.get("attempts", 1) > 1 or n.get("agent_letters"):   # an owner-picked approach runs as its agent, even alone
+                return self._fan_out(n)
             self._work_inner(n)
         except Exception as e:
             traceback.print_exc()
@@ -328,6 +439,7 @@ class Run:
             if res.get("eval_usd"):
                 self.spend(res["eval_usd"], n, what="eval")
             files = worktrees.changed_files(n["worktree"], n["start_commit"])
+            _snapshot(self.id, n, rnd, files)
             with self.lock:
                 n["files"] = files
                 n["reports"].append({"round": rnd, "text": (res.get("report") or "")[:2000]})
@@ -339,15 +451,24 @@ class Run:
                 span = {"kind": "check", "round": rnd, "start": self.elapsed(), "end": None}
                 n["spans"].append(span)
             scores = {}
-            mech = contracts.evaluate(n["done_when"], n["worktree"], before=n.get("before"), scores=scores)
-            self._charge_evals(scores, n)
-            if res.get("error"):
+            tampered = [f for f in files if f.split("/", 1)[0] in PROTECTED_DIRS]
+            if tampered:   # don't even score it: the score would come from the agent's own scorer or data
+                mech = []
+            else:
+                mech = contracts.evaluate(n["done_when"], n["worktree"], before=n.get("before"), scores=scores)
+                self._charge_evals(scores, n)
+            if tampered:
+                verdict = {"verdict": "fail", "conditions": mech, "usd": 0.0, "by": "program", "tampered": tampered,
+                           "reasons": [f"changed what scores the work ({', '.join(tampered[:4])}); evals/ and data/ "
+                                       "are off limits, so put those files back as they were"]}
+            elif res.get("error"):
                 verdict = {"verdict": "fail", "reasons": [f"the worker stopped with an error: {res['error']}"],
                            "conditions": mech, "usd": 0.0, "by": "program"}
             else:
                 try:
                     verdict = gate.grade(n, mech, res.get("report"), worktrees.diff(n["worktree"], n["start_commit"]),
-                                         history=n["checks"], refresh_id=self.id, scores=scores)
+                                         history=n["checks"], refresh_id=self.id, scores=scores,
+                                         recorded=self._recorded("checker", f"{n['id']}-r{rnd}"))
                 except (BudgetExceeded, ModelCallFailed) as e:
                     verdict = {"verdict": "needs_you", "reasons": [f"the checker could not run: {e}"], "conditions": mech,
                                "usd": 0.0, "by": "none"}
@@ -362,7 +483,11 @@ class Run:
                        + (f" — {verdict['reasons'][0]}" if verdict["reasons"] else ""),
                        node=n["id"], level={"pass": "ok", "fail": "warn"}.get(verdict["verdict"], "error"))
             if verdict["verdict"] == "pass":
-                return self._merge(n)
+                if n.get("parent"):
+                    return self._passed(n)
+                if self._merge(n) != "stale":
+                    return
+                verdict = n["checks"][-1]
             if verdict["verdict"] == "needs_you":
                 return self._needs(n, "checker", "; ".join(verdict["reasons"]) or "The checker wants a person to look.")
             if n["spent_usd"] >= n["budget_usd"]:
@@ -371,11 +496,115 @@ class Run:
             if rnd >= n["max_rounds"]:
                 return self._needs(n, "rounds", f"Still failing after {rnd} round{'s' if rnd > 1 else ''}.")
 
+    def _fan_out(self, n):
+        """Several agents take the same task at once, each with its own strategy and worktree. Each is
+        checked on its own; of those that pass, the one with the best score on the task's metric merges."""
+        k = n["attempts"]
+        if n.get("agents") and n["agents"][0]["attempt"] == n["attempt"]:
+            return self._run_agents(n, n["agents"])
+        strategies = list(n.get("strategies") or [])[:k]
+        strategies += [""] * (k - len(strategies))
+        letters = n.get("agent_letters") or [chr(97 + i) for i in range(k)]
+        labels = n.get("agent_labels") or [""] * k
+        keep = ("title", "deps", "done_when", "max_rounds")
+        agents = [{**_new_node({key: n[key] for key in keep}), "id": f"{n['id']}{letters[i]}", "parent": n["id"],
+                   "strategy": s, "label": labels[i], "attempt": n["attempt"], "budget_usd": round(n["budget_usd"] / k, 4),
+                   "prompt": n["prompt"] + (f"\n\nYour approach: {s}" + (" Other agents are trying other approaches to "
+                                            "this same task in parallel; only the best one that passes is merged." if k > 1 else "") if s else "")}
+                  for i, s in enumerate(strategies)]
+        for a in agents:
+            if a["label"]:   # an approach the owner picked: what merges has to be that approach, not a swap that scored better
+                a["done_when"] = a["done_when"] + [{
+                    "kind": "rubric", "command": "", "path": "", "metric": "", "op": ">=", "value": 0.0,
+                    "text": f"The model that makes the predictions is a {a['label']}. Changing features or tuning is "
+                            f"fine; replacing it with a different kind of model, or a blend led by one, does not count."}]
+                a["prompt"] += f" Stick to {a['label']}: work that swaps it for another kind of model fails its check."
+        with self.lock:
+            n["agents"] = agents
+        self.event("fan_out", f"{n['id']}: {k} agents start in parallel, each on its own approach" if k > 1
+                   else f"{n['id']}: 1 agent starts on the approach you picked", node=n["id"])
+        return self._run_agents(n, agents)
+
+    def _run_agents(self, n, agents):
+        k = len(agents)
+        with self.lock:
+            n["phase"], n["round"] = "working", max(1, n["round"])
+        threads = []
+        for a in agents:
+            if a["state"] == "passed":
+                continue
+            a["state"], a["started"] = "running", a.get("started") or self.elapsed()
+            th = threading.Thread(target=self._work, args=(a,), daemon=True, name=f"{self.id}-{a['id']}")
+            th.start()
+            threads.append(th)
+        for th in threads:
+            th.join()
+        if self.cancel.is_set():
+            return self._stopped(n)
+        with self.lock:
+            n["round"] = max(a["round"] for a in agents)
+            n["checks"] = sorted((dict(c, agent=a["id"]) for a in agents for c in a["checks"]), key=lambda c: c["s"])
+            n["reports"] = [dict(r, agent=a["id"]) for a in agents for r in a["reports"]]
+        passed = [a for a in agents if a["state"] == "passed"]
+        # rank on this task's own bar, else on the bar the plan sets anywhere (the goal's score)
+        target = next((c for c in n["done_when"] if c["kind"] == "metric"), None) or next(
+            (c for m in self.d["nodes"] for c in m["done_when"] if c["kind"] == "metric"), None)
+
+        def raw(a):
+            best = None   # an agent's best held-out score over its rounds, as the referee measured it
+            for c in a["checks"]:
+                v = ((c.get("scores") or {}).get(target["command"]) or {}).get(target["metric"]) if target else None
+                if isinstance(v, (int, float)) and (best is None or (v > best if target.get("op", ">=") == ">=" else v < best)):
+                    best = v
+            if a["state"] == "passed" and a["checks"]:   # what merges is the last round, so a winner ranks by that
+                last = ((a["checks"][-1].get("scores") or {}).get(target["command"]) or {}).get(target["metric"]) if target else None
+                best = last if isinstance(last, (int, float)) else best
+            return best
+
+        def score(a):
+            v = raw(a)
+            return 0.0 if v is None else (v if target.get("op", ">=") == ">=" else -v)
+        self._compare(n, agents, target, raw, score)
+        if not passed:
+            return self._needs(n, "rounds", f"None of the {k} agents passed its checks.")
+        ranked = sorted(passed, key=lambda a: (-score(a), a.get("finished") or 0))
+        for i, winner in enumerate(ranked):
+            with self.lock:
+                n.update(worktree=winner["worktree"], branch=winner["branch"], start_commit=winner["start_commit"],
+                         files=winner["files"], picked=winner["id"], commit=winner.get("commit"), before=winner.get("before"))
+            best = f" ({target['metric']} {abs(score(winner)):g})" if target else ""
+            self.event("pick", (f"{n['id']}: {len(passed)} of {k} agents passed; merging the best, {winner['id']}{best}"
+                                if i == 0 else f"{n['id']}: trying the next best, {winner['id']}{best}"),
+                       node=n["id"], level="ok")
+            self._explain(n, winner, target)
+            got = self._merge(n, agent=winner)
+            if got != "stale":
+                break
+            with self.lock:
+                winner.update(state="failed", reason=n["checks"][-1]["reasons"][0])
+        else:
+            return self._needs(n, "rounds", f"Every agent that passed on its own failed once combined with what merged since.")
+        if got == "merged":
+            winner["picked"] = True
+            for a in agents:
+                if a is not winner and a.get("worktree"):
+                    worktrees.remove(self.d["repo"], a["worktree"])
+                    a["worktree"] = None
+
+    def _passed(self, a):
+        """An agent in a fan-out passed its checks: commit its work and wait to be picked."""
+        sha = worktrees.commit_all(a["worktree"], f"{a['id']}: {a['title']}")
+        with self.lock:
+            a.update(state="passed", commit=sha, phase="", finished=self.elapsed())
+        self.event("passed", f"{a['id']} passed its checks", node=a["id"], level="ok")
+
     def _prompt(self, n):
         lines = [f"You are doing one task of a larger plan, in a git worktree of the {self.d['repo_name']} repo.",
                  "Work only inside this folder. Do not commit, merge, push or change git settings: Lucidity commits "
                  "and merges your work after an independent check.", "",
                  f"OVERALL GOAL: {self.d['goal']}", "", contracts.contract_text(n)]
+        if self.d.get("owner_choices"):
+            lines += ["", "The owner decided (follow these):"] + [f"- {c}" for c in self.d["owner_choices"]]
         for cmd, res in (n.get("before") or {}).items():
             if res.get("metrics"):
                 shown = ", ".join(f"{k} {v:g}" for k, v in list(res["metrics"].items())[:40])
@@ -388,17 +617,26 @@ class Run:
         lines += ["", "When you are finished, reply in two sentences: what you changed, and whether the conditions pass."]
         return "\n".join(lines)
 
-    def _merge(self, n):
+    def _merge(self, n, agent=None):
+        """Merge passed work into the run branch: "merged", "needs" (it went to you) or "stale" (it passed
+        on the base it started from, but not on top of what merged since; recorded as a failed check)."""
         with self.lock:
             n["phase"] = "merging"
-        sha = worktrees.commit_all(n["worktree"], f"{n['id']}: {n['title']}")
-        with self.merge_lock:
-            res = worktrees.merge(self.d["integration"]["path"], n["branch"],
-                                  f"Merge {n['id']} ({n['title']}): checks passed")
+        sha = worktrees.commit_all(n["worktree"], f"{n['id']}: {n['title']}") or n.get("commit")
+        integ = self.d["integration"]
+        with self.merge_lock:   # a merge queue: re-check and merge one task at a time
+            tip, res = worktrees.head(integ["path"]), {"ok": True}
+            if tip != n["start_commit"]:
+                res = worktrees.merge(n["worktree"], integ["branch"], f"{n['id']}: bring in what merged since it started")
+                if res["ok"] and self._recheck(n, tip, agent):
+                    return "stale"
+            if res["ok"]:
+                res = worktrees.merge(integ["path"], n["branch"], f"Merge {n['id']} ({n['title']}): checks passed")
         if not res["ok"]:
             what = ", ".join(res["conflicts"]) or res["error"] or "unknown"
             # the work is fine but no longer fits; the retry starts again on top of the latest merge
-            return self._needs(n, "conflict", f"Checks passed but the merge conflicted in {what}.")
+            self._needs(n, "conflict", f"Checks passed but the merge conflicted in {what}.")
+            return "needs"
         worktrees.remove(self.d["repo"], n["worktree"])
         # score before the task counts as done, so a finished run always has its final scores
         self._record_scores(f"{n['id']} merged", n["id"])
@@ -408,6 +646,32 @@ class Run:
         self.event("merge", f"{n['id']} merged into {self.d['integration']['branch']} ({len(n['files'])} files)",
                    node=n["id"], level="ok")
         self.sample(force=True)
+        return "merged"
+
+    def _recheck(self, n, tip, agent=None):
+        """Other work merged while this task ran. Its checks passed on the old base; run the program
+        checks again on top of the new one, against the scores the new base has. Caller holds merge_lock."""
+        self.event("recheck", f"{n['id']}: the run branch moved since it started; checking it again on top", node=n["id"])
+        before = {}
+        contracts.evaluate(n["done_when"], self.d["integration"]["path"], scores=before)
+        self._charge_evals(before, n)
+        scores = {}
+        mech = contracts.evaluate(n["done_when"], n["worktree"], before=before, scores=scores)
+        self._charge_evals(scores, n)
+        failed = [m for m in mech if m["met"] is False]
+        with self.lock:
+            n.update(start_commit=tip, before=before)
+            if not failed:
+                return None
+            check = {"round": n["round"], "s": self.elapsed(), "verdict": "fail", "by": "program", "recheck": True,
+                     "reasons": [f"on top of the latest merge: {m['label']}: {m['evidence']}" for m in failed],
+                     "conditions": mech, "usd": 0.0, "scores": {k: v.get("metrics") for k, v in scores.items()}}
+            n["checks"].append(check)
+            if agent is not None:
+                agent["checks"].append(check)
+                agent.update(start_commit=tip, before=before)
+        self.event("check", f"{(agent or n)['id']} re-check: FAIL — {check['reasons'][0]}", node=(agent or n)["id"], level="warn")
+        return check
 
     def eval_command(self):
         """The eval the run's score chart follows: the one you gave, else the first one the plan uses."""
@@ -460,6 +724,11 @@ class Run:
             self.event("eval", f"scoring the merged branch failed: {res['error']}", level="warn")
 
     def _needs(self, n, kind, reason):
+        if n.get("parent"):   # one agent of several fell short; the task decides, not you
+            with self.lock:
+                n.update(state="failed", phase="", reason=reason, finished=self.elapsed())
+            self.event("failed", f"{n['id']}: {reason}", node=n["id"], level="warn")
+            return
         with self.lock:
             n.update(state="needs_you", phase="", reason=reason, needs_kind=kind)
         self.event("needs_you", f"{n['id']}: {reason}", node=n["id"], level="error")
@@ -472,12 +741,12 @@ class Run:
 
     # ---------- your actions ----------
 
-    def act(self, action, node=None, amount=0.0):
+    def act(self, action, node=None, amount=0.0, answers=None):
         amount = float(amount or 0)
         if amount < 0 or amount > config.MAX_RUN_USD:
             raise RunError(f"amount must be between $0 and ${config.MAX_RUN_USD:.2f}")
         if action == "approve":
-            return self.approve()
+            return self.approve(answers)
         if action == "stop":
             self.cancel.set()
             with self.lock:
@@ -514,7 +783,13 @@ class Run:
                     n["budget_usd"] = round(n["budget_usd"] + amount, 2)
                     self.d["budget_usd"] = round(max(self.d["budget_usd"], self.d["spent_usd"] + amount), 2)
                 n["max_rounds"] = max(n["max_rounds"], n["round"] + 1)
-                if n.get("needs_kind") == "conflict" or not n.get("worktree"):
+                if n.get("agents") and n.get("needs_kind") != "conflict":
+                    # a fan-out: each agent that fell short gets one more round where it left off
+                    for a in n["agents"]:
+                        if a["state"] != "passed":
+                            a.update(state="queued", reason="", max_rounds=a["round"] + 1,
+                                     budget_usd=round(a["budget_usd"] + amount / len(n["agents"]), 4))
+                elif n.get("needs_kind") == "conflict" or not n.get("worktree"):
                     if n.get("worktree"):
                         worktrees.remove(self.d["repo"], n["worktree"])
                     n.update(worktree=None, attempt=n["attempt"] + 1)
@@ -541,6 +816,24 @@ class Run:
                         n["state"] = "queued"
             self.set_state("running")
             self._ensure_loop()
+
+
+def _snapshot(rid, n, rnd, files):
+    """LUCIDITY_RECORD_DIR set: keep each round's changed files, so a live run can become a demo."""
+    out = os.environ.get("LUCIDITY_RECORD_DIR")
+    if not out:
+        return
+    dest = Path(out) / rid / f"{n['id']}-r{rnd}"
+    for f in files:
+        src = Path(n["worktree"]) / f
+        if src.is_file():
+            (dest / f).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dest / f)
+
+
+# What decides a score. An agent that edits these could grade itself, so its work fails unscored.
+PROTECTED_DIRS = ("evals", "eval", "data")
+MAX_AGENTS = 6   # parallel agents on one task, one per approach
 
 
 def _actions_for(n):
@@ -635,6 +928,8 @@ def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto
             "plan_summary": "", "problems": [], "nodes": [], "order": [], "events": [], "samples": [],
             "elapsed_s": 0, "demo": w.scenario.name if worker == "demo" else None,
             "eval_command": eval_command, "scores": []}
+    if worker != "demo":
+        data.update(_about(repo))
     run = Run(data, w)
     with _registry_lock:
         _registry[rid] = run
@@ -642,6 +937,23 @@ def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto
     run.sample(force=True)
     run.plan_async()
     return run
+
+
+def _about(repo):
+    """A repo can describe itself for the run page in evals/about.json (Bring a CSV writes one): a title,
+    a blurb, how its data is split, and reference scores such as what guessing gets."""
+    try:
+        d = json.loads((Path(repo) / "evals" / "about.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(d, dict):
+        return {}
+    out = {k: str(d[k])[:600] for k in ("title", "blurb", "split") if isinstance(d.get(k), str)}
+    refs = [{"label": str(r["label"])[:80], "value": r["value"]} for r in d.get("references") or []
+            if isinstance(r, dict) and isinstance(r.get("value"), (int, float)) and r.get("label")]
+    if refs:
+        out["references"] = refs[:6]
+    return out
 
 
 def get(rid):

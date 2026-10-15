@@ -158,6 +158,22 @@ def test_planner_validates_metric_conditions():
     assert any("eval command refused" in p for p in problems) and any("needs a metric" in p for p in problems)
 
 
+def test_the_owners_eval_command_is_the_referee():
+    from lucidity.agents import planner
+    held = "python evals/score.py --split heldout"
+    plan = planner.Plan.model_validate({"summary": "s", "nodes": [
+        {"id": "t1", "title": "a", "prompt": "p", "budget_usd": 0.5, "done_when": [
+            {"kind": "metric", "command": "python evals/score.py --split dev", "metric": "log_loss", "op": "<=", "value": 0.61},
+            {"kind": "no_regression", "command": held, "metric": "*.accuracy", "value": 0}]}]})
+    clean, problems = planner.validate_plan(plan, 1.0, held)
+    # a bar on the split the agents tune on would let work pass on numbers they can see
+    assert [c["command"] for c in clean["nodes"][0]["done_when"]] == [held, held]
+    assert any("judged with the owner's eval command" in p for p in problems)
+    # and "*.accuracy" against flat scores still finds accuracy
+    r = contracts._no_regression({"metric": "*.accuracy", "value": 0}, {"accuracy": 0.66}, {"accuracy": 0.6525})
+    assert r["met"] is True
+
+
 def test_live_run_rejects_a_bad_eval_command(orch, tmp_path, monkeypatch):
     monkeypatch.setattr(config, "has_key", lambda: True)
     with pytest.raises(runs.RunError, match="eval command"):
@@ -284,26 +300,176 @@ def test_worker_prompt_shows_the_scores_a_task_started_from(orch):
     assert "when this task started" in prompt and "invoice_date.f1 0.54" in prompt
 
 
-def test_complaint_demo_blocks_a_rounded_up_claim(orch):
-    # the default demo; its recorded model answers are seeded into the repo, so scoring needs no key
-    run = wait(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+def test_complaint_demo_races_agents_and_merges_the_best(orch):
+    # its recorded model answers are seeded into the repo, so scoring needs no key
+    run = wait(runs.create("", worker="demo", demo_name="complaints", demo_speed=0, auto_run=True))
     assert run.d["demo"] == "complaints" and run.d["state"] == "done", run.d["reason"]
-    start = run.d["scores"][0]["metrics"]
-    assert start["accuracy"] == pytest.approx(0.7986, abs=1e-4)
-    t3 = node(run, "t3")
-    first = t3["checks"][0]
-    # the agent reports 0.85; the eval measures 0.847 and checking_savings falling 0.07, so no merge
-    assert "0.85" in t3["reports"][0]["text"] and first["verdict"] == "fail" and first["by"] == "program"
-    acc, reg = first["conditions"]
-    assert acc["met"] is False and 0.84 < first["scores"]["python evals/score.py --split heldout"]["accuracy"] < 0.85
-    assert reg["met"] is False and [d["metric"] for d in reg["drops"]] == ["checking_savings.f1"]
-    assert [c["verdict"] for c in t3["checks"]] == ["fail", "pass"]
+    assert run.d["scores"][0]["metrics"]["accuracy"] == pytest.approx(0.7986, abs=1e-4)
+    t2, t3 = node(run, "t2"), node(run, "t3")
+    # two agents per prompt strategy, each in its own worktree, each checked on held-out scores
+    assert [a["id"] for a in t2["agents"]] == ["t2a", "t2b"] and len({a["branch"] for a in t2["agents"]}) == 2
+    a, b = t2["agents"]
+    assert a["picked"] and [c["verdict"] for c in a["checks"]][:1] == ["pass"]
+    assert b["state"] == "failed" and [c["verdict"] for c in b["checks"]] == ["fail", "fail"]
+    # one agent got within a rounding of the bar; the check reads 0.847, not 0.85
+    assert t3["state"] == "skipped" and "0.847" in t3["agents"][0]["checks"][-1]["reasons"][0]
+    # t1 merged while t2a worked, so t2a was checked again on top before it merged
+    assert any(e["kind"] == "recheck" and e["node"] == "t2" for e in run.d["events"])
     final = run.d["scores"][-1]["metrics"]
-    assert final["accuracy"] >= 0.85 and run.d["spend_by"].get("eval", 0) == 0   # every answer came from the seed
+    assert final["accuracy"] == pytest.approx(0.875, abs=1e-3) and run.d["spend_by"].get("eval", 0) == 0
 
 
 def test_a_score_just_under_its_bar_shows_enough_digits():
     c = {"kind": "metric", "command": "python evals/score.py", "metric": "accuracy", "op": ">=", "value": 0.85}
     r = contracts._metric(c, {"accuracy": 0.8472}, {"accuracy": 0.7847})
-    assert r["met"] is False and r["evidence"] == "0.78 → 0.847, needs ≥ 0.85"
-    assert contracts._metric(c, {"accuracy": 0.8542}, {})["evidence"] == "now 0.85"
+    assert r["met"] is False and r["evidence"] == "0.7847 → 0.8472, needs ≥ 0.85"
+    assert contracts._metric(c, {"accuracy": 0.8542}, {})["evidence"] == "now 0.8542"
+
+
+def wait_for_owner(run, timeout=30):
+    end = time.time() + timeout
+    while time.time() < end and not run.d.get("awaiting_owner"):
+        time.sleep(0.05)
+    assert run.d["state"] == "plan_ready" and run.d["awaiting_owner"], run.d["state"]
+    return run
+
+
+def test_nba_demo_waits_for_the_owners_picks_and_runs_one_agent_per_pick(orch):
+    # the default demo: auto_run still stops at the plan, because only the person picks the model families
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    assert run.d["demo"] == "nba"
+    q = run.d["questions"][0]
+    assert q["drives"] == "models" and q["multi"] and len(q["options"]) == 6
+    run.act("approve", answers={q["id"]: ["Ridge logistic regression", "kNN", "not an option"]})
+    wait(run)
+    agents = node(run, "models")["agents"]
+    assert [a["id"] for a in agents] == ["modelsa", "modelsd"]   # letters follow the option, not the pick order
+    assert run.d["questions"][0]["answer"] == ["Ridge logistic regression", "kNN"]
+    a, d = agents
+    assert "Stick to kNN" in a["prompt"] and any(c["kind"] == "rubric" and "kNN" in c["text"] for c in a["done_when"])
+    assert d["picked"] and a["state"] == "failed" and len(a["checks"]) == 4
+    assert any("0.6209" in (c.get("evidence") or "") for c in a["checks"][-1]["conditions"])
+    # the checker model's ruling, replayed: ridge really is the model that predicts
+    judged = [c for c in d["checks"][-1]["conditions"] if c["kind"] == "rubric"]
+    assert judged and judged[0]["met"] is True and "LogisticRegression" in judged[0]["evidence"]
+    assert run.d["state"] == "done" and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6074, abs=1e-4)
+
+
+def test_no_answer_tries_every_approach_and_recommends_one(orch):
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    run.act("approve")
+    t0 = time.time()
+    wait(run, timeout=600)
+    print("six-agent replay took", round(time.time() - t0), "s")
+    labels = [o["label"] for o in run.d["questions"][0]["options"]]
+    assert run.d["questions"][0]["answer"] == labels
+    n = node(run, "models")
+    assert [a["id"] for a in n["agents"]] == [f"models{x}" for x in "abcdef"]
+    assert [a["label"] for a in n["agents"]] == labels
+    c = n["comparison"]
+    assert [r["label"] for r in c["rows"]] == ["SVM", "Ridge logistic regression", "Random forest",
+                                               "Lasso logistic regression", "Boosted trees", "kNN"]
+    assert [r["passed"] for r in c["rows"]] == [True, True, True, False, False, False]
+    assert c["rows"][0]["value"] == pytest.approx(0.6052, abs=1e-4)
+    assert c["text"].startswith("Recommended: SVM.") and "Runner-up: Ridge logistic regression" in c["text"]
+    assert c["rows"][4]["why"] == "changed the scorer" and c["rows"][5]["why"].startswith("missed the bar")
+    assert any(e["kind"] == "recommend" for e in run.d["events"])
+    assert run.d["state"] == "done" and n["picked"] == "modelsb"
+    assert any(e["kind"] == "you" and e["text"].startswith("you chose: ") for e in run.d["events"])
+
+
+def test_the_stock_demo_recommends_nothing_when_nothing_beats_a_coin_flip(orch):
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True, demo_name="stocks"))
+    run.act("approve")
+    wait(run, timeout=900)
+    n = node(run, "models")
+    c = n["comparison"]
+    assert [r["label"] for r in c["rows"]][0] == "Random forest" and len(c["rows"]) == 6
+    assert not any(r["passed"] for r in c["rows"])
+    assert c["rows"][0]["value"] == pytest.approx(0.6929, abs=1e-4)
+    assert c["text"] == "No approach cleared the bar. Closest: Random forest at 0.6929."
+    assert run.d["state"] == "needs_you" and not n.get("picked")   # nothing merges; the owner decides
+    assert node(run, "integration")["state"] == "queued"
+
+
+def test_the_credit_demo_recommends_the_random_forest_from_six_families(orch):
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True, demo_name="credit"))
+    q = run.d["questions"][0]
+    run.act("approve", answers={q["id"]: [o["label"] for o in q["options"]]})
+    wait(run, timeout=900)
+    n = node(run, "models")
+    c = n["comparison"]
+    assert [r["label"] for r in c["rows"]][:2] == ["Random forest", "Boosted trees"] and len(c["rows"]) == 6
+    assert [r["passed"] for r in c["rows"]] == [True, True, True, True, False, False]
+    assert c["rows"][0]["value"] == pytest.approx(0.4227, abs=1e-4)
+    assert c["text"].startswith("Recommended: Random forest.")
+    assert run.d["state"] == "done" and n["picked"] == "modelse"
+    assert c["importance"]["label"] == "Random forest" and c["importance"]["rows"][0][0] == "status_sep"
+
+
+def test_the_fed_demo_picks_the_random_forest_and_explains_it(orch):
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True, demo_name="fed"))
+    q = run.d["questions"][0]
+    run.act("approve", answers={q["id"]: [o["label"] for o in q["options"]]})
+    wait(run, timeout=900)
+    n = node(run, "race")
+    c = n["comparison"]
+    assert [r["label"] for r in c["rows"]][:2] == ["Random forest", "kNN"] and len(c["rows"]) == 6
+    assert [r["passed"] for r in c["rows"]] == [True, True, False, False, False, False]
+    assert c["rows"][0]["value"] == pytest.approx(0.2723, abs=1e-4)
+    assert c["importance"]["rows"][0][0] == "yield_3m_gap"     # the market's read of the next move leads
+    assert run.d["state"] == "done" and n["picked"] == "racee"
+
+
+def test_an_agent_that_edits_the_scorer_fails_unscored(orch, monkeypatch, tmp_path):
+    from lucidity.orch import demo
+    real = demo.Scenario.step
+
+    def step(self, node_id, round_no):
+        s = real(self, node_id, round_no)
+        if s and node_id == "modelsd":   # the ridge agent also rewrites the scorer to print a perfect score
+            rigged = tmp_path / "rigged"
+            if not rigged.exists():
+                import shutil
+                shutil.copytree(s["files_dir"], rigged)
+                (rigged / "evals").mkdir(exist_ok=True)
+                (rigged / "evals" / "score.py").write_text(
+                    """print('{"metrics": {"log_loss": 0.01, "accuracy": 0.99}}')
+""", encoding="utf-8")
+            s = {**s, "files_dir": rigged}
+        return s
+    monkeypatch.setattr(demo.Scenario, "step", step)
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    q = run.d["questions"][0]
+    run.act("approve", answers={q["id"]: ["Ridge logistic regression", "Random forest"]})
+    wait(run)
+    d, e = node(run, "models")["agents"]
+    assert d["state"] == "failed" and d["checks"][0]["tampered"] == ["evals/score.py"]
+    assert e["picked"] and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6095, abs=1e-4)
+
+
+def test_known_scores_only_cover_identical_code(tmp_path, monkeypatch):
+    import shutil
+    repo = tmp_path / "hoopkit"
+    shutil.copytree(config.SAMPLE_DIR / "demos" / "nba" / "repo", repo)
+    cmd = "python evals/score.py --split heldout"
+    key = contracts._code_key(cmd, repo)
+    monkeypatch.setattr(contracts, "KNOWN_SCORES", {key: {"metrics": {"log_loss": 0.5}}})
+    assert contracts.score(cmd, repo)["metrics"]["log_loss"] == 0.5   # same code, same score: no rerun
+    assert contracts._code_key("python evals/score.py --split dev", repo) != key
+    (repo / "hoopkit" / "model.py").write_text((repo / "hoopkit" / "model.py").read_text() + "\n# tuned\n")
+    assert contracts._code_key(cmd, repo) != key   # any edit misses, and is scored for real
+    assert contracts.score(cmd, repo)["metrics"]["log_loss"] == pytest.approx(0.6234, abs=1e-4)
+
+
+def test_an_agent_cannot_score_the_held_out_split(tmp_path):
+    import os
+    import subprocess
+    import sys
+    repo = config.SAMPLE_DIR / "demos" / "nba" / "repo"
+    env = {**os.environ, "LUCIDITY_ROLE": "agent"}
+    r = subprocess.run([sys.executable, "evals/score.py", "--split", "heldout"], cwd=repo, env=env,
+                       capture_output=True, text=True)
+    assert r.returncode == 2 and "only shown to the referee" in r.stdout
+    r = subprocess.run([sys.executable, "evals/score.py", "--split", "dev"], cwd=repo, env=env, capture_output=True, text=True)
+    assert r.returncode == 0 and json.loads(r.stdout)["split"] == "dev"

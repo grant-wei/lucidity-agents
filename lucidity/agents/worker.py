@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
+import os
 import subprocess
 
 from ..redact import redact
@@ -99,7 +100,8 @@ def run_eval(ctx: RunContext[Deps], command: str) -> dict:
         return {"refused": True, "reason": str(e)}
     try:
         r = subprocess.run(argv, cwd=ctx.deps.root, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=TIMEOUT_S, stdin=subprocess.DEVNULL, shell=False)
+                           errors="replace", timeout=TIMEOUT_S, stdin=subprocess.DEVNULL, shell=False,
+                           env={**os.environ, "LUCIDITY_ROLE": "agent"})   # an eval may keep its held-out split from agents
         out = {"exit_code": r.returncode, "output": redact((r.stdout + r.stderr)[-6000:])}
         ctx.deps.eval_usd += _printed_cost(r.stdout)
     except subprocess.TimeoutExpired:

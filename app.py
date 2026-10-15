@@ -21,7 +21,7 @@ from lucidity import config
 from lucidity.agents.coordinator import Options, refresh
 from lucidity.agents.mapper import refresh_map
 from lucidity.guard import breaker
-from lucidity.orch import runmap, runs, workers
+from lucidity.orch import csvrepo, runmap, runs, workers
 from lucidity.trace import TRACE_DIR
 
 STATIC = config.ROOT / "static"
@@ -208,6 +208,22 @@ class Handler(BaseHTTPRequestHandler):
             except (runs.RunError, runs.worktrees.GitError) as e:
                 return self._send(400, {"error": str(e)})
             return self._send(201, run.view())
+        if u.path in ("/api/csv", "/api/csv/columns"):
+            # Bring a CSV: list a table's columns, or build a small repo around it so a live run can
+            # improve a model on it.
+            body = self._body()
+            if body is None:
+                return self._send(400, {"error": "bad json"})
+            try:
+                if u.path == "/api/csv/columns":
+                    return self._send(200, csvrepo.columns(body.get("path") or ""))
+                return self._send(200, csvrepo.build(body.get("path") or "", body.get("target"),
+                                                     split_by=body.get("split_by"), group_by=body.get("group_by")))
+            except csvrepo.CsvError as e:
+                return self._send(400, {"error": str(e)})
+            except Exception as e:
+                traceback.print_exc()
+                return self._send(500, {"error": f"could not build a repo from that CSV: {e}"})
         if u.path.startswith("/api/runs/"):
             run, what = self._run_route(u.path)
             if not run:
@@ -217,7 +233,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "bad json"})
             try:
                 if what == "action":
-                    run.act(str(body.get("action")), node=body.get("node"), amount=body.get("amount") or 0)
+                    run.act(str(body.get("action")), node=body.get("node"), amount=body.get("amount") or 0,
+                            answers=body.get("answers") if isinstance(body.get("answers"), dict) else None)
                     return self._send(200, run.view())
                 if what == "delete":
                     runs.delete(run.id)

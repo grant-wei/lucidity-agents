@@ -62,13 +62,13 @@ window.addEventListener("hashchange", go);
 /* ================= home: composer + runs ================= */
 
 let meta = null;          // /api/runs payload
-let form = {worker: "demo", demo: null, goal: "", repo: "", evalCmd: "", budget: "1.00", parallel: 3, auto: true};
+let form = {worker: "demo", demo: null, goal: "", repo: "", evalCmd: "", budget: "1.00", parallel: 3, auto: true, csv: "", csvTarget: "", csvSplit: "rows", csvCols: null, csvAbout: null};
 
 const STEPS = [
-  ["Plan", "var(--accent)", "A model splits the goal into tasks, each with done-when checks and a budget."],
-  ["Work", "var(--run)", "Each task gets its own git worktree and an agent: Claude Code, Codex, or built-in."],
-  ["Check", "var(--check)", "Tests, eval scores and file checks run in the worktree. A checker decides: pass, fail, or needs you."],
-  ["Merge", "var(--done-mark)", "Only passing work merges, into a run branch. Your own branch is never touched."],
+  ["Plan", "var(--accent)", "A model breaks the goal into tasks, each with a clear finish line and a budget."],
+  ["Work", "var(--run)", "Each task goes to an AI coding agent (Claude Code, Codex, or a built-in one) working on its own copy of the code."],
+  ["Check", "var(--check)", "Lucidity reruns the tests and scores the work itself, on data the agent never saw. Pass, fail, or ask you."],
+  ["Keep", "var(--done-mark)", "Only work that passes is kept, on a separate branch. Your own code is never touched."],
 ];
 
 async function showHome() {
@@ -77,14 +77,12 @@ async function showHome() {
     el.innerHTML = `
       <div class="hero">
         <div class="hero-copy">
-          <span class="chip">Agent orchestrator</span>
-          <h1>Give it a goal. <em>Watch agents ship it</em>, with checks that decide what merges.</h1>
-          <p class="lead">Lucidity plans a goal into tasks, runs a coding agent on each in its own git worktree, and only merges work that passes its checks. You see the task graph, progress, spend against the budget, and where in the repo agents worked, live.</p>
+          <h1>AI agents build the model. <em>Lucidity grades it.</em></h1>
+          <p class="lead">Give it a CSV and a column to predict. AI agents try different models at once, and Lucidity scores each one on test data the agents never see. An agent can say its model got better; only the score Lucidity measures decides what is kept.</p>
         </div>
         <form class="card composer" id="composer" autocomplete="off">
           <div class="skel" style="height:300px"></div>
         </form>
-        <div class="steps">${STEPS.map(([t, c, d], i) => `<div class="step"><b><i style="background:${c}">${i + 1}</i>${t}</b><span>${d}</span></div>`).join("")}</div>
       </div>
       <div class="card" id="recent"><div class="card-h"><h2>Runs</h2></div><div class="card-b"><div class="skel" style="height:44px"></div></div></div>`;
     el.dataset.built = "1";
@@ -130,33 +128,42 @@ function renderComposer() {
       <label class="f">Demo</label>
       <div class="demos" role="radiogroup">${demos.map(d => `
         <button type="button" class="opt demo-opt ${d.name === form.demo ? "on" : ""}" data-demo="${esc(d.name)}" role="radio" aria-checked="${d.name === form.demo}">
-          <b>${esc(d.title)}</b><span>${esc(d.blurb)}</span></button>`).join("")}</div>
+          <b>${esc(d.title)}</b><span>${esc(d.short || "")}</span></button>`).join("")}</div>
     </div>` : ""}
+    ${demo ? "" : `<div class="field">
+      <label class="f" for="csv">Start from a CSV</label>
+      <div class="csvrow">
+        <input type="text" id="csv" placeholder="path to a .csv file" value="${esc(form.csv)}">
+        ${form.csvCols ? "" : `<button type="button" class="btn" id="csvcols">Read columns</button>`}
+      </div>
+      ${form.csvCols ? csvPicker(form.csvCols) : ""}
+      <div class="hint">Any table works. Lucidity makes a small repo from it with a starting model and a scoring script, splits the rows into train, tune and test, and fills in the goal below. Or <a href="#" id="csvex">use the bundled example</a> (breast-cancer diagnosis, 569 rows, not one of the demos).</div>
+      ${form.csvAbout ? `<div class="demo-card"><b>${esc(form.csvAbout.title)}</b><p>${esc(form.csvAbout.blurb)}</p><p class="split">${esc(form.csvAbout.split)}</p></div>` : ""}
+    </div>`}
     <div class="field">
-      <label class="f" for="goal">Goal</label>
-      ${demo ? `<textarea id="goal" readonly rows="2">${esc(dm.goal)}</textarea>
-        <div class="hint">The demo's goal is fixed. Its agent edits are recorded; the evals, tests, checks, budget caps and git merges are real.</div>`
+      <label class="f" for="goal">${demo ? "The demo" : "Goal"}</label>
+      ${demo ? `<div class="demo-card"><b>${esc(dm.title)}</b><p>${esc(dm.blurb)}</p>${dm.split ? `<p class="split">${esc(dm.split)}</p>` : ""}</div>
+        <div class="hint">A replay of a real run, sped up to under a minute. The agents' edits are recorded; the scoring and the checks run for real. No API key needed.</div>`
              : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>`}
     </div>
-    <div class="field">
-      <label class="f" for="repo">Repository</label>
-      ${demo ? `<div class="repo-fixed"><b>${esc(dm.repo_name)}</b><span>${esc(dm.about_repo)}, copied fresh for each run</span></div>`
-             : `<input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
-                <div class="hint">A git repo with at least one commit. Work happens in worktrees on <code>lucidity/*</code> branches.</div>`}
-    </div>
     ${demo ? "" : `<div class="field">
-      <label class="f" for="evalcmd">Eval command <span class="muted" style="font-weight:500">· optional</span></label>
-      <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
-      <div class="hint">A script under <code>evals/</code> that prints its scores as JSON. Tasks can then be done when a score clears a bar, and every merge is scored.</div>
+      <label class="f" for="repo">Repository</label>
+      <input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
+      <div class="hint">Filled in by Set up above. Or any git repo with at least one commit and a scoring script. Agents work on copies, on <code>lucidity/*</code> branches; your own branch is never touched.</div>
     </div>`}
-    <div class="row2 field">
+    ${demo ? "" : `<div class="field">
+      <label class="f" for="evalcmd">Scoring script <span class="muted" style="font-weight:500">· optional</span></label>
+      <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
+      <div class="hint">A script under <code>evals/</code> that prints scores like accuracy as JSON. A task then counts as done only when its score clears the bar you set.</div>
+    </div>`}
+    ${demo ? "" : `<div class="row2 field">
       <div><label class="f" for="budget">Budget</label>
         <div class="money-in"><input type="number" id="budget" min="0.05" step="0.05" max="${meta.max_run_usd}" value="${demo ? dm.budget_usd.toFixed(2) : esc(form.budget)}"></div>
         <div class="hint">Cap ${money(meta.max_run_usd)} per run</div></div>
       <div><label class="f" for="parallel">Agents at once</label>
         <select id="parallel">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === form.parallel ? "selected" : ""}>${n}</option>`).join("")}</select></div>
     </div>
-    <div class="field"><label class="check"><input type="checkbox" id="auto" ${form.auto ? "checked" : ""}> Start as soon as the plan is ready (untick to review the plan first)</label></div>
+    <div class="field"><label class="check"><input type="checkbox" id="auto" ${form.auto ? "checked" : ""}> Start as soon as the plan is ready (untick to review the plan first)</label></div>`}
     ${!meta.has_key ? `<div class="notice info field"><span class="ic" style="color:var(--accent)"><span>i</span></span><div>No <code>OPENAI_API_KEY</code> in <code>.env</code>, so only the demo can run. Add one to plan and check your own goals; agents then run through Claude Code, Codex or the built-in worker.</div></div>` : ""}
     <div class="composer-foot">
       <span class="err-text" id="cerr" role="alert"></span>
@@ -165,17 +172,76 @@ function renderComposer() {
   f.dataset.ready = "1";
   $$("[data-w]", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
   $$("[data-demo]", f).forEach(b => b.onclick = () => { saveForm(); form.demo = b.dataset.demo; renderComposer(); });
+  if ($("#csvcols")) $("#csvcols").onclick = () => readColumns();
+  if ($("#csv")) $("#csv").onchange = () => { if (form.csvCols && $("#csv").value.trim() !== form.csvCols.path) { saveForm(); form.csvCols = null; form.csvAbout = null; renderComposer(); } };
+  if ($("#csvgo")) $("#csvgo").onclick = () => setupCsv();
+  if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = "examples/breast_cancer.csv"; if (await readColumns("diagnosis")) setupCsv(); };
   f.onsubmit = submit;
+}
+
+// Bring a CSV, step 1: read the table's columns so the target and the split are picked, not typed.
+async function readColumns(target) {
+  saveForm();
+  $("#cerr").textContent = "";
+  const btn = $("#csvcols");
+  if (btn) { btn.disabled = true; btn.textContent = "Reading…"; }
+  try {
+    const c = await api("/api/csv/columns", {path: form.csv});
+    form.csvCols = {...c, path: form.csv};
+    form.csvTarget = target || c.target;
+    form.csvSplit = c.dates.length ? "time:" + c.dates[0] : "rows";   // dated rows: test on the newest by default
+    form.csvAbout = null;
+    renderComposer();
+    return true;
+  } catch (err) {
+    $("#cerr").textContent = err.message;
+    if (btn) { btn.disabled = false; btn.textContent = "Read columns"; }
+    return false;
+  }
+}
+
+function csvPicker(c) {
+  const cols = c.columns.filter(h => h !== form.csvTarget);
+  const splits = [["rows", "Random rows (a fixed shuffle)"],
+    ...c.dates.filter(h => h !== form.csvTarget).map(h => ["time:" + h, `By time on ${h}: learn from older rows, test on the newest`]),
+    ...cols.filter(h => (c.groups || []).includes(h)).map(h => ["group:" + h, `Keep rows with the same ${h} together`])];
+  return `<div class="csvpick">
+      <label class="f2">Predict <select id="csvtarget">${c.columns.filter(h => !c.ids.includes(h)).map(h => `<option ${h === form.csvTarget ? "selected" : ""}>${esc(h)}</option>`).join("")}</select></label>
+      <label class="f2">Split <select id="csvsplit">${splits.map(([v, t]) => `<option value="${esc(v)}" ${v === form.csvSplit ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
+      <button type="button" class="btn" id="csvgo">Set up</button>
+    </div>
+    <div class="hint">${c.rows.toLocaleString()} rows, ${c.columns.length} columns.${c.dates.length ? ` ${esc(c.dates.join(", "))} ${c.dates.length > 1 ? "hold" : "holds"} dates, so the test rows are the newest ones: a model can't learn from the future.` : ""}${c.ids.length ? ` ${esc(c.ids.join(", "))} ${c.ids.length > 1 ? "look" : "looks"} like row IDs, so the starting model skips ${c.ids.length > 1 ? "them" : "it"}.` : ""}</div>`;
+}
+
+// Bring a CSV, step 2: the server builds a repo around the table; its goal, folder and scorer fill the form.
+async function setupCsv() {
+  saveForm();
+  const btn = $("#csvgo");
+  btn.disabled = true; btn.textContent = "Setting up…";
+  $("#cerr").textContent = "";
+  const [how, col] = (form.csvSplit || "rows").split(/:(.*)/);
+  try {
+    const a = await api("/api/csv", {path: form.csv, target: form.csvTarget,
+      split_by: how === "time" ? col : null, group_by: how === "group" ? col : null});
+    Object.assign(form, {csvAbout: a, goal: a.goal, repo: a.repo, evalCmd: a.eval_command, budget: a.budget_usd.toFixed(2), csvTarget: a.target});
+    renderComposer();
+  } catch (err) {
+    $("#cerr").textContent = err.message;
+    btn.disabled = false; btn.textContent = "Set up";
+  }
 }
 
 function saveForm() {
   const g = $("#goal"), r = $("#repo"), b = $("#budget"), ec = $("#evalcmd");
   if (g && !g.readOnly) form.goal = g.value;
   if (r) form.repo = r.value;
+  if ($("#csv")) form.csv = $("#csv").value.trim();
+  if ($("#csvtarget")) form.csvTarget = $("#csvtarget").value;
+  if ($("#csvsplit")) form.csvSplit = $("#csvsplit").value;
   if (ec) form.evalCmd = ec.value.trim();
   if (b && form.worker !== "demo") form.budget = b.value;
-  form.parallel = +$("#parallel").value;
-  form.auto = $("#auto").checked;
+  if ($("#parallel")) form.parallel = +$("#parallel").value;
+  if ($("#auto")) form.auto = $("#auto").checked;
 }
 
 async function submit(e) {
@@ -184,7 +250,9 @@ async function submit(e) {
   const btn = $("#go");
   btn.disabled = true;
   $("#cerr").textContent = "";
-  const body = {worker: form.worker, budget_usd: +$("#budget").value, max_parallel: form.parallel, auto_run: form.auto};
+  const dm = (meta.demos || []).find(d => d.name === form.demo);
+  const body = form.worker === "demo" ? {worker: "demo", budget_usd: dm.budget_usd, max_parallel: 3, auto_run: true}
+    : {worker: form.worker, budget_usd: +$("#budget").value, max_parallel: form.parallel, auto_run: form.auto};
   if (form.worker !== "demo") Object.assign(body, {goal: form.goal, repo: form.repo}, form.evalCmd ? {eval_command: form.evalCmd} : {});
   else body.demo = form.demo;
   try {
@@ -225,6 +293,7 @@ let sigs = {};             // last rendered signature per part
 let runMap = null, mapAt = 0;
 let runDiff = null;        // /diff payload, fetched once the run is over
 let narrowGraph = null;
+let moreOpen = false;      // the Details toggle on the run page
 
 function part(name, sig, render) {
   const s = typeof sig === "string" ? sig : JSON.stringify(sig);
@@ -242,6 +311,9 @@ async function showRun(id) {
       <div class="crumbs"><a href="#runs">← All runs</a><span>/</span><span class="mono">${esc(id)}</span></div>
       <div id="p-head"><div class="skel" style="height:64px;max-width:720px"></div></div>
       <div id="p-callout"></div>
+      <div id="p-story"></div>
+      <details class="more" id="more"${moreOpen ? " open" : ""}>
+      <summary>Details <span class="muted">task graph, scores, timeline, diffs, spend</span></summary>
       <div id="p-stats" class="stats"></div>
       <div id="p-result"></div>
       <div class="grid-2 scores-row" id="scores-row" hidden>
@@ -262,7 +334,9 @@ async function showRun(id) {
       <div class="grid-main">
         <div class="card"><div class="card-h"><h2>Repo map</h2><span class="sub" id="map-sub">where agents worked</span></div><div class="card-b" id="p-map"></div></div>
         <div class="card"><div class="card-h"><h2>Activity</h2><span class="sub">newest first</span></div><div class="card-b"><div class="feed" id="p-feed"></div></div></div>
-      </div>`;
+      </div>
+      </details>`;
+    $("#more").ontoggle = () => { moreOpen = $("#more").open; if (moreOpen && cur) { sigs = {}; runMap = null; renderRun(cur); } };
   }
   try {
     const v = await api("/api/runs/" + encodeURIComponent(id));
@@ -288,6 +362,9 @@ function renderRun(v) {
   const nodes = v.nodes;
   part("head", [v.state, v.goal, v.budget_usd, v.reason], renderHead);
   part("callout", [v.state, v.reason, v.needs, v.plan_summary, v.files_changed], renderCallout);
+  part("story", [v.state, (v.scores || []).length, v.events.length, nodes.map(n => [n.state, n.phase, n.round, n.checks.length, unitsOf(n).map(u => [u.state, u.phase, u.round, u.checks.length, u.picked])]),
+                 v.spent_usd.toFixed(4), Math.floor(v.elapsed_s), Math.round(($("#p-story").clientWidth || 0) / 40)], renderStory);
+  if (!moreOpen) return;
   part("stats", [v.state, nodes.map(n => [n.state, n.checks.length]), v.spent_usd, v.budget_usd, Math.floor(v.elapsed_s)], renderStats);
   const w = $("#p-graph").clientWidth || 800;
   const narrow = w < 640;
@@ -324,9 +401,9 @@ async function loadMap(v, final) {
   }
 }
 
-async function act(action, node, amount) {
+async function act(action, node, amount, answers) {
   try {
-    cur = await api(`/api/runs/${encodeURIComponent(cur.id)}/action`, {action, node, amount});
+    cur = await api(`/api/runs/${encodeURIComponent(cur.id)}/action`, {action, node, amount, answers});
     renderRun(cur);
     clearTimeout(pollTimer);
     pollTimer = setTimeout(() => showRun(cur.id), 400);
@@ -339,20 +416,18 @@ window.lucidityAct = act;
 function renderHead(el) {
   const v = cur;
   const acts = [];
-  if (v.state === "plan_ready") acts.push(`<button class="btn primary" data-act="approve">Approve plan and run</button>`);
+  if (v.state === "plan_ready" && !v.auto_run) acts.push(`<button class="btn primary" data-act="approve">Approve plan and run</button>`);
   if (["planning", "running", "needs_you", "plan_ready"].includes(v.state)) acts.push(`<button class="btn danger" data-act="stop">Stop</button>`);
   if (v.state === "stopped" && v.nodes.length && v.integration) acts.push(`<button class="btn" data-act="resume">Resume</button>`);
   if (!["planning", "running"].includes(v.state)) acts.push(`<button class="btn ghost" data-del="1" title="Delete this run's record and worktrees">Delete</button>`);
   acts.push(`<a class="btn" href="#runs">New run</a>`);
   el.innerHTML = `<div class="runhead">
       <div style="min-width:0;flex:1 1 480px">
-        <h1>${esc(v.goal)}</h1>
+        <h1>${esc(v.title || v.goal)}</h1>
+        ${v.blurb ? `<p class="blurb">${esc(v.blurb)}</p>` : ""}
+        ${v.split ? `<p class="blurb split">${esc(v.split)}</p>` : ""}
         <div class="meta">${badge(v.state)}
-          <span class="chip">${v.mode === "demo" ? "Demo" : "Live"}</span>
-          <span class="chip mono" title="${esc(v.repo)}">${esc(v.repo_name)}</span>
-          <span class="chip">${esc(v.worker_label)}</span>
-          <span class="chip" title="Plans and checks with this model">${esc(v.mode === "demo" ? "planner recorded" : v.model)}</span>
-          ${v.integration ? `<span class="chip mono" title="Passing work merges here">${esc(v.integration.branch)}</span>` : ""}
+          <span class="chip" title="${esc(v.repo)}">${v.mode === "demo" ? "Demo replay" : esc(v.worker_label)} · ${esc(v.repo_name)}</span>
         </div>
       </div>
       <div class="acts">${acts.join("")}</div>
@@ -400,21 +475,31 @@ function renderCallout(el) {
         <b>${n.node ? `<a href="javascript:void 0" data-sel="${esc(n.node)}" class="mono">${esc(n.node)}</a> ${esc(n.title)} ${esc(NEEDS_TITLE[n.kind] || "needs you")}` : "The run budget is spent"}</b>
         <p>${esc(n.reason)}</p></div>
         <div class="acts">${n.actions.map(a => actionButton(a, n)).join("")}</div></div>`).join("")}
-      <p class="small muted" style="margin:10px 0 0">Tasks that don't depend on these keep running. Nothing merges until its check passes.</p></div>`;
-  } else if (v.state === "plan_ready") {
-    h = `<div class="callout"><div><b>The plan is ready for review.</b><p>${esc(v.plan_summary)} ${plural(v.nodes.length, "task")}, ${money(v.nodes.reduce((a, n) => a + n.budget_usd, 0))} of task budgets. Click a task to read its prompt and done-when checks.</p></div>
+      <p class="small muted" style="margin:10px 0 0">Tasks that don't depend on these keep running. Nothing is kept until its check passes.</p></div>`;
+  } else if (v.state === "plan_ready" && (!v.auto_run || v.awaiting_owner) && (v.questions || []).length) {
+    h = setupForm(v);
+  } else if (v.state === "plan_ready" && !v.auto_run) {
+    h = `<div class="callout"><div><b>The plan is ready for review.</b><p>${esc(v.plan_summary)} ${plural(v.nodes.length, "task")}, ${money(v.nodes.reduce((a, n) => a + n.budget_usd, 0))} of task budgets. Click a task to read its prompt and the checks it has to pass.</p></div>
       <button class="btn primary" data-a="approve">Approve and run</button></div>`;
-  } else if (v.state === "done") {
-    const blocked = v.nodes.reduce((a, n) => a + n.checks.filter(c => c.verdict === "fail").length, 0);
-    h = `<div class="callout ok"><div><b>Done. Every task passed its checks and merged.</b><p>${plural((v.files_changed || []).length, "file")} changed on <code>${esc(v.integration.branch)}</code>; your own branch was not touched.${blocked ? ` Checks sent back ${plural(blocked, "round")} that would otherwise have merged.` : ""}</p></div>
-      <a class="btn" href="javascript:void 0" data-jump="result">See what merged ↓</a></div>`;
   } else if (v.state === "failed") {
     h = `<div class="callout bad"><div><b>This run failed.</b><p>${esc(v.reason)}</p></div><a class="btn" href="#runs">Start another</a></div>`;
   } else if (v.state === "stopped") {
-    h = `<div class="callout"><div><b>Stopped.</b><p>${esc(v.reason)} Work that passed its checks stays merged on the run branch.</p></div></div>`;
+    h = `<div class="callout"><div><b>Stopped.</b><p>${esc(v.reason)} Work that passed its checks is kept on the run's branch.</p></div></div>`;
   }
   el.innerHTML = h;
   bindActions(el);
+  const go = $("[data-setup]", el);
+  if (go) go.onclick = () => {
+    const answers = {};
+    $$(".q", el).forEach(q => { answers[q.dataset.q] = $$("input:checked", q).map(i => i.value); });
+    const empty = $$(".q", el).find(q => !answers[q.dataset.q].length);
+    if (empty) return toast("Pick at least one option for each question.");
+    act("approve", null, 0, answers);
+  };
+  $$(".q input", el).forEach(i => i.onchange = () => {
+    const n = $$(".q[data-drives] input:checked", el).length, b = $("[data-setup]", el);
+    if (b && $(".q[data-drives]", el)) b.textContent = n ? `Start ${plural(n, "agent")}` : "Start";
+  });
   const j = $("[data-jump]", el);
   if (j) j.onclick = () => $("#p-result").scrollIntoView({behavior: "smooth", block: "start"});
 }
@@ -432,6 +517,398 @@ function renderStats(el) {
     <div class="card stat"><div class="k">Checks</div><div class="v">${passed}<small> passed${failed ? ` · ${failed} failed` : ""}</small></div></div>
     <div class="card stat ${needs ? "needs" : ""}"><div class="k">Needs you</div><div class="v">${needs}</div></div>
     <div class="card stat wide"><div class="k">Elapsed</div><div class="v">${dur(v.elapsed_s)}</div></div>`;
+}
+
+/* ---------- the story: one number, the tasks, what the checks caught ---------- */
+
+// Rates (accuracy, F1) read as percents; a loss or an error isn't one, so it keeps its digits.
+let pctMetric = true;
+const asPct = x => typeof x !== "number" ? "–" : pctMetric && Math.abs(x) <= 1 ? (100 * x).toFixed(1).replace(/\.0$/, "") + "%"
+  : Math.abs(x) < 10 ? x.toFixed(4).replace(/0+$/, "").replace(/\.$/, ".0") : fmtScore(x);
+const plainMetric = k => k.replace(/\.(f1|score)$/, "").replace(/_/g, " ");
+// One plain sentence per score name, shown under the headline number.
+const METRIC_HELP = [[/log_?loss/i, "Log loss = how wrong the model's probability guesses are, punishing confident mistakes most. Lower is better; 0 is perfect."],
+  [/brier/i, "Brier score = the average squared gap between the predicted chance and what happened. Lower is better."],
+  [/auc/i, "AUC = how often the model ranks a real yes above a no. 50% is guessing, 100% is perfect."],
+  [/f1/i, "F1 = a balance of catching every case and avoiding false alarms. Higher is better."],
+  [/acc/i, "Accuracy = the share of cases it gets right. Higher is better."],
+  [/rmse/i, "RMSE = the typical size of the model's error, in the answer's own units. Lower is better."],
+  [/(^|\.)r2$/i, "R² = how much of the spread in the answer the model explains. 1 is perfect; 0 is no better than guessing the average."]];
+const metricHelp = k => (METRIC_HELP.find(([re]) => re.test(k || "")) || [, ""])[1];
+// What the score means, and what simple guessing or a known forecast scores, so the numbers have an anchor.
+function scaleNote(key, refs) {
+  const help = metricHelp(key), r = (refs || []).filter(x => typeof x.value === "number");
+  if (!help && !r.length) return "";
+  return `<div class="scale">${help ? `<p>${esc(help)}</p>` : ""}${r.length ? `<p><span class="muted">For scale:</span> ${r.map(x => `${esc(x.label)} <b>${asPct(x.value)}</b>`).join(" · ")}</p>` : ""}</div>`;
+}
+
+// Every unit that does rounds: a task's agents when it fanned out, else the task itself.
+const unitsOf = n => n.agents && n.agents.length ? n.agents : [n];
+const measured = c => ((c.conditions || []).find(x => x.kind === "metric" && typeof x.value === "number") || {}).value;
+
+function unitStatus(u, n) {
+  if (u.picked) return ["ok", n.state === "done" ? "Picked · merged" : "Picked"];
+  if (u.state === "done") return ["ok", "Merged"];
+  if (u.state === "passed") return ["ok", "Passed"];
+  if (u.state === "running") return u.phase === "checking" ? ["chk", "Being scored"]
+    : u.phase === "merging" ? ["chk", "Re-checking, merging"] : ["run", `Working · round ${u.round || 1} of ${u.max_rounds}`];
+  if (u.state === "failed") return ["bad", "Missed the goal"];
+  if (u.state === "needs_you") return ["warn", "Needs you"];
+  if (u.state === "skipped") return ["", "Skipped"];
+  return ["", u.deps && u.deps.length ? `Waits on ${u.deps.join(", ")}` : "Waiting"];
+}
+
+function phaseOf(v) {
+  if (v.state === "planning") return 0;
+  if (v.state === "plan_ready") return 0;   // the plan step isn't done until the owner starts it
+  if (v.state !== "running") return 4;
+  const units = v.nodes.flatMap(unitsOf);
+  if (units.some(u => u.state === "running" && u.phase === "working")) return 1;
+  if (units.some(u => u.state === "running" && u.phase === "checking")) return 2;
+  return 3;
+}
+
+function renderStory(el) {
+  const v = cur;
+  if (v.state === "planning" || !v.nodes.length) {
+    const line = v.events.filter(e => e.kind === "planner").pop();
+    el.innerHTML = `<div class="card story"><div class="card-b"><p class="muted" style="margin:0">${v.state === "planning"
+      ? `Planning: splitting the goal into tasks… <span class="mono">${esc(line ? line.text : "")}</span>` : esc(v.reason || "No plan.")}</p></div></div>`;
+    return;
+  }
+  const S = (v.scores || []).filter(s => s.metrics);
+  const key = Object.keys(v.targets || {})[0], tg = key && v.targets[key];
+  pctMetric = !key || !/loss|error|brier|mse|mae|rmse|perplexity/i.test(key);
+  const meets = x => tg && (tg.op === "<=" ? x <= tg.value : x >= tg.value);
+  let head;
+  if (key && S.length) {
+    const a = S[0].metrics[key], b = S[S.length - 1].metrics[key];
+    head = `<div class="big"><span class="lbl">${esc(plainMetric(key))} of the kept code, on test data no agent saw</span>
+      <span class="from">${asPct(a)}</span><span class="arrow">→</span><b class="${meets(b) ? "okv" : ""}">${asPct(b)}</b>
+      <span class="goal">goal ${tg.op === "<=" ? "≤" : "≥"} ${asPct(tg.value)}${meets(b) ? " ✓" : ""}</span></div>`;
+  } else {
+    const done = v.nodes.filter(n => n.state === "done").length;
+    head = `<div class="big"><span class="lbl">tasks merged</span><b>${done} of ${v.nodes.length}</b></div>`;
+  }
+  const units = v.nodes.flatMap(unitsOf);
+  const evals = v.nodes.flatMap(n => unitsOf(n).flatMap(u => u.checks.map(c => ({...c, who: u.id})))).sort((x, y) => x.s - y.s);
+  const count = st => units.filter(u => u.state === st).length;
+  const stats = `<div class="crstats">
+    <span><b>${units.length}</b> agents</span><span><b class="run">${count("running")}</b> running</span>
+    <span><b>${evals.length}</b> scored</span><span><b class="okv">${evals.filter(c => c.verdict === "pass").length}</b> passed</span>
+    <span><b class="bad">${evals.filter(c => c.verdict === "fail").length}</b> sent back</span><span><b>${money(v.spent_usd)}</b> of ${money(v.budget_usd)}</span></div>`;
+  const ph = phaseOf(v);
+  const steps = ["Plan the goal into tasks", "Agents work in parallel", "Lucidity scores every attempt", "Best passing attempt is kept"]
+    .map((s, i) => `<li class="${ph === 4 || i < ph ? "past" : i === ph ? "now" : ""}"><span>${i + 1}</span>${s}</li>`).join("");
+
+  const dep = depths(v.nodes);
+  const lastAct = {};
+  v.events.forEach(e => { if (e.kind === "activity" && e.node) lastAct[e.node] = e.text; });
+  let raced = false;
+  const tasks = [...v.nodes].sort((x, y) => dep[x.id] - dep[y.id]).map(n => {
+    const us = unitsOf(n), fan = us.length > 1 || us[0] !== n;
+    const [ncls, nst] = storyStatus(n);
+    if (fan && us.length > 1 && key && tg) {
+      raced = true;
+      return `<div class="crtask"><div class="th"><span class="dot ${ncls}"></span><b>${esc(n.title)}</b>
+        <span class="muted small">${us.length} models race · ${esc(nst)}</span></div>${raceBlock(v, n, us, key, tg)}</div>`;
+    }
+    if (!fan && key && tg) {
+      const [cls, st] = unitStatus(n, n);
+      return `<div class="slim s-${cls}"><span class="dot ${ncls}"></span><span>${esc(n.title)}</span><span class="st ${cls}">${n.state === "running" ? '<i class="pulse"></i>' : ""}${esc(st)}</span></div>`;
+    }
+    const cards = us.map(u => {
+      const [cls, st] = unitStatus(u, n);
+      const last = [...u.checks].reverse().find(c => measured(c) != null);
+      const val = last ? measured(last) : null;
+      const rubric = !last && u.checks.length ? u.checks[u.checks.length - 1] : null;
+      const score = val != null ? `<div class="sc"><b class="${meets(val) ? "okv" : "bad"}">${asPct(val)}</b><span>latest score</span></div>`
+        : rubric ? `<div class="sc"><b class="${rubric.verdict === "pass" ? "okv" : "bad"}">${rubric.verdict === "pass" ? "✓" : "✗"}</b><span>judged by ${esc(BY[rubric.by] || rubric.by)}</span></div>`
+        : `<div class="sc"><b class="muted">–</b><span>not evaluated yet</span></div>`;
+      const act = u.state === "running" && lastAct[u.id] ? `<div class="act mono">${esc(trunc(lastAct[u.id], 70))}</div>` : "";
+      return `<div class="agent s-${cls}${u.picked ? " picked" : ""}">
+        <div class="ah"><span class="${u.label ? "lbl" : "mono id"}" title="${esc(u.id)}">${esc(u.label || u.id)}</span><span class="st ${cls}">${u.state === "running" ? '<i class="pulse"></i>' : ""}${esc(st)}</span></div>
+        ${fan && u.strategy && !u.label ? `<div class="strat" title="${esc(u.strategy)}">${esc(trunc(u.strategy, 80))}</div>` : ""}
+        ${score}${act}
+        <div class="af muted">${plural(u.checks.length, "score")} · ${money(u.spent_usd)}</div></div>`;
+    }).join("");
+    return `<div class="crtask"><div class="th"><span class="dot ${ncls}"></span><b>${esc(n.title)}</b>
+      <span class="muted small">${fan ? `${us.length} agents racing, different approaches · ` : ""}${esc(nst)}</span></div>
+      <div class="agents">${cards}</div></div>`;
+  }).join("");
+
+  const log = [...evals].reverse().map(c => {
+    const val = measured(c);
+    return `<div class="evrow ${c.verdict === "pass" ? "ok" : "bad"}"><span class="t">${dur(c.s)}</span><span class="mono">${esc(c.who)}</span>
+      <span>${c.recheck ? "re-check" : "round " + c.round}</span><span class="m">${val != null ? asPct(val) : "rubric"}</span>
+      <span class="vd">${c.verdict === "pass" ? "PASS" : "FAIL"}</span></div>`;
+  }).join("");
+  const latest = narrate(v, key, tg)[0];
+  el.innerHTML = `<div class="card story"><div class="card-b">
+    <div class="crtop">${head}${stats}</div>
+    ${key ? scaleNote(key, v.references) : ""}
+    <ol class="crsteps">${steps}</ol>
+    <div class="narr"><p class="latest"><span class="t">${latest ? dur(latest.s) : "0s"}</span><span>${latest ? latest.t : v.state === "plan_ready" ? "Waiting for your picks above." : "Agents are starting."}</span></p></div>
+    <div class="crtasks">${tasks}</div>
+    ${raced ? "" : `<div class="kicker">Every score Lucidity checked</div>
+    <div class="crevals"><div id="ev-chart"></div>
+      <div class="evlog"><div class="evrow hd"><span>time</span><span>agent</span><span></span><span class="m">${esc(plainMetric(key || "score"))}</span><span></span></div>${log || `<div class="muted small" style="padding:8px 10px">No scores yet.</div>`}</div></div>`}
+    <p class="small muted foot">${dur(v.elapsed_s)} · ${money(v.spent_usd)} on AI calls · only work that hits the goal is kept</p>
+  </div></div>`;
+  const ch = $("#ev-chart", el);
+  if (ch) { CW = chartWidth(ch); ch.innerHTML = evalChart(v, evals, key, tg); }
+  el.querySelectorAll("[data-race]").forEach(rc => {
+    const n = v.nodes.find(x => x.id === rc.dataset.race);
+    CW = chartWidth(rc);
+    rc.innerHTML = raceChart(unitsOf(n), tg, (S.find(s => typeof s.metrics[key] === "number") || {metrics: {}}).metrics[key], v.references);
+  });
+  bindActions(el);
+}
+
+/* ---------- a race, drawn: each model round by round, the leaderboard, and why the winner won ---------- */
+
+const FAM = ["var(--c1)", "var(--c3)", "var(--c4)", "var(--c2)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
+const better = (tg, a, b) => tg.op === "<=" ? a < b : a > b;
+// Feature names are whatever the agent wrote; turn the common pieces into words a reader knows.
+const GLOSS = {status: "late status", bill: "bill", paid: "paid", utilization: "card used", limit: "limit", mean: "avg", change: "change",
+  yield: "yield", gap: "minus Fed rate", curve: "curve", hiked: "hiked", inflation: "inflation", unemployment: "unemployment",
+  win: "win", pct: "%", elo: "Elo", rest: "rest days", home: "home", away: "away", diff: "gap", streak: "streak", last10: "last 10"};
+const MONTHS = {jan: "Jan", feb: "Feb", mar: "Mar", apr: "Apr", may: "May", jun: "Jun", jul: "Jul", aug: "Aug", sep: "Sep", oct: "Oct", nov: "Nov", dec: "Dec"};
+const human = s => {
+  const w = String(s).split("_"), month = w.map(x => MONTHS[x]).find(Boolean);
+  const out = w.filter(x => !MONTHS[x]).map(x => GLOSS[x] || x.replace(/^(\d+)([my])$/, (_, n, u) => n + (u === "m" ? "-mo" : "-yr"))).join(" ").replace(/ %/g, "%");
+  return (out.charAt(0).toUpperCase() + out.slice(1)) + (month ? ` (${month})` : "");
+};
+const short = s => String(s).replace(/ logistic regression$/i, "").replace(/^Gradient-boosted /i, "Boosted ");
+
+// The referee's held-out score after each round of one agent (re-checks left out), with that round's verdict.
+function roundScores(u) {
+  const out = [];
+  u.checks.forEach(c => { const m = measured(c); if (m != null && !c.recheck) out[c.round - 1] = {r: c.round, val: m, pass: c.verdict === "pass"}; });
+  return out.filter(Boolean);
+}
+
+function bestOf(u, tg) {
+  const pts = roundScores(u);
+  if (u.state === "passed" || u.picked || u.state === "done") return pts.length ? pts[pts.length - 1].val : null;
+  return pts.reduce((b, p) => b == null || better(tg, p.val, b) ? p.val : b, null);
+}
+
+// Every model's score per round. Better is always up, so a loss is drawn upside down.
+function raceChart(us, tg, base, refs) {
+  const lower = tg.op === "<=";
+  const series = us.map((u, i) => ({u, col: FAM[i % FAM.length], pts: roundScores(u)}));
+  const vals = series.flatMap(s => s.pts.map(p => p.val));
+  if (!vals.length) return chartEmpty("Each model's test score lands here after every round.");
+  vals.push(tg.value);
+  if (base != null) vals.push(base);
+  // A blow-up round (log loss of 1.7 when the goal is 0.34) would flatten everyone else, so the axis stops a
+  // little past the starting model and anything worse sits on the bottom edge with its real score on hover.
+  const ref = base != null ? base : tg.value, span = Math.max(Math.abs(ref - tg.value), 1e-6);
+  const floor = lower ? ref + span * 0.6 : ref - span * 0.6;
+  const off = val => lower ? val > floor : val < floor;
+  const shown = vals.filter(val => !off(val));
+  if (vals.length !== shown.length) shown.push(floor);
+  const onChart = (refs || []).filter(r => typeof r.value === "number" && !off(r.value));   // e.g. FiveThirtyEight's score
+  onChart.forEach(r => shown.push(r.value));
+  let lo = Math.min(...shown), hi = Math.max(...shown);
+  const pad = (hi - lo) * 0.1 || 0.01;
+  lo -= pad; hi += pad;
+  const H = 250, R = Math.max(2, ...us.map(u => u.max_rounds || 1));
+  const x = r => PL + 14 + (CW - PL - PR - 28) * (r - 1) / (R - 1);
+  const y = val => { val = off(val) ? floor : val; const f = (val - lo) / (hi - lo); return PT + 12 + (H - PT - PB - 12) * (lower ? f : 1 - f); };
+  let g = "";
+  for (let i = 0; i <= 3; i++) {
+    const val = lo + (hi - lo) * i / 3;
+    g += `<line class="grid" x1="${PL}" x2="${CW - PR}" y1="${y(val)}" y2="${y(val)}"/><text x="${PL - 6}" y="${y(val) + 4}" text-anchor="end">${asPct(val)}</text>`;
+  }
+  for (let r = 1; r <= R; r++) g += `<text x="${x(r)}" y="${H - 6}" text-anchor="middle">round ${r}</text>`;
+  g += `<text class="better" x="${PL}" y="${PT + 2}">better ↑</text>`;
+  if (base != null) g += `<line class="base-line" x1="${PL}" x2="${CW - PR}" y1="${y(base)}" y2="${y(base)}"/><text class="base-label" x="${CW - PR}" y="${y(base) - 5}" text-anchor="end">starting model</text>`;
+  onChart.forEach(r => { g += `<line class="ref-line" x1="${PL}" x2="${CW - PR}" y1="${y(r.value)}" y2="${y(r.value)}"/><text class="ref-label" x="${PL + 6}" y="${y(r.value) - 5}">${esc(r.label)} ${asPct(r.value)}</text>`; });
+  g += `<line class="target-line" x1="${PL}" x2="${CW - PR}" y1="${y(tg.value)}" y2="${y(tg.value)}"/><text class="target-label" x="${CW - PR}" y="${y(tg.value) - 5}" text-anchor="end">goal</text>`;
+  const lines = series.map(s => {
+    if (!s.pts.length) return "";
+    const d = s.pts.map((p, i) => `${i ? "L" : "M"}${x(p.r)} ${y(p.val)}`).join("");
+    const w = s.u.picked ? 3.5 : 2;
+    return `<g class="race-s${s.u.picked ? " won" : ""}" style="--col:${s.col}"><path d="${d}" style="stroke-width:${w}"/>` +
+      s.pts.map(p => `<circle cx="${x(p.r)}" cy="${y(p.val)}" r="${s.u.picked ? 6 : 4.5}" class="${p.pass ? "pass" : ""}${off(p.val) ? " off" : ""}"><title>${esc(s.u.label || s.u.id)}, round ${p.r}: ${asPct(p.val)}${p.pass ? " (passed)" : off(p.val) ? " (off the chart)" : ""}</title></circle>`).join("") + "</g>";
+  }).join("");
+  const legend = series.map(s => `<span class="${s.u.picked ? "won" : ""}"><i style="background:${s.col}"></i>${esc(s.u.label || s.u.id)}</span>`).join("");
+  return `<div class="svgwrap chart"><svg viewBox="0 0 ${CW} ${H}" role="img" aria-label="Each model's held-out score by round">${g}${lines}</svg></div>
+    <div class="legend race-legend">${legend}<span class="muted"><i class="hollow"></i>sent back</span><span class="muted"><i class="filled"></i>passed</span></div>`;
+}
+
+// Bars: how far each model moved the held-out score from the starting model, against the goal.
+function leaderboard(n, us, tg, base) {
+  const rows = n.comparison ? n.comparison.rows.map(r => ({...r, u: us.find(u => u.id === r.agent)}))
+    : us.map(u => ({u, label: u.label || u.id, value: bestOf(u, tg), passed: u.state === "passed" || u.state === "done"}))
+      .sort((a, b) => a.value == null ? 1 : b.value == null ? -1 : better(tg, a.value, b.value) ? -1 : 1);
+  if (base == null || !rows.some(r => r.value != null)) return chartEmpty("The leaderboard fills in as models are scored.");
+  const gain = val => tg.op === "<=" ? base - val : val - base;
+  const goal = gain(tg.value);
+  const max = Math.max(goal * 1.25, ...rows.filter(r => r.value != null).map(r => gain(r.value)), 1e-9);
+  const P = val => Math.max(0, Math.min(100, 100 * gain(val) / max));
+  const won = n.comparison && n.comparison.rows[0] && n.comparison.rows[0].passed ? n.comparison.rows[0].agent : null;
+  const bars = rows.map(r => {
+    const i = us.indexOf(r.u), col = FAM[(i < 0 ? 0 : i) % FAM.length];
+    const w = r.value == null ? 0 : P(r.value);
+    return `<div class="lb-row${r.agent && r.agent === won ? " won" : ""}${r.passed ? "" : " miss"}">
+      <span class="lb-name" title="${esc(r.label)}">${esc(short(r.label))}</span>
+      <span class="lb-track"><i class="lb-bar" style="width:${w}%;--col:${col}"></i><i class="lb-goal" style="left:${P(tg.value)}%"></i></span>
+      <span class="lb-val" title="held-out ${esc(plainMetric(n.comparison ? n.comparison.metric : "score"))}">${r.value == null ? "–" : asPct(r.value)}</span>
+      <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}</span></div>`;
+  }).join("");
+  return `<div class="lb">${bars}</div><div class="legend"><span><i class="lb-goal-key"></i>goal</span><span class="muted">longer bar = bigger improvement over the starting model, on test data no agent saw</span></div>`;
+}
+
+// Why the winner won: where it ranked, what it beat, and which inputs it leans on.
+function whyPanel(n, tg) {
+  const c = n.comparison;
+  if (!c) return "";
+  const top = c.rows[0], next = c.rows.slice(1).find(r => r.value != null);
+  if (!top.passed) {
+    return `<div class="why miss"><div class="why-h">No model cleared the goal</div>
+      <div class="chips"><span class="chip">${c.rows.length} tried</span><span class="chip">0 passed</span>${top.value != null ? `<span class="chip">closest: ${esc(top.label)}</span>` : ""}</div>
+      <p class="muted small">Nothing is kept. No model beat guessing by enough to count.</p></div>`;
+  }
+  const passed = c.rows.filter(r => r.passed).length;
+  const imp = c.importance && c.importance.rows && c.importance.rows.length ? c.importance.rows : null;
+  const mx = imp ? Math.max(...imp.map(r => r[1]), 1e-9) : 1;
+  const bars = imp ? imp.slice(0, 8).map(([k, val]) => `<div class="imp-row" title="${esc(k)}"><span>${esc(human(k))}</span>
+      <span class="imp-track"><i style="width:${Math.max(1.5, 100 * Math.max(0, val) / mx)}%"></i></span></div>`).join("") : "";
+  return `<div class="why"><div class="why-h">Why ${esc(top.label)}</div>
+    <div class="chips"><span class="chip ok">best of ${c.rows.length}</span><span class="chip ok">passed every check</span>
+      <span class="chip">${passed} of ${c.rows.length} cleared the goal</span>${next ? `<span class="chip">ahead of ${esc(next.label)}</span>` : ""}</div>
+    ${imp ? `<div class="kicker">What it leans on</div><div class="imp">${bars}</div>
+      <p class="muted small">Longer bar = the model does worse by more when that input is scrambled, so it matters more.</p>` : ""}</div>`;
+}
+
+function sparkline(u, tg, base) {
+  const pts = roundScores(u);
+  if (!pts.length) return `<svg class="spark" viewBox="0 0 96 26"></svg>`;
+  const ref = base != null ? base : tg.value, edge = ref + (tg.op === "<=" ? 1 : -1) * Math.max(Math.abs(ref - tg.value), 1e-6) * 0.6;
+  const clip = val => tg.op === "<=" ? Math.min(val, edge) : Math.max(val, edge);
+  const vals = pts.map(p => clip(p.val)), lo = Math.min(...vals, tg.value), hi = Math.max(...vals, tg.value), R = Math.max(2, u.max_rounds || 2);
+  const x = r => 4 + 88 * (r - 1) / (R - 1);
+  const y = val => { val = clip(val); const f = hi === lo ? 0.5 : (val - lo) / (hi - lo); return 4 + 18 * (tg.op === "<=" ? f : 1 - f); };
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.r).toFixed(1)} ${y(p.val).toFixed(1)}`).join("");
+  return `<svg class="spark" viewBox="0 0 96 26"><line x1="0" x2="96" y1="${y(tg.value)}" y2="${y(tg.value)}" class="sg"/>
+    <path d="${d}"/>${pts.map(p => `<circle cx="${x(p.r)}" cy="${y(p.val)}" r="2.6" class="${p.pass ? "pass" : ""}"/>`).join("")}</svg>`;
+}
+
+function raceBlock(v, n, us, key, tg) {
+  const S = (v.scores || []).filter(s => s.metrics && typeof s.metrics[key] === "number");
+  const base = S.length ? S[0].metrics[key] : null;
+  const tiles = us.map((u, i) => {
+    const [cls, st] = unitStatus(u, n);
+    const b = bestOf(u, tg);
+    return `<div class="tile s-${cls}${u.picked ? " picked" : ""}" style="--col:${FAM[i % FAM.length]}">
+      <div class="tl"><i class="sw"></i><span>${esc(u.label || u.id)}</span></div>
+      <div class="tr"><span class="st ${cls}">${u.state === "running" ? '<i class="pulse"></i>' : ""}${esc(st)}</span><b>${b == null ? "" : asPct(b)}</b></div>
+      ${sparkline(u, tg, base)}</div>`;
+  }).join("");
+  return `<div class="race">
+    <div class="race-grid">
+      <div class="panel"><div class="ph">Each model, round by round</div><div class="race-chart" data-race="${esc(n.id)}"></div>
+        <div class="tiles">${tiles}</div></div>
+      <div class="panel"><div class="ph">Leaderboard · test data</div>${leaderboard(n, us, tg, base)}${whyPanel(n, tg)}</div>
+    </div></div>`;
+}
+
+// The owner's judgment calls before agents start: options with the planner's recommendations ticked.
+function setupForm(v) {
+  const qs = v.questions.map(q => {
+    const n = q.drives ? v.nodes.find(x => x.id === q.drives) : null;
+    const opts = q.options.map(o => `<label class="opt${o.recommended ? " rec" : ""}">
+        <input type="${q.multi ? "checkbox" : "radio"}" name="q-${esc(q.id)}" value="${esc(o.label)}"${o.recommended || (n && q.multi) ? " checked" : ""}>
+        <span><b>${esc(o.label)}</b>${o.recommended ? `<i class="tag">${n ? "Expected best" : "Recommended"}</i>` : ""}${o.note ? `<em>${esc(o.note)}</em>` : ""}</span></label>`).join("");
+    return `<fieldset class="q" data-q="${esc(q.id)}"${n ? ` data-drives="${esc(n.id)}"` : ""}>
+      <legend>${esc(q.question)}</legend>
+      ${n ? `<p class="small muted">All are ticked: each gets its own agent, Lucidity scores them all on the same test data, and the run recommends the best. Untick any you don't want tried.</p>` : q.multi ? `<p class="small muted">Pick any.</p>` : ""}
+      <div class="opts">${opts}</div></fieldset>`;
+  }).join("");
+  const drv = v.questions.find(q => q.drives);
+  const k = drv ? (drv.multi ? drv.options.length : 1) : 0;
+  return `<div class="card setup"><div class="card-b">
+    <h2>Your calls before the agents start</h2>
+    <p class="muted">${esc(v.plan_summary)} The rest is automatic: agents build and tune, Lucidity scores every attempt on data they never saw, and only the best one that clears the goal merges.</p>
+    ${qs}
+    <div class="setup-go"><button class="btn primary" data-setup>${k ? `Start ${plural(k, "agent")}` : "Start"}</button>
+      <span class="small muted">${plural(v.nodes.length, "task")} · ${money(v.nodes.reduce((a, n) => a + n.budget_usd, 0))} budget</span></div>
+  </div></div>`;
+}
+
+// What just happened, in plain words: built from the run's checks and its key events, newest first.
+function narrate(v, key, tg) {
+  const out = [], P = x => asPct(x), bar = tg ? P(tg.value) : "";
+  v.nodes.forEach(n => unitsOf(n).forEach(u => u.checks.forEach(c => {
+    const val = measured(c);
+    let t;
+    if (c.tampered) t = `<b>${esc(u.id)}</b> edited the scorer or its data (${esc(c.tampered.slice(0, 2).join(", "))}). Not scored; sent back.`;
+    else if (c.recheck) t = `<b>${esc(u.id)}</b> passed alone but not combined with work merged since, so it's sent back.`;
+    else if (val == null) t = c.verdict === "pass" ? `<b>${esc(u.id)}</b>'s write-up was judged by a second model and passed.`
+      : `<b>${esc(u.id)}</b>'s write-up was judged by a second model and sent back.`;
+    else t = c.verdict === "pass" ? `<b>${esc(u.id)}</b>'s fix scored <b class="okv">${P(val)}</b> on data it never saw. That clears ${bar}.`
+      : `<b>${esc(u.id)}</b>'s fix scored <b class="bad">${P(val)}</b> on data it never saw. Short of ${bar}, so it's sent back${u.round < u.max_rounds && c.round < u.max_rounds ? " to try again" : ""}.`;
+    out.push({s: c.s, t});
+  })));
+  const S = (v.scores || []).filter(s => s.metrics);
+  v.events.forEach(e => {
+    let t = null;
+    if (e.kind === "run" && /approved/.test(e.text)) t = `The plan has ${plural(v.nodes.length, "task")}. Agents start on all of them at once.`;
+    else if (e.kind === "fan_out") { const n = v.nodes.find(x => x.id === e.node); t = `<b>${esc(n ? n.title : e.node)}</b>: ${n && n.agents ? n.agents.length : "several"} agents race, each trying a different fix.`; }
+    else if (e.kind === "recommend") t = `<b>${esc(e.text)}</b>`;
+    else if (e.kind === "pick") t = esc(e.text.replace(/^(t\d+): (\d+) of (\d+) agents passed; merging the best, (\w+).*$/, "$4 is the best of $3 attempts at $1, so its version is the one kept."));
+    else if (e.kind === "recheck") t = `Other work merged while <b>${esc(e.node)}</b> ran, so Lucidity scores it again on top of that.`;
+    else if (e.kind === "merge") {
+      const sc = S.filter(s => s.s >= e.s - 0.5)[0];
+      t = `<b>${esc(e.node)}</b> merged.${sc && key && typeof sc.metrics[key] === "number" ? ` ${esc(plainMetric(key)).replace(/^./, s => s.toUpperCase())} is now <b>${P(sc.metrics[key])}</b>.` : ""}`;
+    }
+    else if (e.kind === "you" && /^you chose: /.test(e.text)) t = `You chose: ${esc(e.text.slice(11))}.`;
+    else if (e.kind === "you" && /replaying/.test(e.text)) t = `Skipped <b>${esc(e.node)}</b>, as the owner did in the live run: ${esc((e.text.match(/\((.*)\)$/) || [, ""])[1])}.`;
+    else if (e.kind === "run" && /all tasks done/.test(e.text) && S.length && key)
+      t = `<b>Done.</b> ${esc(plainMetric(key).replace(/^./, c => c.toUpperCase()))} went from ${P(S[0].metrics[key])} to <b class="okv">${P(S[S.length - 1].metrics[key])}</b>. Only fixes that passed were kept.`;
+    if (t) out.push({s: e.s, t});
+  });
+  return out.sort((a, b) => b.s - a.s);
+}
+
+// Each eval of an agent's attempt (a dot) and the merged branch (the line), against the goal bar.
+function evalChart(v, evals, key, tg) {
+  const S = key ? (v.scores || []).filter(s => s.metrics && typeof s.metrics[key] === "number") : [];
+  const pts = evals.filter(c => measured(c) != null);
+  if (!key || (!pts.length && !S.length)) return chartEmpty("Each attempt's score lands here as it's evaluated.");
+  const vals = [...pts.map(measured), ...S.map(s => s.metrics[key]), tg.value];
+  const lo = Math.max(0, Math.floor((Math.min(...vals) - 0.02) * 20) / 20), hi = Math.min(1, Math.ceil((Math.max(...vals) + 0.01) * 20) / 20);
+  const end = Math.max(v.elapsed_s || 0, ...pts.map(c => c.s), 1);
+  const x = s => PL + (CW - PL - PR) * s / end;
+  const y = val => PT + (CH - PT - PB) * (1 - (val - lo) / (hi - lo || 1));
+  let g = "";
+  const ticks = Math.round((hi - lo) / (hi - lo > 0.2 ? 0.05 : 0.025));
+  for (let i = 0; i <= ticks; i++) {
+    const val = lo + (hi - lo) * i / ticks;
+    g += `<line class="grid" x1="${PL}" x2="${CW - PR}" y1="${y(val)}" y2="${y(val)}"/><text x="${PL - 6}" y="${y(val) + 4}" text-anchor="end">${asPct(val)}</text>`;
+  }
+  niceTicks(end).forEach(t => { g += `<text x="${x(t)}" y="${CH - 8}" text-anchor="middle">${dur(t)}</text>`; });
+  let line = "";
+  if (S.length) {
+    line = `M${x(S[0].s)} ${y(S[0].metrics[key])}`;
+    S.slice(1).forEach(p => { line += `H${x(p.s)}V${y(p.metrics[key])}`; });
+    line = `<path class="sline" d="${line}H${x(end)}" style="stroke:var(--ink-2)"/>`;
+  }
+  const dots = pts.map(c => `<circle class="evdot ${c.verdict === "pass" ? "ok" : "bad"}${c.recheck ? " re" : ""}" cx="${x(c.s)}" cy="${y(measured(c))}" r="5"><title>${esc(c.who)} ${c.recheck ? "re-check" : "round " + c.round}: ${asPct(measured(c))} ${c.verdict}</title></circle>`).join("");
+  return `<div class="svgwrap chart"><svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Every eval over time">${g}
+    <line class="target-line" x1="${PL}" x2="${CW - PR}" y1="${y(tg.value)}" y2="${y(tg.value)}"/><text class="target-label" x="${PL + 4}" y="${y(tg.value) - 5}">goal ${asPct(tg.value)}</text>
+    ${line}${dots}</svg></div>
+    <div class="legend"><span><i class="lg ok"></i>attempt passed</span><span><i class="lg bad"></i>attempt sent back</span><span><i style="background:var(--ink-2);height:2px"></i>merged branch</span></div>`;
+}
+
+function storyStatus(n) {
+  if (n.state === "done") return ["ok", "Merged"];
+  if (n.state === "running") return ["run", "Running"];
+  if (n.state === "needs_you") return ["warn", "Needs you"];
+  return ["", STATE_LABEL[n.state] || n.state];
 }
 
 /* ---------- task graph ---------- */
@@ -531,10 +1008,11 @@ function bindNodeClicks(el) {
 
 function select(id) {
   sel = sel === id ? null : id;
+  if (sel && !moreOpen) { moreOpen = true; $("#more").open = true; }
   delete sigs.graph; delete sigs.detail; delete sigs.feed; delete sigs.gantt; delete sigs.map;
   renderRun(cur);
   if (runMap) part("map", ["sel", sel, selMod, Date.now()], renderMap);
-  if (sel && window.innerWidth < 1080) $("#p-detail").scrollIntoView({behavior: "smooth", block: "start"});
+  if (sel) $("#p-detail").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
 /* ---------- detail panel ---------- */
@@ -559,7 +1037,7 @@ function renderDetail(el) {
       <div class="kicker">Where the money went</div>
       ${["planner", "worker", "checker"].map(k => `<div class="bar2"><span>${k === "worker" ? "Agents" : k === "planner" ? "Planner" : "Checker"}</span><span class="mono">${money(sb[k] || 0)}</span><div class="bar"><i style="width:${pct(sb[k] || 0, v.spent_usd)}%"></i></div></div>`).join("")}
       ${v.files_changed ? `<div class="kicker">Files changed on ${esc(v.integration.branch)}</div><div class="files">${v.files_changed.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
-      ${v.nodes.length ? `<p class="small muted" style="margin-top:16px">Click a task in the graph to see its prompt, done-when checks and every check result.</p>` : ""}`;
+      ${v.nodes.length ? `<p class="small muted" style="margin-top:16px">Click a task in the graph to see its prompt, the checks it has to pass, and every result.</p>` : ""}`;
     bindActions(el);
     return;
   }

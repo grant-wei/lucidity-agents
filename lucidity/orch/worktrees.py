@@ -5,6 +5,7 @@ When the run is over you merge (or delete) that one branch yourself."""
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -13,6 +14,11 @@ _ID = ["-c", "user.name=lucidity", "-c", "user.email=lucidity@localhost", "-c", 
 # build caches and logs are never committed, whether or not the repo ignores them
 JUNK = (":(glob)**/__pycache__/**", ":(glob)**/*.pyc", ":(glob)**/.pytest_cache/**", ":(glob)**/node_modules/**",
         ":(glob)**/.mypy_cache/**", ":(glob)**/.ruff_cache/**", ":(glob)**/*.log", ":(glob)**/.DS_Store")
+
+
+# Parallel agents adding worktrees to one repo at the same instant can trip git on Windows
+# ("failed to read .git/worktrees/<name>/commondir"), so adds and removes take turns.
+_ADMIN = threading.Lock()
 
 
 class GitError(RuntimeError):
@@ -64,7 +70,8 @@ def init_repo(path, message="initial commit"):
 def add(repo, path, branch, base):
     """New worktree at `path` on a new `branch` cut from `base`."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    git(repo, "worktree", "add", "-q", "-b", branch, str(path), base, check=True)
+    with _ADMIN:
+        git(repo, "worktree", "add", "-q", "-b", branch, str(path), base, check=True)
     return str(path)
 
 
@@ -112,8 +119,9 @@ def merge(path, branch, message):
 
 
 def remove(repo, path, branch=None):
-    if path and os.path.isdir(path):
-        git(repo, "worktree", "remove", "--force", str(path))
-    git(repo, "worktree", "prune")
+    with _ADMIN:
+        if path and os.path.isdir(path):
+            git(repo, "worktree", "remove", "--force", str(path))
+        git(repo, "worktree", "prune")
     if branch:
         git(repo, "branch", "-D", branch)

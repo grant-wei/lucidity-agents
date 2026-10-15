@@ -1,0 +1,155 @@
+{
+"24a50606b91a8cbf217e178f2574f65b746aa3c92bd136c7a84bb61bb23a874f": {
+"metrics": {
+"accuracy": 0.8369,
+"auc": 0.4859,
+"log_loss": 1.6753
+},
+"usd": 0.0
+},
+"35802ad4ca09048c8cf197fee31fa98ddb59f1850ed73b5ba3f5df169acd9311": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.6435,
+"log_loss": 0.4177
+},
+"usd": 0.0
+},
+"3f0fd931a2e02e648d68bf4f48d09ee73eb2e105fe6a105c1ab1b9e14ee0cb7f": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.7286,
+"log_loss": 0.4002
+},
+"usd": 0.0
+},
+"4b2247d8cec6c18db326bcfb26dcbe44aba90aac32a94241f11d4dda9ee2cffc": {
+"metrics": {
+"accuracy": 0.9007,
+"auc": 0.8984,
+"log_loss": 0.2723
+},
+"usd": 0.0
+},
+"4b2247d8cec6c18db326bcfb26dcbe44aba90aac32a94241f11d4dda9ee2cffc:explain": {
+"importance": {
+"hiked_this_month": 0.0103,
+"inflation": -0.004,
+"unemployment": -0.0046,
+"unemployment_change_3m": -0.0031,
+"yield_2y_gap": 0.0335,
+"yield_3m_gap": 0.1779,
+"yield_curve": -0.0129
+},
+"metrics": {
+"accuracy": 0.9007,
+"auc": 0.8984,
+"log_loss": 0.2723
+},
+"usd": 0.0
+},
+"4c0026aecebb7928991cef98795014320d7f3865a164b6e9f67844b93acee08e": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8262,
+"log_loss": 0.357
+},
+"usd": 0.0
+},
+"4da370362d663fb9380140455a0378e1695ac3540260191c7c94774483ea78d3": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8357,
+"log_loss": 0.3247
+},
+"usd": 0.0
+},
+"54852b291a6c78bbc52feae2a9ac88a9d3a306dbb6ec03b9feecfdb4d4c772c2": {
+"metrics": {
+"accuracy": 0.8582,
+"auc": 0.8294,
+"log_loss": 0.3458
+},
+"usd": 0.0
+},
+"714524c0fc9cb54ab249fd1e32adb0b2f80988f23a4034534f97325a835ec74f": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8139,
+"log_loss": 0.3471
+},
+"usd": 0.0
+},
+"918cf9a0732943b9d48002c3ab366f7cf1117880a2673e2c9742cfce9a07a2f5": {
+"metrics": {
+"accuracy": 0.766,
+"auc": 0.4526,
+"log_loss": 0.9527
+},
+"usd": 0.0
+},
+"b63db45a993e14f20d4820063f458a505401f416c7e153108d015b34e5b105c7": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.3681,
+"log_loss": 0.4209
+},
+"usd": 0.0
+},
+"c0778e132ca74be18848a942936167de0dc6ccbc120eea7fecc5516afea18c64": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.6113,
+"log_loss": 0.462
+},
+"usd": 0.0
+},
+"d70a46a8fd3e078b93d147ec0712abb4ac79805d22c226db6b05f7cec7d9f9bf": {
+"metrics": {
+"accuracy": 0.8582,
+"auc": 0.8405,
+"log_loss": 0.3662
+},
+"usd": 0.0
+},
+"e56ac165f8db7c9fd043e9d6eeb4df908c888bf5f97807181f45b27d5383ce08": {
+"metrics": {
+"accuracy": 0.8511,
+"auc": 0.4599,
+"log_loss": 0.434
+},
+"usd": 0.0
+},
+"ef2ca35e80b7a2ff5320c205ebc2e912f9dacebde1875a3190703ab6690c735b": {
+"metrics": {
+"accuracy": 0.8582,
+"auc": 0.8294,
+"log_loss": 0.3458
+},
+"usd": 0.0
+},
+"f31dc00538a9fa0525afc08804bdaebe5941d3c9107a94f697ef64c52abfc226": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8262,
+"log_loss": 0.357
+},
+"usd": 0.0
+},
+"f938d02c7888c322de6a8f2f3ad64d193c87e12c985afc1d65ebcb7f03831183": {
+"metrics": {
+"accuracy": 0.8652,
+"auc": 0.8262,
+"log_loss": 0.357
+},
+"usd": 0.0
+},
+"fda17aae3b18b3e219685a6eeea050852a24d4f7cdab818a4cb4304b2f37f884": {
+"metrics": {
+"accuracy": 0.8582,
+"auc": 0.8405,
+"log_loss": 0.3662
+},
+"usd": 0.0
+}
+}

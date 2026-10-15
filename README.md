@@ -1,28 +1,32 @@
 # Lucidity
 
-An orchestrator for coding agents that you can watch. Give it a goal and a git repo. It plans the
-goal into tasks, each with a done-when contract and a budget, runs a coding agent on every task in
-its own git worktree, and has a separate checker decide whether each task is really done. Nothing
-merges without a pass. While it runs you see the task graph, progress and spend over time against
-the budget, and a map of the repo showing which agents changed which modules. When a check keeps
-failing or a budget hits its cap, the run stops that task and asks you.
+**AI agents build the model. Lucidity grades it.**
 
-"Done" can be a test passing, or a score clearing a bar. Point Lucidity at an eval script and a task
-can be "done when held-out accuracy ≥ 0.85 and no class's F1 drops more than 0.05". That makes it CI
-for NLP and LLM pipelines (prompts, parsers, classifiers, extractors): an agent can say it's finished
-and still get sent back because a number moved the wrong way.
+Give Lucidity a CSV and a column to predict. AI agents try different models at once, and Lucidity
+scores each one on test data the agents never see.
+
+When an AI agent says its model got better, usually nobody checks. Agents grade their own work, and on
+ML tasks that's easy to get wrong by accident: tuning on the test rows, overfitting, a model that quietly
+reads the answer column. Lucidity holds the test set. It plans the goal into tasks, gives each model
+family its own agent working on its own copy of the code, scores every attempt itself, and keeps only
+work that clears the goal. Agents can tune on a train and dev split; only Lucidity scores the test rows,
+and an agent that edits the scorer or the data fails unscored.
 
 ![A demo run waiting on a decision: scores climbing toward the bar, one task out of budget](docs/screenshots/run-needs-you.png)
 
-The main demo needs no API key. A bundled complaint router sends real consumer complaints from the
-CFPB Consumer Complaint Database to one of six product teams (credit reporting, debt collection,
-credit card, checking and savings, money transfer, mortgage) by asking `gpt-6-luna`. It starts at
-0.80 held-out accuracy. The goal is 0.85 without any product's F1 dropping more than 0.05, tuning on
-a dev split only. The demo replays a live `gpt-6-luna` run: its plan, the agents' edits and the
-model's answers to every prompt they tried are recorded, and everything after the edits is real. The
-eval runs on every round, the checks pass or fail on its numbers, the budgets bind, and the merges
-are real git merges. In one round the agent rewrites the prompt and reports "held-out 0.85, the bar
-passes". The eval measures 0.847 and `checking_savings.f1` down 0.07, so the check sends it back.
+Four demos need no API key. Each replays a real run on real data, and the scoring is done live:
+
+- **NBA game forecasts**: six model families try to beat FiveThirtyEight's forecast on two seasons the
+  agents never saw. The SVM wins at 0.6052 log loss, against FiveThirtyEight's 0.608.
+- **Fed rate hikes**: will the Fed raise rates next month, from Treasury yields, inflation and
+  unemployment. Random forest wins at 0.2723 on 2015-2026.
+- **Credit default**: which credit-card customers miss a payment, without using sex, age or marital
+  status. Random forest wins at 0.4227.
+- **Stock returns**: which industries beat the median next month. No model beats a coin flip by enough
+  to count, so nothing is kept. That's the right answer, and the point of a referee.
+
+With an `OPENAI_API_KEY` the same loop runs live on any CSV (see [Bring a CSV](#bring-a-csv-a-live-run-on-data-that-isnt-a-demo)),
+or on any git repo with a scoring script.
 
 ## Quickstart (one command)
 
@@ -35,20 +39,17 @@ python start.py          # Windows: py start.py
 ```
 
 `start.py` makes a `.venv`, installs `requirements.txt` into it (first run only, about a minute) and
-opens http://127.0.0.1:8765. Click **Run the demo** (Complaint routing is picked). In about a
-minute you'll see:
+opens http://127.0.0.1:8765. Click **Run the demo** (NBA game forecasts is picked). In about a minute
+you'll see:
 
-1. the goal planned into 4 tasks: diagnose dev misses, fix the answer parser, rewrite the prompt,
-   verify, each done when its tests pass or its held-out scores clear the bar,
-2. the scores chart dip when the parser task merges (0.80 to 0.78, within the 0.05 per-product
-   allowance) and climb to 0.854 when the prompt task does,
-3. the prompt task claim the bar on round 1 and fail its check on the measured numbers, then pass on
-   round 2 (click it in the task graph to see "Agent said" next to "Check found"),
-4. **What merged**: every product's final F1 next to where it started, and each task's diff.
+1. the goal planned into tasks, and the run stopping to ask you which model families to try,
+2. one agent per family you picked, each working on its own copy of the code,
+3. the race chart filling in as Lucidity scores every round on the test seasons, with FiveThirtyEight
+   and a coin flip drawn in for scale,
+4. a leaderboard and a recommendation: the best model that cleared the goal, and what it changed.
 
-Two more demos run the same loop: **Invoice extraction** (F1 per field on synthetic invoices, with a
-task that hits its budget and asks you for more) and **Discount codes** (a toy shop where done means
-tests pass).
+The other demos (Fed, Credit, Stocks) are in the picker. Three older, non-tabular demos (complaint
+routing, invoice extraction, a toy shop) still run by name but aren't shown.
 
 If port 8765 is taken it says so; pick another with `LUCIDITY_PORT=8800 python start.py`
 (PowerShell: `$env:LUCIDITY_PORT="8800"; py start.py`). Set `LUCIDITY_NO_BROWSER=1` to skip opening
@@ -74,6 +75,43 @@ Your checkout is never touched. A run gets its own branch `lucidity/<run-id>` in
 `state/`, each task branches off that, and only work the checker passed is merged back into it. When
 the run is done, **What merged** shows each task's diff; merging the branch into your own (or
 deleting it) is up to you.
+
+### Bring a CSV (a live run on data that isn't a demo)
+
+No repo handy? Pick **Built-in** (or Claude Code / Codex), then under **Start from a CSV** give the path
+to any table and click **Read columns**. Pick the column to predict and how to split the rows, then
+click **Set up**. Or click **use the bundled example**: `examples/breast_cancer.csv`, 569 breast-tumour
+measurements labelled malignant or benign (the UCI Wisconsin diagnostic set, as shipped with
+scikit-learn), which none of the demos use. `examples/` also has a number to predict (`diabetes.csv`)
+and a dated table (`seattle_weather.csv`); see `examples/README.md`.
+
+Three ways to split the rows, about 60% train, 20% dev (tune) and 20% test:
+
+- **Random rows**, a fixed hash of the row number. The default for tables without dates.
+- **By time** on a date column: the oldest rows train, the newest are the test, so no model is scored on
+  the past after learning from the future. Picked by default when a column holds dates.
+- **Keep rows with the same X together**, for repeat customers or several rows per event, so a model
+  can't pass the test by recognising someone it trained on.
+
+Columns that just number the rows (unique whole numbers, or names like `customer_id`) are left out of
+the starting model.
+
+Lucidity builds a small git repo from the table under `state/csv/`:
+
+- `data/rows.csv`: the table plus `row_id` and `_split`, so every run sees the same split and an
+  agent can't move rows between them.
+- a deliberately weak starting model: plain logistic (or linear) regression on two numeric columns.
+- `evals/score.py`: log loss, accuracy and AUC for a yes/no column, log loss and accuracy for
+  categories, RMSE and R² for a number. It refuses the test split when an agent runs it; only
+  Lucidity scores the test rows. `evals/` and `data/` are protected, so an agent that edits them fails.
+- a test that fails if the model reads the answer column.
+
+It fills in a goal (10% better than the starting model on the test rows) and the scoring command, and
+the run page shows what guessing scores next to the numbers. Click **Plan this goal**; the run is live,
+on your key, and the example costs well under its $1 budget. The same thing from a terminal:
+`python -m lucidity.orch.csvrepo examples/breast_cancer.csv --target diagnosis` (add
+`--split-by date` or `--group-by customer`), which prints the repo path, goal and scoring command to
+paste into the form.
 
 ### Bring your own eval
 

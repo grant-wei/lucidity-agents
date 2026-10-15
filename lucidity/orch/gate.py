@@ -46,14 +46,19 @@ def _norm(label):
     return " ".join(label.split(":", 1)[1].split() if label.startswith("reviewer:") else label.split())
 
 
-def grade(node, mechanical, report, diff, history=(), refresh_id=None, scores=None):
-    """{"verdict": pass|fail|needs_you, "reasons", "conditions", "usd", "by": program|model|none}."""
+def grade(node, mechanical, report, diff, history=(), refresh_id=None, scores=None, recorded=None):
+    """{"verdict": pass|fail|needs_you, "reasons", "conditions", "usd", "by": program|model|none}.
+    `recorded` (demo replay) is the checker model's verdict from the live run, used instead of a call."""
     failed = [m for m in mechanical if m["met"] is False]
     rubric = [m for m in mechanical if m["met"] is None]
     if failed:
         return {"verdict": "fail", "reasons": _reasons(failed), "conditions": mechanical, "usd": 0.0, "by": "program"}
     if not rubric:
         return {"verdict": "pass", "reasons": [], "conditions": mechanical, "usd": 0.0, "by": "program"}
+    if recorded:
+        conds = [m if m["met"] is not None else {**m, **(recorded["judged"].get(m["label"]) or {})} for m in mechanical]
+        return {"verdict": recorded["verdict"], "reasons": recorded["reasons"], "conditions": conds,
+                "usd": recorded["usd"], "by": "model"}
     if not config.has_key():
         return {"verdict": "needs_you", "conditions": mechanical, "usd": 0.0, "by": "none",
                 "reasons": ["No API key, so no model can judge: " + "; ".join(m["label"] for m in rubric)]}

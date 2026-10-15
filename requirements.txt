@@ -1,3 +1,4 @@
 pydantic-ai-slim[openai]>=2.40
 python-dotenv>=1.0
 pytest>=8.0
+scikit-learn>=1.5   # the bundled NBA demo's models

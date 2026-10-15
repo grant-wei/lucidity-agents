@@ -32,7 +32,7 @@ def poll(url, states, timeout=90):
 def test_demo_over_http(api):
     code, runs_list, _ = get(api + "/api/runs")
     assert code == 200 and runs_list["runs"] == []
-    assert [d["name"] for d in runs_list["demos"]] == ["complaints", "invoices", "shop"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
+    assert [d["name"] for d in runs_list["demos"]] == ["nba", "fed", "credit", "stocks"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
     assert {w["name"] for w in runs_list["workers"]} >= {"demo", "builtin", "claude", "codex"}
 
     code, made = post(api + "/api/runs", {"worker": "demo", "demo": "invoices", "auto_run": False})
@@ -78,3 +78,15 @@ def test_bad_run_requests(api, monkeypatch):
     code, made = post(api + "/api/runs", {"worker": "demo"})
     assert status_of(api + f"/api/runs/{made['id']}/action", {"action": "explode"}) == 400
     runs._registry[made["id"]].cancel.set()
+
+
+def test_the_owners_picks_arrive_over_http(api):
+    code, made = post(api + "/api/runs", {"worker": "demo", "auto_run": True})
+    assert code == 201 and made["demo"] == "nba"
+    url = api + "/api/runs/" + made["id"]
+    v = poll(url, ("plan_ready",))
+    assert v["awaiting_owner"] and v["questions"][0]["drives"] == "models"
+    q = v["questions"][0]
+    assert post(url + "/action", {"action": "approve", "answers": {q["id"]: ["Random forest"]}})[0] == 200
+    v = poll(url, ("done", "needs_you"))
+    assert [a["id"] for a in v["nodes"][0]["agents"]] == ["modelse"] and v["state"] == "done"
