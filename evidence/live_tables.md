@@ -25,8 +25,9 @@ numeric column, scored on the same test rows.
 | Weather | 0.4344 | 0.4485 | **no** |
 | Wine | 0.0953 | 0.0705 | yes |
 
-On diabetes and weather the agents cleared the 10% goal but lost to the textbook model, which is why the composer now
-offers to set the goal at the benchmark when the benchmark already clears it.
+On diabetes and weather the agents cleared the old goal (10% better than the starting model) but lost to the textbook
+model. So the goal is now set from the best answer without agents (plain regression, guessing, a coin flip, or an
+outside forecast like FiveThirtyEight's), beaten by at least 0.2%. Under that rule these two runs are misses.
 
 ## Checked by hand afterwards
 

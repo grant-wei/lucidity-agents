@@ -1,19 +1,27 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-165840-9408) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out years; only Lucidity scored them. Returns are from Kenneth French's Data Library (49 industry portfolios, built from CRSP).",
  "title": "Stock returns",
- "card": {"ask": "Which industries beat the median next month? From past returns only.", "stats": [["Coin flip", "0.6931"], ["Goal", "0.6925"]], "parts": [["Train", "1971–2009"], ["Tune", "2010–2016"], ["Test", "2017–2026"]]},
- "blurb": "A model predicts which of 49 industries will beat the median industry next month, from past returns only. A coin flip scores 0.6931 log loss and the goal is 0.6925. Six kinds of model are tried at once, one agent each, tuning on 2010-2016. Lucidity scores every attempt on 2017-2026, years the agents never see, and recommends the best, or tells you none of them works.",
+ "card": {"ask": "Which industries beat the median next month? From past returns only.", "stats": [["Starts at", "0.6933"], ["Goal", "0.6917"], ["Coin flip", "0.6931"]], "parts": [["Train", "1971–2009"], ["Tune", "2010–2016"], ["Test", "2017–2026"]], "why": "Say 50% for every industry. Log loss charges 0.693 a row for that, so 0.693 means no skill. Plain regression on past returns does slightly worse."},
+ "blurb": "A model predicts which of 49 industries will beat the median industry next month, from past returns only. A coin flip scores 0.6931 log loss, so the goal is 0.6917. Six kinds of model are tried at once, one agent each, tuning on 2010-2016. Lucidity scores every attempt on 2017-2026, years the agents never see, and recommends the best, or tells you none of them works.",
  "split": "Trained on 1971-2009, tuned on 2010-2016, tested on 2017-2026. Agents never see the test years; only Lucidity scores them.",
  "references": [
   {
    "label": "Coin flip (always 50%)",
-   "value": 0.6931
+   "value": 0.6931,
+   "why": "Say 50% for every row. Log loss charges 0.693 a row for that, so 0.693 means no skill at all.",
+   "short": "Coin flip",
+   "benchmark": true
+  },
+  {
+   "label": "Plain logistic regression (the starting model)",
+   "value": 0.6933,
+   "why": "Ordinary logistic regression on the two past-return columns, no tuning."
   }
  ],
  "repo_name": "stockkit",
  "about_repo": "bundled industry-return model: 49 industries, monthly 1970-2026, logistic regression, evals/score.py",
  "commit_message": "stockkit: last month + last year returns, logistic regression, 49 industries 1970-2026, evals/score.py",
- "goal": "Get held-out log loss to 0.6925 or lower (a coin flip scores 0.6931) for predicting which industries beat the median next month, without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "goal": "Get held-out log loss to 0.6917 or lower (a coin flip scores 0.6931) for predicting which industries beat the median next month, without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
  "budget_usd": 2.0,
  "planner": {
   "seconds": 0.4,
@@ -23,12 +31,12 @@
   ]
  },
  "plan": {
-  "summary": "Build and compare the owner-approved model families on the dev split, selecting the best model while preserving the no-lookahead guarantee. Evaluate the selected approach on heldout with a log-loss target of 0.6925 or lower and no accuracy regression. Total estimated budget: $2.00.",
+  "summary": "Build and compare the owner-approved model families on the dev split, selecting the best model while preserving the no-lookahead guarantee. Evaluate the selected approach on heldout with a log-loss target of 0.6917 or lower and no accuracy regression. Total estimated budget: $2.00.",
   "nodes": [
    {
     "id": "models",
     "title": "Build and compare approved model families",
-    "prompt": "For the model family selected by the owner, implement a scikit-learn-shaped estimator in stockkit/model.py or an appropriately contained module. Tune only on the dev split, compare log loss and accuracy, and ensure the model uses no future data. Keep candidate implementations isolated enough that the final selection can choose the best approved family. Heldout goal: log loss <= 0.6925 with accuracy not below the repository baseline. Do not optimize on heldout.",
+    "prompt": "For the model family selected by the owner, implement a scikit-learn-shaped estimator in stockkit/model.py or an appropriately contained module. Tune only on the dev split, compare log loss and accuracy, and ensure the model uses no future data. Keep candidate implementations isolated enough that the final selection can choose the best approved family. Heldout goal: log loss <= 0.6917 with accuracy not below the repository baseline. Do not optimize on heldout.",
     "deps": [],
     "done_when": [
      {
@@ -38,7 +46,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.6925
+      "value": 0.6917
      },
      {
       "kind": "no_regression",
@@ -86,7 +94,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.6925
+      "value": 0.6917
      },
      {
       "kind": "no_regression",

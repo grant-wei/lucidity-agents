@@ -1,27 +1,37 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-161622-05e8) at about 25x speed. The planner's question, every agent's edits and reports, and the checker model's rulings are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks, merges and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 3 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out seasons; only Lucidity scored them. Game results are from FiveThirtyEight's NBA Elo data (CC BY 4.0).",
  "title": "NBA game forecasts",
- "card": {"ask": "Will the home team win? Using only what was known before tip-off.", "stats": [["Starts at", "0.623"], ["Goal", "0.610"], ["FiveThirtyEight", "0.608"]], "parts": [["Train", "2001–2012"], ["Tune", "2013"], ["Test", "2014–2015"]]},
- "blurb": "A model predicts the chance the home team wins an NBA game, using only what was known before tip-off. It scores 0.623 log loss; FiveThirtyEight's Elo forecast scores 0.608 and the goal is 0.610. Six kinds of model are tried at once, one agent each. Lucidity scores every attempt on two seasons the agents never see, checks each agent really built the model it was given, and recommends the best.",
+ "card": {"ask": "Will the home team win? Using only what was known before tip-off.", "stats": [["Starts at", "0.623"], ["Goal", "0.6068"], ["FiveThirtyEight", "0.608"]], "parts": [["Train", "2001–2012"], ["Tune", "2013"], ["Test", "2014–2015"]], "why": "FiveThirtyEight's published forecast for the same games, the best answer here without agents."},
+ "blurb": "A model predicts the chance the home team wins an NBA game, using only what was known before tip-off. It scores 0.623 log loss; FiveThirtyEight's Elo forecast scores 0.608, so the goal is 0.6068. Six kinds of model are tried at once, one agent each. Lucidity scores every attempt on two seasons the agents never see, checks each agent really built the model it was given, and recommends the best.",
  "split": "Trained on the 2001-2012 seasons, tuned on 2013, tested on 2014-2015. Agents never see the test seasons; only Lucidity scores them.",
  "references": [
   {
    "label": "Coin flip (always 50%)",
-   "value": 0.693
+   "value": 0.693,
+   "why": "Say 50% for every row. Log loss charges 0.693 a row for that, so 0.693 means no skill at all."
   },
   {
    "label": "Always guess the home team's usual win rate",
-   "value": 0.67
+   "value": 0.67,
+   "why": "Say the same chance, about 60%, for every home team."
+  },
+  {
+   "label": "Plain logistic regression (the starting model)",
+   "value": 0.623,
+   "why": "Ordinary logistic regression on both win-rate columns, no tuning."
   },
   {
    "label": "FiveThirtyEight's forecast",
-   "value": 0.608
+   "value": 0.608,
+   "why": "FiveThirtyEight's published Elo forecast for the same games.",
+   "short": "FiveThirtyEight",
+   "benchmark": true
   }
  ],
  "repo_name": "hoopkit",
  "about_repo": "bundled NBA win-probability model: 19,274 games 2001-2015, logistic regression, evals/score.py",
  "commit_message": "hoopkit: season win % + logistic regression, NBA games 2001-2015, evals/score.py",
- "goal": "Get held-out log loss to 0.610 or lower (FiveThirtyEight's Elo forecast scores 0.608) without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees, Elo), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "goal": "Get held-out log loss to 0.6068 or lower (FiveThirtyEight's Elo forecast scores 0.608) without accuracy dropping. Tune on the dev split. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees, Elo), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
  "budget_usd": 2.0,
  "planner": {
   "seconds": 0.3,
@@ -36,7 +46,7 @@
    {
     "id": "models",
     "title": "Implement and compare selected model families",
-    "prompt": "Implement the model families selected by the owner, keeping each option compatible with the repository's fit/predict_proba contract and using only pregame information. Tune hyperparameters on dev only; compare log loss and accuracy, then retain the best model that meets held-out log loss <= 0.610 without accuracy below the repository baseline. Do not use held-out results to tune.",
+    "prompt": "Implement the model families selected by the owner, keeping each option compatible with the repository's fit/predict_proba contract and using only pregame information. Tune hyperparameters on dev only; compare log loss and accuracy, then retain the best model that meets held-out log loss <= 0.6068 without accuracy below the repository baseline. Do not use held-out results to tune.",
     "deps": [],
     "done_when": [
      {
@@ -46,7 +56,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.61
+      "value": 0.6068
      },
      {
       "kind": "no_regression",

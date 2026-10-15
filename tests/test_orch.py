@@ -340,19 +340,32 @@ def test_nba_demo_waits_for_the_owners_picks_and_runs_one_agent_per_pick(orch):
     assert run.d["demo"] == "nba"
     q = run.d["questions"][0]
     assert q["drives"] == "models" and q["multi"] and len(q["options"]) == 6
-    run.act("approve", answers={q["id"]: ["Ridge logistic regression", "kNN", "not an option"]})
+    run.act("approve", answers={q["id"]: ["SVM", "kNN", "not an option"]})
     wait(run)
     agents = node(run, "models")["agents"]
-    assert [a["id"] for a in agents] == ["modelsa", "modelsd"]   # letters follow the option, not the pick order
-    assert run.d["questions"][0]["answer"] == ["Ridge logistic regression", "kNN"]
-    a, d = agents
+    assert [a["id"] for a in agents] == ["modelsa", "modelsb"]   # letters follow the option, not the pick order
+    assert run.d["questions"][0]["answer"] == ["SVM", "kNN"]
+    a, b = agents
     assert "Stick to kNN" in a["prompt"] and any(c["kind"] == "rubric" and "kNN" in c["text"] for c in a["done_when"])
-    assert d["picked"] and a["state"] == "failed" and len(a["checks"]) == 4
+    assert b["picked"] and a["state"] == "failed" and len(a["checks"]) == 4
     assert any("0.6209" in (c.get("evidence") or "") for c in a["checks"][-1]["conditions"])
-    # the checker model's ruling, replayed: ridge really is the model that predicts
-    judged = [c for c in d["checks"][-1]["conditions"] if c["kind"] == "rubric"]
-    assert judged and judged[0]["met"] is True and "LogisticRegression" in judged[0]["evidence"]
-    assert run.d["state"] == "done" and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6074, abs=1e-4)
+    # the checker model's ruling, replayed: the SVM really is the model that predicts
+    judged = [c for c in b["checks"][-1]["conditions"] if c["kind"] == "rubric"]
+    assert judged and judged[0]["met"] is True and "SVC" in judged[0]["evidence"]
+    assert run.d["state"] == "done" and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6052, abs=1e-4)
+
+
+def test_beating_538_by_less_than_the_margin_is_not_a_pass(orch):
+    # ridge scores 0.6074, ahead of FiveThirtyEight's 0.608 by a hair; the goal asks for 0.2% (0.6068)
+    run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True))
+    q = run.d["questions"][0]
+    run.act("approve", answers={q["id"]: ["Ridge logistic regression"]})
+    wait(run)
+    n = node(run, "models")
+    a = n["agents"][0]
+    assert a["state"] == "failed" and not n.get("picked") and run.d["state"] == "needs_you"
+    bars = [c for ch in a["checks"] for c in ch["conditions"] if c["kind"] == "metric"]
+    assert not any(c["met"] for c in bars) and any("0.6074, needs" in c["evidence"] for c in bars)
 
 
 def test_no_answer_tries_every_approach_and_recommends_one(orch):
@@ -369,7 +382,7 @@ def test_no_answer_tries_every_approach_and_recommends_one(orch):
     c = n["comparison"]
     assert [r["label"] for r in c["rows"]] == ["SVM", "Ridge logistic regression", "Random forest",
                                                "Lasso logistic regression", "Boosted trees", "kNN"]
-    assert [r["passed"] for r in c["rows"]] == [True, True, True, False, False, False]
+    assert [r["passed"] for r in c["rows"]] == [True, False, False, False, False, False]   # only the SVM beats 538 by 0.2%
     assert c["rows"][0]["value"] == pytest.approx(0.6052, abs=1e-4)
     assert c["text"].startswith("Recommended: SVM.") and "Runner-up: Ridge logistic regression" in c["text"]
     assert c["rows"][4]["why"] == "changed the scorer" and c["rows"][5]["why"].startswith("missed the bar")
@@ -400,7 +413,7 @@ def test_the_credit_demo_recommends_the_random_forest_from_six_families(orch):
     n = node(run, "models")
     c = n["comparison"]
     assert [r["label"] for r in c["rows"]][:2] == ["Random forest", "Boosted trees"] and len(c["rows"]) == 6
-    assert [r["passed"] for r in c["rows"]] == [True, True, True, True, False, False]
+    assert all(r["passed"] for r in c["rows"])   # every family beats plain regression's 0.4666
     assert c["rows"][0]["value"] == pytest.approx(0.4227, abs=1e-4)
     assert c["text"].startswith("Recommended: Random forest.")
     assert run.d["state"] == "done" and n["picked"] == "modelse"
@@ -441,11 +454,11 @@ def test_an_agent_that_edits_the_scorer_fails_unscored(orch, monkeypatch, tmp_pa
     monkeypatch.setattr(demo.Scenario, "step", step)
     run = wait_for_owner(runs.create("", worker="demo", demo_speed=0, auto_run=True))
     q = run.d["questions"][0]
-    run.act("approve", answers={q["id"]: ["Ridge logistic regression", "Random forest"]})
+    run.act("approve", answers={q["id"]: ["Ridge logistic regression", "SVM"]})
     wait(run)
-    d, e = node(run, "models")["agents"]
+    b, d = node(run, "models")["agents"]
     assert d["state"] == "failed" and d["checks"][0]["tampered"] == ["evals/score.py"]
-    assert e["picked"] and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6095, abs=1e-4)
+    assert b["picked"] and run.d["scores"][-1]["metrics"]["log_loss"] == pytest.approx(0.6052, abs=1e-4)
 
 
 def test_known_scores_only_cover_identical_code(tmp_path, monkeypatch):

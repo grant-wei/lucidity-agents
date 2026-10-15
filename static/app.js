@@ -186,11 +186,6 @@ function renderComposer() {
     g.value = g.value.replace(/(to )([\d.,]+)( or lower)/, `$1${v}$3`);
     form.goal = g.value;
   };
-  if ($("#goalbench")) $("#goalbench").onclick = e => {
-    e.preventDefault();
-    $("#goalval").value = +(+form.csvAbout.benchmark.value).toFixed(4);
-    $("#goalval").oninput();
-  };
   if ($("#csv")) $("#csv").onchange = () => { if (form.csvCols && $("#csv").value.trim() !== form.csvCols.path) { saveForm(); form.csvCols = null; form.csvAbout = null; renderComposer(); } };
   if ($("#csvgo")) $("#csvgo").onclick = () => setupCsv();
   if ($("#goown")) $("#goown").onclick = e => { e.preventDefault(); saveForm(); form.worker = "builtin"; renderComposer(); $("#csvup").focus(); };
@@ -207,6 +202,7 @@ function caseCard(title, c, blurb, split) {
       <b>${esc(title)}</b>
       <p>${esc(c.ask)}</p>
       <div class="stats">${c.stats.map(([k, v]) => `<span class="${k === "Goal" ? "goal" : ""}"><small>${esc(k)}</small>${esc(v)}</span>`).join("")}</div>
+      ${c.why ? `<p class="bench-why"><b>${esc(c.stats[2] ? c.stats[2][0] : "Benchmark")}:</b> ${esc(c.why)} The goal beats it by at least 0.2%.</p>` : ""}
       <div class="parts">${c.parts.map(([k, v]) => `<span class="${k === "Test" ? "test" : ""}"><small>${esc(k)}</small>${esc(v)}</span>`).join("")}</div>
       <p class="split">${esc(c.metric || "Log loss")}, lower is better. Agents never see the test rows; only Lucidity scores them.</p>
     </div>`;
@@ -215,10 +211,11 @@ function caseCard(title, c, blurb, split) {
 // The same card for an uploaded table, from what setup measured.
 function csvCard(a) {
   if (a.start_test == null) return null;
-  const n = v => String(+(+v).toFixed(4)), m = /(\d[\d,]*) to train, (\d[\d,]*) to tune, (\d[\d,]*) to test/.exec(a.split || "");
+  const n = v => String(+(+v).toFixed(Math.abs(v) < 1 ? 4 : 2)), m = /(\d[\d,]*) to train, (\d[\d,]*) to tune, (\d[\d,]*) to test/.exec(a.split || "");
   const tm = /trained on (.+?) \((\d+) rows\), tuned on (.+?) \((\d+)\), tested on (.+?) \((\d+)\)/.exec(a.split || "");
   return {ask: `Predict ${a.target} from the other columns (${(a.rows || 0).toLocaleString()} rows).`,
-    stats: [["Starts at", n(a.start_test)], ["Goal", n(a.goal_value)], ...(a.benchmark ? [["Plain regression", n(a.benchmark.value)]] : [])],
+    stats: [["Starts at", n(a.start_test)], ["Goal", n(a.goal_value)], ...(a.benchmark ? [[a.benchmark.short || "Benchmark", n(a.benchmark.value)]] : [])],
+    why: a.benchmark && a.benchmark.short !== "Starting model" ? a.benchmark.why : "",
     metric: a.metric === "rmse" ? "RMSE (typical error)" : "Log loss",
     parts: tm ? [["Train", tm[1]], ["Tune", tm[3]], ["Test", tm[5]]] : m ? [["Train", m[1] + " rows"], ["Tune", m[2] + " rows"], ["Test", m[3] + " rows"]] : [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]]};
 }
@@ -278,19 +275,19 @@ function csvPicker(c) {
 
 // Where the CSV goal's number came from, with a box to set your own bar.
 function goalHow(a) {
-  const m = a.metric.replace("_", " "), n = v => +(+v).toFixed(4), b = a.benchmark;
+  const m = a.metric.replace("_", " "), n = v => +(+v).toFixed(Math.abs(v) < 1 ? 4 : 2);
+  const refs = [...a.references].sort((x, y) => x.value - y.value);
   const cols = a.start_columns.length ? `${a.start_columns.length} column${a.start_columns.length > 1 ? "s" : ""} (${a.start_columns.join(", ")})` : "no columns";
   return `<div class="goalhow">
       <b>How this goal was set</b>
       <ol>
         <li>Lucidity trained a deliberately small starting model: ${esc(a.start_model)} on ${esc(cols)} of ${a.numeric_columns} numeric columns.</li>
         <li>It scored ${n(a.start_test)} ${esc(m)} on the test rows (${n(a.start_dev)} on the tune rows). Lower is better.</li>
-        <li>The goal is ${esc(a.goal_rule)}: <label>${esc(m)} at or below <input type="number" id="goalval" step="any" value="${n(a.goal_value)}"></label></li>
-        ${b ? `<li>Benchmark: ordinary ${b.model === "LinearRegression" ? "linear" : "logistic"} regression on all ${b.columns} numeric columns, no penalty, scores ${n(b.value)}. ${b.value <= a.goal_value
-          ? `That already clears the goal, so agents should have to beat it too. <a href="#" id="goalbench">Set the goal to ${n(b.value)}</a>.`
-          : "Every agent's model is shown against it on the leaderboard."}</li>` : ""}
+        <li>It also scored every answer you could get without agents (lower is better):
+          <ul class="refs">${refs.map(r => `<li${r.benchmark ? ' class="best"' : ""}><b>${esc(r.short || r.label)}</b> ${n(r.value)}${r.benchmark ? " · the benchmark" : ""}<br><span>${esc(r.why || r.label)}</span></li>`).join("")}</ul></li>
+        <li>The goal is to ${esc(a.goal_rule)}, so a tie doesn't count: <label>${esc(m)} at or below <input type="number" id="goalval" step="any" value="${n(a.goal_value)}"></label></li>
       </ol>
-      <div class="muted">For scale: ${a.references.filter(r => !r.benchmark).map(r => `${esc(r.label.toLowerCase())} scores ${n(r.value)}`).join(", ")}. The 10% is a rule of thumb, reachable on most tables and never free; change the number to set your own bar. Agents only see tune scores; Lucidity checks the goal itself on the test rows.</div>
+      <div class="muted">Change the number to set your own bar. Agents only see tune scores; Lucidity checks the goal itself on the test rows.</div>
       <div class="err-text" id="goalwarn" role="alert"></div>
     </div>`;
 }
@@ -621,7 +618,7 @@ const metricHelp = k => (METRIC_HELP.find(([re]) => re.test(k || "")) || [, ""])
 function scaleNote(key, refs) {
   const help = metricHelp(key), r = (refs || []).filter(x => typeof x.value === "number");
   if (!help && !r.length) return "";
-  return `<div class="scale">${help ? `<p>${esc(help)}</p>` : ""}${r.length ? `<p><span class="muted">For scale:</span> ${r.map(x => `${esc(x.label)} <b>${asPct(x.value)}</b>`).join(" · ")}</p>` : ""}</div>`;
+  return `<div class="scale">${help ? `<p>${esc(help)}</p>` : ""}${r.length ? `<p class="muted">For scale, answers you could get without agents:</p><ul class="refs">${r.map(x => `<li${x.benchmark ? ' class="best"' : ""}>${esc(x.label)} <b>${asPct(x.value)}</b>${x.benchmark ? " · the benchmark" : ""}${x.why ? `<br><span>${esc(x.why)}</span>` : ""}</li>`).join("")}</ul>` : ""}</div>`;
 }
 
 // Every unit that does rounds: a task's agents when it fanned out, else the task itself.
@@ -841,15 +838,15 @@ function leaderboard(n, us, tg, base, refs) {
       <span class="lb-val" title="held-out ${esc(plainMetric(n.comparison ? n.comparison.metric : "score"))}">${r.value == null ? "–" : asPct(r.value)}</span>
       <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}</span></div>`;
   }).join("");
-  // The textbook model, scored by Lucidity itself: ordinary regression on every column, no agent involved.
+  // The best answer without agents (plain regression, an outside forecast, or a coin flip), scored by Lucidity.
   const bench = (refs || []).filter(r => r.benchmark && typeof r.value === "number").map(r => {
     const beat = rows.filter(x => x.value != null && better(tg, x.value, r.value)).length;
-    return `<div class="lb-row bench" title="${esc(r.label)}: fit by Lucidity, not an agent. ${beat} of ${rows.length} models beat it.">
-      <span class="lb-name">Plain regression</span>
+    return `<div class="lb-row bench" title="${esc(r.label)}: no agent involved. ${beat} of ${rows.length} models beat it.">
+      <span class="lb-name">${esc(r.short || "Benchmark")}</span>
       <span class="lb-track"><i class="lb-bar" style="width:${P(r.value)}%"></i><i class="lb-goal" style="left:${P(tg.value)}%"></i></span>
       <span class="lb-val">${asPct(r.value)}</span><span class="lb-mark"></span></div>`;
   }).join("");
-  return `<div class="lb">${bars}${bench}</div><div class="legend">${bench ? `<span><i class="lb-bench-key"></i>benchmark: ordinary regression, all columns</span>` : ""}<span><i class="lb-goal-key"></i>goal</span><span class="muted">longer bar = bigger improvement over the starting model, on test data no agent saw</span></div>`;
+  return `<div class="lb">${bars}${bench}</div><div class="legend">${bench ? `<span><i class="lb-bench-key"></i>benchmark: the best answer without agents</span>` : ""}<span><i class="lb-goal-key"></i>goal</span><span class="muted">longer bar = bigger improvement over the starting model, on test data no agent saw</span></div>`;
 }
 
 // Why the winner won: where it ranked, what it beat, and which inputs it leans on.

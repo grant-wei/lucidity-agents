@@ -1,28 +1,32 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-181424-b6f9) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, under a minute); any other code is scored for real. Agents were refused the held-out years; only Lucidity scored them. Data is from FRED (Federal Reserve Bank of St. Louis): the target rate from the Federal Reserve Board, Treasury yields from the Treasury, unemployment and CPI from the Bureau of Labor Statistics.",
  "title": "Fed rate hikes",
- "card": {"ask": "Will the Fed raise rates next month? From yields, inflation and unemployment.", "stats": [["Starts at", "0.462"], ["Goal", "0.340"], ["Plain regression", "0.342"]], "parts": [["Train", "1985–2004"], ["Tune", "2005–2014"], ["Test", "2015–2026"]]},
- "blurb": "A model predicts whether the Fed raises its target rate next month, from Treasury yields, inflation and unemployment known at the end of this month, 1985-2026. The repo scores 0.462 log loss and the goal is 0.340. Six kinds of model are tried at once, one agent each, tuning on 2005-2014. Lucidity scores every attempt on 2015-2026, years the agents never see, and recommends the best.",
+ "card": {"ask": "Will the Fed raise rates next month? From yields, inflation and unemployment.", "stats": [["Starts at", "0.462"], ["Goal", "0.3409"], ["Plain regression", "0.342"]], "parts": [["Train", "1985–2004"], ["Tune", "2005–2014"], ["Test", "2015–2026"]], "why": "Ordinary logistic regression on all 8 columns, no tuning. It's the best answer here without agents."},
+ "blurb": "A model predicts whether the Fed raises its target rate next month, from Treasury yields, inflation and unemployment known at the end of this month, 1985-2026. The repo scores 0.462 log loss and plain regression on all 8 columns scores 0.342, so the goal is 0.3409. Six kinds of model are tried at once, one agent each, tuning on 2005-2014. Lucidity scores every attempt on 2015-2026, years the agents never see, and recommends the best.",
  "split": "Trained on 1985-2004, tuned on 2005-2014, tested on 2015-2026. Agents never see the test years; only Lucidity scores them.",
  "references": [
   {
    "label": "Coin flip (always 50%)",
-   "value": 0.693
+   "value": 0.693,
+   "why": "Say 50% for every row. Log loss charges 0.693 a row for that, so 0.693 means no skill at all."
   },
   {
    "label": "Always guess the usual hike rate",
-   "value": 0.421
+   "value": 0.421,
+   "why": "Say the same chance of a hike every month: how often it happened in training."
   },
   {
    "label": "Plain logistic regression, all 8 columns",
    "value": 0.3416,
+   "why": "Ordinary logistic regression on every column, no tuning. The five-minute model.",
+   "short": "Plain regression",
    "benchmark": true
   }
  ],
  "repo_name": "fedkit",
  "about_repo": "bundled Fed-hike model: monthly 1985-2026, logistic regression, evals/score.py",
  "commit_message": "fedkit: hiked this month + 10-year yield, logistic regression, Fed months 1985-2026, evals/score.py",
- "goal": "Get held-out log loss to 0.340 or lower (the repo scores 0.462) for predicting whether the Fed raises its target rate next month, without AUC dropping. Tune on the dev split. The no-lookahead tests must keep passing. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "goal": "Get held-out log loss to 0.3409 or lower (plain logistic regression on all 8 columns scores 0.3416; the repo scores 0.462) for predicting whether the Fed raises its target rate next month, without AUC dropping. Tune on the dev split. The no-lookahead tests must keep passing. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
  "budget_usd": 2.0,
  "planner": {
   "seconds": 0.3,
@@ -47,7 +51,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.34
+      "value": 0.3409
      },
      {
       "kind": "no_regression",
@@ -95,7 +99,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.34
+      "value": 0.3409
      },
      {
       "kind": "no_regression",

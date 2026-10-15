@@ -86,7 +86,7 @@ def read_table(path):
     return path, header, [dict(zip(header, (c.strip() for c in r))) for r in body]
 
 
-LAYOUT = b"3"   # bump when the generated repo or about.json changes, so a cached repo isn't reused
+LAYOUT = b"5"   # bump when the generated repo or about.json changes, so a cached repo isn't reused
 
 DATE_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m", "%Y/%m", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%b %Y", "%B %Y", "%d %b %Y")
@@ -498,7 +498,11 @@ def _guess_score(info, rows):
 
 
 def _fmt(x):
-    return f"{x:.3f}" if abs(x) < 100 else f"{x:,.1f}"
+    return f"{x:.4f}" if abs(x) < 1 else f"{x:.2f}" if abs(x) < 100 else f"{x:,.1f}"
+
+
+MARGIN = 0.998   # the goal beats the best no-agent answer by at least 0.2%, so a tie or a rounding-sized lead doesn't count
+COIN_WHY = "Say 50% for every row. Log loss charges 0.693 a row for that, so 0.693 means no skill at all."
 
 
 def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
@@ -585,19 +589,28 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
     guess = _guess_score(info, rows)
     usable = [h for h in info["numeric"] if h not in skip]
     bench = _benchmark(repo, usable)
-    goal_value = round(test * 0.9, 3)   # 10% better than the start: reachable on most tables, never trivial
-    guess_label = ("Always guess the average" if kind == "regression" else "Always guess each answer's share")
-    references = [{"label": guess_label, "value": round(guess, 4)}]   # the starting model's score is already the headline
+    reg = "linear" if kind == "regression" else "logistic"
+    # every answer you could get without agents; the best one is the benchmark, and the goal is to beat it
+    references = [{"label": "Always guess the average" if kind == "regression" else "Always guess each answer's share",
+                   "value": round(guess, 4), "short": "Guessing",
+                   "why": ("Predict the training average for every row." if kind == "regression"
+                           else "Say the same thing for every row: how often each answer came up in training.")},
+                  {"label": f"The starting model, {len(names)} column{'s' if len(names) != 1 else ''}", "value": round(test, 4),
+                   "short": "Starting model", "why": f"Plain {reg} regression on just {', '.join(names) or 'no columns'}."}]
     if kind == "binary":
-        references.insert(0, {"label": "Coin flip (always 50%)", "value": 0.6931})
-    bench_label = (f"Plain {'linear' if kind == 'regression' else 'logistic'} regression, "
-                   f"all {len(usable)} columns")
+        references.insert(0, {"label": "Coin flip (always 50%)", "value": 0.6931, "short": "Coin flip", "why": COIN_WHY})
+    bench_label = f"Plain {reg} regression on all {len(usable)} columns"
     if bench and isinstance(bench.get(metric), (int, float)):
-        references.append({"label": bench_label, "value": bench[metric], "benchmark": True})
+        references.append({"label": bench_label, "value": bench[metric], "short": "Plain regression",
+                           "why": f"Ordinary {reg} regression on every number column, no tuning. The five-minute model."})
+    best = min(references, key=lambda r: r["value"])
+    best["benchmark"] = True
+    goal_value = round(best["value"] * MARGIN, 4)
     plain = (f"whether {t} is {classes[0]!r}" if kind == "binary"
              else f"{t} (one of {len(classes)} classes)" if kind == "multiclass" else t)
     keep = "without accuracy dropping" if kind != "regression" else "without R² dropping"
-    goal = (f"Get held-out {metric.replace('_', ' ')} to {_fmt(goal_value)} or lower (the repo scores {_fmt(test)}) "
+    goal = (f"Get held-out {metric.replace('_', ' ')} to {_fmt(goal_value)} or lower ({best['label'][0].lower() + best['label'][1:]} "
+            f"scores {_fmt(best['value'])}; the repo scores {_fmt(test)}) "
             f"for predicting {plain} from {src.name}, {keep}. Tune on the dev split; the tests must keep passing. "
             f"The starting model uses only {len(names)} of {len(info['numeric'])} numeric columns. Ask the owner which "
             f"model families to try (for example regularized {'linear' if kind == 'regression' else 'logistic'} "
@@ -606,14 +619,16 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
              "title": f"{src.stem} · predict {t}", "kind": kind, "metric": metric, "target": t, "rows": len(rows),
              "columns": len(header), "numeric_columns": len(info["numeric"]), "start_dev": dev, "start_test": test,
              "blurb": (f"A model predicts {plain} from the other columns of {src.name} ({len(rows):,} rows). "
-                       f"The starting model scores {_fmt(test)} {metric.replace('_', ' ')} on the test rows and the "
-                       f"goal is {_fmt(goal_value)}."),
+                       f"The starting model scores {_fmt(test)} {metric.replace('_', ' ')} on the test rows. The best "
+                       f"answer without agents is {best['label'][0].lower() + best['label'][1:]} at {_fmt(best['value'])}, "
+                       f"so the goal is {_fmt(goal_value)}."),
              "split": split, "split_how": how, "references": references,
              # how the goal was set, shown next to it in the composer
-             "goal_value": goal_value, "goal_rule": "10% better than the starting model's test score",
+             "goal_value": goal_value, "goal_rule": "beat the best answer without agents by at least 0.2%",
              "lower_is_better": True, "start_columns": names, "start_model": cls,
-             "benchmark": ({"label": bench_label, "value": bench[metric], "model": cls, "columns": len(usable),
-                            "penalty": "none"} if bench and isinstance(bench.get(metric), (int, float)) else None)}
+             "benchmark": best,
+             "regression": ({"label": bench_label, "value": bench[metric], "model": cls, "columns": len(usable),
+                             "penalty": "none"} if bench and isinstance(bench.get(metric), (int, float)) else None)}
     about_path.write_text(json.dumps(about, indent=1), encoding="utf-8")
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "add", "-A")

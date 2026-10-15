@@ -111,20 +111,24 @@ def test_group_split_keeps_each_group_together(tmp_path):
         csvrepo.build(tmp_path / "visits.csv", "churn", tmp_path / "g2", split_by="customer", group_by="customer")
 
 
-def test_about_says_how_the_goal_was_set(tmp_path):
+def test_the_goal_beats_the_best_answer_without_agents(tmp_path):
     a = csvrepo.build("examples/breast_cancer.csv", "diagnosis", tmp_path)
-    assert a["goal_value"] == round(a["start_test"] * 0.9, 3)
-    assert f"to {a['goal_value']} or lower" in a["goal"]
+    best = min(a["references"], key=lambda r: r["value"])
+    assert a["benchmark"] == best and [r for r in a["references"] if r.get("benchmark")] == [best]
+    assert a["goal_value"] == round(best["value"] * 0.998, 4) < best["value"]
+    assert f"to {csvrepo._fmt(a['goal_value'])} or lower" in a["goal"]
+    assert all(r["why"] and r["short"] for r in a["references"])   # every answer explains itself
+    assert {r["short"] for r in a["references"]} == {"Coin flip", "Guessing", "Starting model", "Plain regression"}
     assert a["start_model"] == "LogisticRegression" and len(a["start_columns"]) == 2
-    assert "10%" in a["goal_rule"] and a["lower_is_better"]
+    assert "0.2%" in a["goal_rule"] and a["lower_is_better"]
 
 
-def test_benchmark_is_plain_regression_on_every_column(tmp_path):
+def test_plain_regression_uses_every_column(tmp_path):
     a = csvrepo.build("examples/diabetes.csv", None, tmp_path)
-    b = a["benchmark"]
-    assert b["model"] == "LinearRegression" and b["penalty"] == "none" and b["columns"] == a["numeric_columns"]
-    assert b["value"] < a["start_test"]   # all ten columns beat the two-column start
-    assert [r for r in a["references"] if r.get("benchmark")] == [{"label": b["label"], "value": b["value"], "benchmark": True}]
+    r = a["regression"]
+    assert r["model"] == "LinearRegression" and r["penalty"] == "none" and r["columns"] == a["numeric_columns"]
+    assert r["value"] < a["start_test"]   # all ten columns beat the two-column start
+    assert a["benchmark"]["short"] == "Plain regression"   # and so it sets the goal
 
 
 def test_upload_is_saved_once_and_readable(tmp_path, monkeypatch):

@@ -6,19 +6,20 @@ the done-when tests and evals really run, the gate really decides, passing work 
 and the budget cap really stops a task.
 
   nba       NBA home-win probabilities from 15 seasons of real results; the contract is held-out log
-            loss <= 0.610 with no accuracy drop. Replayed from a live run: the planner asks which model
-            families to try, the person picks, and one agent per pick builds it. The SVM wins at 0.6052,
-            beating FiveThirtyEight's 0.608.
+            loss <= 0.6068 (FiveThirtyEight's 0.608, beaten by 0.2%) with no accuracy drop. Replayed from
+            a live run: the planner asks which model families to try, the person picks, and one agent per
+            pick builds it. Only the SVM clears the bar, at 0.6052.
   fed       will the Fed raise rates next month, from FRED Treasury yields, unemployment and CPI
-            (1985-2026, held out from 2015); the contract is held-out log loss <= 0.340 (the repo scores
-            0.462, the base rate 0.421). Replayed from a live run: random forest wins at 0.2723, kNN
+            (1985-2026, held out from 2015); the contract is held-out log loss <= 0.3409 (plain regression
+            scores 0.3416, the repo 0.462). Replayed from a live run: random forest wins at 0.2723, kNN
             also passes, and the 3-month yield's gap over the Fed's rate is its biggest predictor.
   stocks    which of 49 industries beats the median next month, from monthly returns 1970-2026; the
-            contract is held-out log loss <= 0.6925 (a coin flip scores 0.6931). Replayed from a live run:
+            contract is held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run:
             six model families race, none clears the bar, and nothing merges. The honest answer.
   credit    which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
-            marital status; the contract is held-out log loss <= 0.440 (the repo scores 0.472). Replayed
-            from a live run: six families race, random forest wins at 0.4227, kNN and SVM miss.
+            marital status; the contract is held-out log loss <= 0.4657 (plain regression scores 0.4666). Replayed
+            from a live run: six families race, random forest wins at 0.4227, and all six
+            beat plain regression.
   complaints  (runnable by name, not in the picker) an LLM router for real CFPB consumer complaints; contracts are held-out accuracy and
             "no product's F1 drops more than 0.05". Replayed from a live run: two prompt strategies,
             two agents each, race in parallel with a parser task; one of five agents passes and merges.

@@ -962,7 +962,8 @@ def _about(repo):
     if not isinstance(d, dict):
         return {}
     out = {k: str(d[k])[:600] for k in ("title", "blurb", "split") if isinstance(d.get(k), str)}
-    refs = [{"label": str(r["label"])[:80], "value": r["value"], **({"benchmark": True} if r.get("benchmark") else {})}
+    refs = [{"label": str(r["label"])[:80], "value": r["value"], **({"benchmark": True} if r.get("benchmark") else {}),
+             **{k: str(r[k])[:200] for k in ("short", "why") if isinstance(r.get(k), str)}}
             for r in d.get("references") or []
             if isinstance(r, dict) and isinstance(r.get("value"), (int, float)) and r.get("label")]
     if refs:

@@ -1,28 +1,32 @@
 {
  "about": "A demo run, replayed from a live gpt-6-luna run (1014-173225-96b1) at about 25x speed. The planner's question and every agent's edits and reports are that run's; in the live run the owner tried all six model families, and here you choose. The tests, checks and budget caps run for real on a fresh copy of repo/. Code identical to the live run's gets the score already measured for it, from scores.json (LUCIDITY_RESCORE=1 recomputes them all, about 10 minutes, mostly the SVM); any other code is scored for real. Agents were refused the held-out customers; only Lucidity scored them. Data is UCI's \"Default of Credit Card Clients\" (CC BY 4.0).",
  "title": "Credit default",
- "card": {"ask": "Which card customers miss next month's payment? Without using sex, age or marital status.", "stats": [["Starts at", "0.472"], ["Goal", "0.440"], ["Plain regression", "0.467"]], "parts": [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]]},
- "blurb": "A model predicts which of 30,000 credit-card customers miss next month's payment, from six months of account history, without using sex, age or marital status. The repo scores 0.472 log loss and the goal is 0.440. Six kinds of model are tried at once, one agent each, tuning on dev customers. Lucidity scores every attempt on held-out customers the agents never see, and recommends the best.",
+ "card": {"ask": "Which card customers miss next month's payment? Without using sex, age or marital status.", "stats": [["Starts at", "0.472"], ["Goal", "0.4657"], ["Plain regression", "0.467"]], "parts": [["Train", "60%"], ["Tune", "20%"], ["Test", "20%"]], "why": "Ordinary logistic regression on all 20 allowed columns, no tuning. It's the best answer here without agents."},
+ "blurb": "A model predicts which of 30,000 credit-card customers miss next month's payment, from six months of account history, without using sex, age or marital status. The repo scores 0.472 log loss and plain regression on all 20 allowed columns scores 0.467, so the goal is 0.4657. Six kinds of model are tried at once, one agent each, tuning on dev customers. Lucidity scores every attempt on held-out customers the agents never see, and recommends the best.",
  "split": "Customers are split by ID: 60% to train, 20% to tune, 20% to test. Agents never see the test customers; only Lucidity scores them.",
  "references": [
   {
    "label": "Coin flip (always 50%)",
-   "value": 0.693
+   "value": 0.693,
+   "why": "Say 50% for every row. Log loss charges 0.693 a row for that, so 0.693 means no skill at all."
   },
   {
    "label": "Always guess the 22% average",
-   "value": 0.528
+   "value": 0.528,
+   "why": "Say 22% for every customer: the share who missed a payment in training."
   },
   {
    "label": "Plain logistic regression, all 20 allowed columns",
    "value": 0.4666,
+   "why": "Ordinary logistic regression on every allowed column, no tuning. The five-minute model.",
+   "short": "Plain regression",
    "benchmark": true
   }
  ],
  "repo_name": "creditkit",
  "about_repo": "bundled credit-default model: 30,000 card customers, logistic regression, evals/score.py",
  "commit_message": "creditkit: credit limit + last month status, logistic regression, 30,000 card customers, evals/score.py",
- "goal": "Get held-out log loss to 0.440 or lower (the repo scores 0.472) for predicting which credit-card customers miss next month's payment, without AUC dropping. Tune on the dev split. The fair-lending tests must keep passing. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
+ "goal": "Get held-out log loss to 0.4657 or lower (plain logistic regression on all 20 allowed columns scores 0.4666; the repo scores 0.472) for predicting which credit-card customers miss next month's payment, without AUC dropping. Tune on the dev split. The fair-lending tests must keep passing. Ask the owner which model families to try (kNN, SVM, lasso or ridge logistic regression, random forest, boosted trees), then build each one in parallel and keep the best. Give each agent up to 4 rounds.",
  "budget_usd": 2.0,
  "planner": {
   "seconds": 0.5,
@@ -67,7 +71,7 @@
    {
     "id": "models",
     "title": "Implement and compare selected model families",
-    "prompt": "Implement the model families selected by the owner as independent candidate models in parallel. Use permitted inputs only; tune model hyperparameters using the dev split, selecting by dev log loss. Preserve the existing fit/predict_proba interface and avoid changing evaluation or split logic. The selected final candidate must meet held-out log loss <= 0.440 and must not reduce held-out AUC by more than 0.01 versus the starting repository.",
+    "prompt": "Implement the model families selected by the owner as independent candidate models in parallel. Use permitted inputs only; tune model hyperparameters using the dev split, selecting by dev log loss. Preserve the existing fit/predict_proba interface and avoid changing evaluation or split logic. The selected final candidate must meet held-out log loss <= 0.4657 and must not reduce held-out AUC by more than 0.01 versus the starting repository.",
     "deps": [
      "features"
     ],
@@ -79,7 +83,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.44
+      "value": 0.4657
      },
      {
       "kind": "no_regression",
@@ -127,7 +131,7 @@
       "text": "",
       "metric": "log_loss",
       "op": "<=",
-      "value": 0.44
+      "value": 0.4657
      },
      {
       "kind": "no_regression",
@@ -617,6 +621,98 @@
     "reviewer: The model that makes the predictions is a Boosted trees. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
      "met": true,
      "evidence": "`make_model()` returns `HistGradientBoostingClassifier(...)`, a boosted-tree classifier; no alternative model or blend appears in the diff."
+    }
+   }
+  },
+  "modelsb-r1": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.00015,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4659 → 0.4565"
+    },
+    "no auc drops more than 0.01": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 2.05s"
+    },
+    "reviewer: The model that makes the predictions is a SVM. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), SVC(C=10.0, kernel=\"rbf\", gamma=0.01, probability=True, random_state=17))`."
+    }
+   }
+  },
+  "modelsd-r1": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.000165,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4659 → 0.4657"
+    },
+    "no auc drops more than 0.01": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 2.07s"
+    },
+    "reviewer: The model that makes the predictions is a Ridge logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), LogisticRegression(C=0.01, penalty=\"l2\", solver=\"lbfgs\", max_iter=2000))`."
+    }
+   }
+  },
+  "modelsa-r1": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.0002,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4659 → 0.4428"
+    },
+    "no auc drops more than 0.01": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 2.14s"
+    },
+    "reviewer: The model that makes the predictions is a kNN. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`make_model()` returns a pipeline of `StandardScaler()` and `KNeighborsClassifier(n_neighbors=400, weights=\"uniform\", n_jobs=-1)`; no other predictive model or blend is present."
+    }
+   }
+  },
+  "modelsc-r1": {
+   "verdict": "pass",
+   "reasons": [],
+   "usd": 0.000197,
+   "judged": {
+    "log_loss ≤ 0.4657": {
+     "met": true,
+     "evidence": "0.4659 → 0.4656"
+    },
+    "no auc drops more than 0.01": {
+     "met": true,
+     "evidence": "none of 1 dropped"
+    },
+    "tests pass: python -m pytest -q": {
+     "met": true,
+     "evidence": "...                                                                      [100%]\n3 passed in 2.11s"
+    },
+    "reviewer: The model that makes the predictions is a Lasso logistic regression. Changing features or tuning is fine; replacing it with a different kind of model, or a blend led by one, does not count.": {
+     "met": true,
+     "evidence": "`make_model()` returns `make_pipeline(StandardScaler(), LogisticRegression(penalty=\"l1\", solver=\"liblinear\", C=0.2, max_iter=2000))`."
     }
    }
   }
