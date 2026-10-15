@@ -20,7 +20,8 @@ and the budget cap really stops a task.
             held-out log loss <= 0.6917 (a coin flip scores 0.6931). Replayed from a live run: ten model
             families race, none clears the bar (random forest comes closest at 0.6928), and nothing
             merges. The honest answer.
-  credit    which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
+  credit    (runnable by name, not in the picker: its table is the sample on the "your own data" side)
+            which of 30,000 credit-card customers miss next month's payment (UCI), without sex, age or
             marital status; the contract is held-out log loss <= 0.4657 (plain regression scores 0.4666). Replayed
             from a live run: ten families race, random forest wins at 0.4247, and nine of the ten
             beat plain regression.
@@ -42,7 +43,6 @@ DEMOS_DIR = config.SAMPLE_DIR / "demos"
 DEFAULT = "nba"
 SHOWN = {"nba": "Ten models race to beat FiveThirtyEight",       # the composer's picker, in this order
          "fed": "Ten models call the Fed's next hike",
-         "credit": "Ten models predict who misses a payment",
          "stocks": "Ten models try to beat a coin flip on stocks"}
 
 

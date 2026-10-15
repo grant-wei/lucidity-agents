@@ -108,6 +108,18 @@ def list_traces(limit=30):
     return out
 
 
+# The table offered on the "your own data" side, to download and upload back, with a prompt to paste.
+SAMPLE_CSV = config.SAMPLE_DIR / "demos" / "credit" / "repo" / "data" / "customers.csv"
+SAMPLE = {"download": "/api/sample.csv", "filename": "credit_customers.csv",
+          "path": "sample_data/demos/credit/repo/data/customers.csv", "target": "default", "rows": 30000,
+          "title": "Credit-card customers",
+          "about": ("30,000 Taiwanese credit-card customers (UCI): credit limit, six months of bills, payments and "
+                    "how late each was, and whether they missed next month's payment."),
+          "prompt": ("Predict which credit-card customers miss next month's payment (the default column). "
+                     "Don't use sex, age or marital status as inputs, since a lender can't base the decision on them. "
+                     "Try all ten model families and keep the one that scores best on the test rows.")}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -142,6 +154,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"runs": runs.list_runs(), "workers": workers.choices(), "has_key": config.has_key(),
                                     "model": config.MODEL, "max_run_usd": config.MAX_RUN_USD,
                                     "demos": runs.demo.cards(),
+                                    "sample": {**SAMPLE, "mb": round(SAMPLE_CSV.stat().st_size / 1e6, 1)} if SAMPLE_CSV.is_file() else None,
                                     "self_cost": breaker.status()})
         if u.path.startswith("/api/runs/"):
             run, what = self._run_route(u.path)
@@ -167,6 +180,15 @@ class Handler(BaseHTTPRequestHandler):
                     traceback.print_exc()
                     return self._send(200, {"tasks": [], "error": f"diff failed: {e}"})
             return self._send(404, {"error": "not found"})
+        if u.path == SAMPLE["download"] and SAMPLE_CSV.is_file():
+            data = SAMPLE_CSV.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{SAMPLE["filename"]}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if u.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html")
         if u.path.startswith("/static/"):

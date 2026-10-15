@@ -32,8 +32,15 @@ def poll(url, states, timeout=90):
 def test_demo_over_http(api):
     code, runs_list, _ = get(api + "/api/runs")
     assert code == 200 and runs_list["runs"] == []
-    assert [d["name"] for d in runs_list["demos"]] == ["nba", "fed", "credit", "stocks"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
+    assert [d["name"] for d in runs_list["demos"]] == ["nba", "fed", "stocks"] and runs_list["max_run_usd"] == config.MAX_RUN_USD
     assert {w["name"] for w in runs_list["workers"]} >= {"demo", "builtin", "claude", "codex"}
+    # the "your own data" side offers a table to download, and the CSV setup reads it straight from disk
+    sm = runs_list["sample"]
+    code, body, headers = get(api + sm["download"], raw=True)
+    assert code == 200 and body.startswith(b"id,credit_limit") and sm["filename"] in headers["Content-Disposition"]
+    assert "Don't use sex, age or marital status" in sm["prompt"]
+    code, cols = post(api + "/api/csv/columns", {"path": sm["path"]})
+    assert code == 200 and cols["target"] == sm["target"] and cols["rows"] == sm["rows"]
 
     code, made = post(api + "/api/runs", {"worker": "demo", "demo": "invoices", "auto_run": False})
     assert code == 201 and made["mode"] == "demo" and made["repo_name"] == "invoicekit"

@@ -14,21 +14,22 @@ and an agent that edits the scorer or the data fails unscored.
 
 ![A demo run waiting on a decision: scores climbing toward the bar, one task out of budget](docs/screenshots/run-needs-you.png)
 
-Four demos need no API key. Each replays a real run on real data, and the scoring is done live:
+Three demos need no API key. Each replays a real run on real data, and the scoring is done live:
 
 - **NBA game forecasts**: ten model families try to beat FiveThirtyEight's forecast on two seasons the
   agents never saw. Ridge logistic regression wins at 0.6035 log loss, against FiveThirtyEight's 0.608.
 - **Fed rate hikes**: will the Fed raise rates next month, from Treasury yields, inflation and
   unemployment. Plain logistic regression wins at 0.3179 on 2015-2026. The tuned models looked better
   on the tuning years and worse on the test years.
-- **Credit default**: which credit-card customers miss a payment, without using sex, age or marital
-  status. Random forest wins at 0.4247.
 - **Stock returns**: which industries beat the median next month, from past returns plus the Fama-French
   factors, momentum and each industry's size and book-to-market. No model beats a coin flip by enough
   to count, so nothing is kept. That's the right answer, and the point of a referee.
 
-With an `OPENAI_API_KEY` the same loop runs live on any CSV (see [Bring a CSV](#bring-a-csv-a-live-run-on-data-that-isnt-a-demo)),
-or on any git repo with a scoring script.
+With an `OPENAI_API_KEY` the same loop runs live on any CSV, or on any git repo with a scoring script.
+To try it, pick **Use your own data** on the home page. Download the sample table (30,000
+credit-card customers), copy the sample prompt, then upload the file and paste the prompt. When we ran
+ten model families on this table with a slightly different split, random forest won at about 0.42 log loss
+(see [Bring a CSV](#bring-a-csv-a-live-run-on-data-that-isnt-a-demo)).
 
 ## Quickstart (one command)
 
@@ -80,11 +81,12 @@ deleting it) is up to you.
 
 ### Bring a CSV (a live run on data that isn't a demo)
 
-No repo handy? Pick **Built-in** (or Claude Code / Codex), then under **Start from a CSV** give the path
-to any table and click **Read columns**. Pick the column to predict and how to split the rows, then
-click **Set up**. Or click **use the bundled example**: `examples/breast_cancer.csv`, 569 breast-tumour
+No repo handy? Pick **Use your own data**, then drop a CSV on the upload box (or type a path to one).
+Pick the column to predict and how to split the rows, then click **Set up**. The goal box keeps what
+you wrote and adds the score to beat. The sample table on that page needs no download. Click
+**Load the sample without downloading it**. Or type the path of a smaller table in `examples/`, such as `examples/breast_cancer.csv`, 569 breast-tumour
 measurements labelled malignant or benign (the UCI Wisconsin diagnostic set, as shipped with
-scikit-learn), which none of the demos use. `examples/` also has a number to predict (`diabetes.csv`)
+scikit-learn). `examples/` also has a number to predict (`diabetes.csv`)
 and a dated table (`seattle_weather.csv`); see `examples/README.md`.
 
 Three ways to split the rows, about 60% train, 20% dev (tune) and 20% test:

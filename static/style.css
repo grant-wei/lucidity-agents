@@ -774,3 +774,28 @@ button.linkish { background: none; border: 0; padding: 0; margin-top: 6px; color
 .rc-diff .del { color: var(--bad, #c0392b); }
 .rc-diff .hunk { opacity: .6; }
 .lb-luck { grid-column: 1 / -1; font-size: 12px; color: var(--muted, #6b7280); font-style: italic; margin-top: -2px; }
+
+/* ---------- composer: "use your own data" steps ---------- */
+.seg.mode { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg.mode .opt { padding: 11px 12px; }
+.seg.mode .opt b { font-size: 14px; }
+.step { padding-top: 14px; border-top: 1px solid var(--line); }
+.stephead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.stephead .num { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 1px var(--accent-line) inset; }
+.stephead b, .stephead label { font-size: 14px; font-weight: 650; }
+.sample { margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.sample > b { display: block; font-size: 13.5px; }
+.sample p { margin: 4px 0 10px; font-size: 13px; color: var(--ink-2); }
+.sample-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.sample-btns .btn { flex: 1 1 180px; text-decoration: none; }
+.peek { margin-top: 10px; font-size: 13px; }
+.peek summary, .adv summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.peek p { margin: 6px 0 0; padding: 8px 10px; border-left: 3px solid var(--accent-line); background: var(--surface); border-radius: 0 6px 6px 0; color: var(--ink-2); }
+.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; min-height: 92px; padding: 16px; border: 2px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); cursor: pointer; transition: border-color .12s, background .12s; }
+.drop b { font-size: 14px; overflow-wrap: anywhere; }
+.drop span { font-size: 12.5px; color: var(--muted); }
+.drop:hover, .drop:focus-visible, .drop.over { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+.drop.has { border-style: solid; border-color: var(--accent-line); min-height: 64px; }
+.adv { margin-top: 10px; }
+.adv[open] summary { margin-bottom: 8px; }
+.composer .adv.field { margin-top: 0; }

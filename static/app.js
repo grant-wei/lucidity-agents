@@ -62,7 +62,7 @@ window.addEventListener("hashchange", go);
 /* ================= home: composer + runs ================= */
 
 let meta = null;          // /api/runs payload
-let form = {worker: "demo", demo: null, goal: "", repo: "", evalCmd: "", budget: "1.00", parallel: 3, auto: true, csv: "", csvTarget: "", csvSplit: "rows", csvCols: null, csvAbout: null};
+let form = {worker: "demo", demo: null, goal: "", repo: "", evalCmd: "", budget: "1.00", parallel: 3, auto: true, mode: "demo", csv: "", csvTarget: "", csvSplit: "rows", csvCols: null, csvAbout: null};
 
 const STEPS = [
   ["Plan", "var(--accent)", "A model breaks the goal into tasks, each with a clear finish line and a budget."],
@@ -112,68 +112,104 @@ function workerOptions() {
 function renderComposer() {
   const f = $("#composer");
   const opts = workerOptions();
-  if (!opts.find(o => o.name === form.worker && o.ok)) form.worker = "demo";
-  const demo = form.worker === "demo";
+  const own = form.mode === "own";
+  const live = opts.filter(o => o.name !== "demo");
+  if (!own) form.worker = "demo";
+  else if (!live.find(o => o.name === form.worker && o.ok)) form.worker = (live.find(o => o.ok) || live[0] || {name: "builtin"}).name;
+  const canRun = !own || live.some(o => o.ok);
   const demos = meta.demos || [];
   if (!demos.find(d => d.name === form.demo)) form.demo = demos.length ? demos[0].name : null;
   const dm = demos.find(d => d.name === form.demo) || {goal: "", repo_name: "", about_repo: "", budget_usd: 1};
   f.innerHTML = `
     <div class="field">
-      <label class="f">Who does the work</label>
-      <div class="seg" role="radiogroup">${opts.map(o => `
-        <button type="button" class="opt ${o.name === form.worker ? "on" : ""}" data-w="${esc(o.name)}" role="radio" aria-checked="${o.name === form.worker}" ${o.ok ? "" : "disabled"} title="${esc(o.ok ? o.label : o.label + ": " + o.why)}">
-          <b>${esc(o.short)}</b><span>${esc(o.sub)}</span></button>`).join("")}</div>
+      <div class="seg mode" role="radiogroup" aria-label="What to run">
+        <button type="button" class="opt ${own ? "" : "on"}" data-mode="demo" role="radio" aria-checked="${!own}"><b>Watch a demo</b><span>A recorded run. No key needed.</span></button>
+        <button type="button" class="opt ${own ? "on" : ""}" data-mode="own" role="radio" aria-checked="${own}"><b>Use your own data</b><span>Upload a CSV. Agents run live.</span></button>
+      </div>
     </div>
-    ${demo && demos.length > 1 ? `<div class="field">
+    ${own ? ownSteps(live) : `
+    ${demos.length > 1 ? `<div class="field">
       <label class="f">Demo</label>
       <div class="demos" role="radiogroup">${demos.map(d => `
         <button type="button" class="opt demo-opt ${d.name === form.demo ? "on" : ""}" data-demo="${esc(d.name)}" role="radio" aria-checked="${d.name === form.demo}">
           <b>${esc(d.title)}</b><span>${esc(d.short || "")}</span></button>`).join("")}</div>
     </div>` : ""}
-    ${demo ? `<div class="hint owncsv">Have your own table? ${opts.find(o => o.name === "builtin" && o.ok)
-      ? `<a href="#" id="goown">Upload a CSV</a> and agents will try to beat a model on it.`
-      : `Upload a CSV once an OpenAI key is set (OPENAI_API_KEY); agents then try to beat a model on it.`}</div>` : `<div class="field">
-      <label class="f" for="csv">Start from a CSV</label>
-      <div class="csvrow">
-        <label class="btn primary" id="csvup" tabindex="0" role="button">Upload a CSV<input type="file" id="csvfile" accept=".csv,text/csv" hidden></label>
-        <input type="text" id="csv" placeholder="or type a path to a .csv file" value="${esc(form.csv)}">
-        ${form.csvCols ? "" : `<button type="button" class="btn" id="csvcols">Read columns</button>`}
-      </div>
-      ${form.csvCols ? csvPicker(form.csvCols) : ""}
-      <div class="hint">Any table works. Lucidity makes a small repo from it with a starting model and a scoring script, splits the rows into train, tune and test, and fills in the goal below. Or <a href="#" id="csvex">use the bundled example</a> (breast-cancer diagnosis, 569 rows, not one of the demos).</div>
-      ${form.csvAbout ? caseCard(form.csvAbout.title, csvCard(form.csvAbout), form.csvAbout.blurb, form.csvAbout.split) : ""}
-    </div>`}
     <div class="field">
-      <label class="f" for="goal">${demo ? "The demo" : "Goal"}</label>
-      ${demo ? `${caseCard(dm.title, dm.card, dm.blurb, dm.split)}
-        <div class="hint">A replay of a real run, sped up to under a minute. The agents' edits are recorded; the scoring and the checks run for real. No API key needed.</div>`
-             : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>
-        ${form.csvAbout && form.csvAbout.goal_value != null ? goalHow(form.csvAbout) : ""}`}
-    </div>
-    ${demo ? "" : `<div class="field">
-      <label class="f" for="repo">Repository</label>
-      <input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
-      <div class="hint">Filled in by Set up above. Or any git repo with at least one commit and a scoring script. Agents work on copies, on <code>lucidity/*</code> branches; your own branch is never touched.</div>
+      <label class="f">The demo</label>
+      ${caseCard(dm.title, dm.card, dm.blurb, dm.split)}
+      <div class="hint">A replay of a real run, sped up to under a minute. The agents' edits are recorded; the scoring and the checks run for real. No API key needed.</div>
     </div>`}
-    ${demo ? "" : `<div class="field">
-      <label class="f" for="evalcmd">Scoring script <span class="muted" style="font-weight:500">· optional</span></label>
-      <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
-      <div class="hint">A script under <code>evals/</code> that prints scores like accuracy as JSON. A task then counts as done only when its score clears the bar you set.</div>
-    </div>`}
-    ${demo ? "" : `<div class="row2 field">
-      <div><label class="f" for="budget">Budget</label>
-        <div class="money-in"><input type="number" id="budget" min="0.05" step="0.05" max="${meta.max_run_usd}" value="${demo ? dm.budget_usd.toFixed(2) : esc(form.budget)}"></div>
-        <div class="hint">Cap ${money(meta.max_run_usd)} per run</div></div>
-      <div><label class="f" for="parallel">Agents at once</label>
-        <select id="parallel">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === form.parallel ? "selected" : ""}>${n}</option>`).join("")}</select></div>
-    </div>
-    <div class="field"><label class="check"><input type="checkbox" id="auto" ${form.auto ? "checked" : ""}> Start as soon as the plan is ready (untick to review the plan first)</label></div>`}
-    ${!meta.has_key ? `<div class="notice info field"><span class="ic" style="color:var(--accent)"><span>i</span></span><div>No <code>OPENAI_API_KEY</code> in <code>.env</code>, so only the demo can run. Add one to plan and check your own goals; agents then run through Claude Code, Codex or the built-in worker.</div></div>` : ""}
+    ${own && !canRun ? `<div class="notice info field"><span class="ic" style="color:var(--accent)"><span>i</span></span><div>You can upload and set up a table now. To start agents on it, add an <code>OPENAI_API_KEY</code> to <code>.env</code> and restart Lucidity.</div></div>` : ""}
     <div class="composer-foot">
       <span class="err-text" id="cerr" role="alert"></span>
-      <button class="btn primary lg" type="submit" id="go">${demo ? "Run the demo" : "Plan this goal"} <span aria-hidden="true">→</span></button>
+      <button class="btn primary lg" type="submit" id="go" ${canRun ? "" : "disabled"}>${own ? "Plan this goal" : "Run the demo"} <span aria-hidden="true">→</span></button>
     </div>`;
   f.dataset.ready = "1";
+  bindComposer(f);
+}
+
+// "Use your own data": four numbered steps, from getting a table to picking who does the work.
+function ownSteps(live) {
+  const sm = meta.sample, c = form.csvCols, name = (form.csv || "").split(/[\\/]/).pop().replace(/-[0-9a-f]{8}(\.csv)$/i, "$1");   // uploads get a suffix on disk
+  const step = (n, title, body) => `<div class="field step"><div class="stephead"><span class="num">${n}</span><b>${title}</b></div>${body}</div>`;
+  return step(1, "Get a table", `
+      <div class="hint">Any CSV works: one row per thing (a customer, a game, a month) and one column you want to predict.</div>
+      ${sm ? `<div class="sample">
+        <b>No table handy? Use the sample.</b>
+        <p>${esc(sm.about)} ${sm.rows.toLocaleString()} rows, ${esc(String(sm.mb))} MB.</p>
+        <div class="sample-btns">
+          <a class="btn" href="${esc(sm.download)}" download="${esc(sm.filename)}"><span aria-hidden="true">↓</span> Download sample CSV</a>
+          <button type="button" class="btn" id="copyprompt">Copy sample prompt</button>
+        </div>
+        <details class="peek"><summary>See the sample prompt</summary><p>${esc(sm.prompt)}</p></details>
+      </div>` : ""}`)
+    + step(2, "Upload it", `
+      <label class="drop ${c ? "has" : ""}" id="csvup" tabindex="0" role="button">
+        <input type="file" id="csvfile" accept=".csv,text/csv" hidden>
+        <b id="dropmsg">${c ? `${esc(name)} · ${c.rows.toLocaleString()} rows, ${c.columns.length} columns` : "Drop a CSV here, or click to choose one"}</b>
+        <span>${c ? "Click or drop to use a different file." : "Up to 50 MB."}</span>
+      </label>
+      ${c ? csvPicker(c) : ""}
+      <details class="adv"${form.csv && !c ? " open" : ""}><summary>Or type a path to a file on this computer</summary>
+        <div class="csvrow">
+          <input type="text" id="csv" placeholder="C:\\data\\table.csv" value="${esc(form.csv)}">
+          <button type="button" class="btn" id="csvcols">Read columns</button>
+        </div>
+        ${sm ? `<div class="hint"><a href="#" id="csvex">Load the sample without downloading it</a>.</div>` : ""}
+      </details>
+      ${form.csvAbout ? caseCard(form.csvAbout.title, csvCard(form.csvAbout), form.csvAbout.blurb, form.csvAbout.split) : ""}`)
+    + step(3, `<label for="goal">Say what you want</label>`, `
+      <textarea id="goal" rows="4" placeholder="Say what to predict and anything the model must not use. Or paste the sample prompt.">${esc(form.goal)}</textarea>
+      <div class="hint">${form.csvAbout ? "Set up added the score to beat. Add anything else in your own words." : "Set up (step 2) adds the score to beat, and keeps what you write here."}${sm && !(form.goal || "").includes(sm.prompt) ? ` <a href="#" id="useprompt">Paste the sample prompt</a>` : ""}</div>
+      ${form.csvAbout && form.csvAbout.goal_value != null ? goalHow(form.csvAbout) : ""}`)
+    + step(4, "Pick who does the work", `
+      <div class="seg" role="radiogroup">${live.map(o => `
+        <button type="button" class="opt ${o.name === form.worker ? "on" : ""}" data-w="${esc(o.name)}" role="radio" aria-checked="${o.name === form.worker}" ${o.ok ? "" : "disabled"} title="${esc(o.ok ? o.label : o.label + ": " + o.why)}">
+          <b>${esc(o.short)}</b><span>${esc(o.sub)}</span></button>`).join("")}</div>
+      <div class="row2" style="margin-top:12px">
+        <div><label class="f" for="budget">Budget</label>
+          <div class="money-in"><input type="number" id="budget" min="0.05" step="0.05" max="${meta.max_run_usd}" value="${esc(form.budget)}"></div>
+          <div class="hint">Cap ${money(meta.max_run_usd)} per run</div></div>
+        <div><label class="f" for="parallel">Agents at once</label>
+          <select id="parallel">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === form.parallel ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+      </div>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="auto" ${form.auto ? "checked" : ""}> Start as soon as the plan is ready (untick to review the plan first)</label>`)
+    + `<details class="adv field"${form.repo && !form.csvAbout ? " open" : ""}><summary>Advanced: point at a git repo instead</summary>
+      <div class="field" style="margin-top:10px">
+        <label class="f" for="repo">Repository</label>
+        <input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
+        <div class="hint">Filled in by Set up. Or any git repo with at least one commit. Agents work on copies, on <code>lucidity/*</code> branches; your own branch is never touched.</div>
+      </div>
+      <div>
+        <label class="f" for="evalcmd">Scoring script <span class="muted" style="font-weight:500">· optional</span></label>
+        <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
+        <div class="hint">A script under <code>evals/</code> that prints scores like accuracy as JSON. A task then counts as done only when its score clears the bar.</div>
+      </div>
+    </details>`;
+}
+
+function bindComposer(f) {
+  $$("[data-mode]", f).forEach(b => b.onclick = () => { saveForm(); form.mode = b.dataset.mode; renderComposer(); });
   $$("[data-w]", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
   $$("[data-demo]", f).forEach(b => b.onclick = () => { saveForm(); form.demo = b.dataset.demo; renderComposer(); });
   if ($("#csvcols")) $("#csvcols").onclick = () => readColumns();
@@ -188,11 +224,31 @@ function renderComposer() {
   };
   if ($("#csv")) $("#csv").onchange = () => { if (form.csvCols && $("#csv").value.trim() !== form.csvCols.path) { saveForm(); form.csvCols = null; form.csvAbout = null; renderComposer(); } };
   if ($("#csvgo")) $("#csvgo").onclick = () => setupCsv();
-  if ($("#goown")) $("#goown").onclick = e => { e.preventDefault(); saveForm(); form.worker = "builtin"; renderComposer(); $("#csvup").focus(); };
-  if ($("#csvfile")) $("#csvfile").onchange = () => uploadCsv($("#csvfile").files[0]);
-  if ($("#csvup")) $("#csvup").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#csvfile").click(); } };
-  if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = "examples/breast_cancer.csv"; if (await readColumns("diagnosis")) setupCsv(); };
+  const dz = $("#csvup");
+  if (dz) {
+    $("#csvfile").onchange = () => uploadCsv($("#csvfile").files[0]);
+    dz.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#csvfile").click(); } };
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+    dz.ondragleave = () => dz.classList.remove("over");
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); uploadCsv(e.dataTransfer.files[0]); };
+  }
+  const sm = meta.sample;
+  if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = sm.path; if (await readColumns(sm.target)) setupCsv(); };
+  if ($("#copyprompt")) $("#copyprompt").onclick = async () => {
+    const b = $("#copyprompt");
+    try { await navigator.clipboard.writeText(sm.prompt); b.textContent = "Copied. Paste it in step 3"; }
+    catch (e) { usePrompt(); return; }
+    setTimeout(() => { if (b.isConnected) b.textContent = "Copy sample prompt"; }, 2500);
+  };
+  if ($("#useprompt")) $("#useprompt").onclick = e => { e.preventDefault(); usePrompt(); };
   f.onsubmit = submit;
+}
+
+function usePrompt() {
+  saveForm();
+  const p = meta.sample.prompt;
+  if (!(form.goal || "").includes(p)) form.goal = ((form.goal || "").trim() + " " + p).trim();
+  renderComposer();
 }
 
 // The case at a glance: the question, the scores that matter, and how the rows are split. Prose only as a fallback.
@@ -224,8 +280,8 @@ function csvCard(a) {
 async function uploadCsv(file) {
   if (!file) return;
   $("#cerr").textContent = "";
-  const up = $("#csvup");
-  up.firstChild.textContent = "Uploading…";
+  const msg = $("#dropmsg");
+  msg.textContent = `Uploading ${file.name}…`;
   try {
     const r = await fetch("/api/csv/upload?name=" + encodeURIComponent(file.name), {method: "POST", body: file});
     const d = await r.json();
@@ -235,7 +291,7 @@ async function uploadCsv(file) {
     await readColumns();
   } catch (err) {
     $("#cerr").textContent = err.message;
-    up.firstChild.textContent = "Upload a CSV";
+    msg.textContent = "Drop a CSV here, or click to choose one";
   }
 }
 
@@ -302,7 +358,9 @@ async function setupCsv() {
   try {
     const a = await api("/api/csv", {path: form.csv, target: form.csvTarget,
       split_by: how === "time" ? col : null, group_by: how === "group" ? col : null});
-    Object.assign(form, {csvAbout: a, goal: a.goal, repo: a.repo, evalCmd: a.eval_command, budget: a.budget_usd.toFixed(2), csvTarget: a.target});
+    // keep what the person wrote; replace only the goal an earlier Set up wrote
+    const mine = (form.goal || "").replace(/Get held-out[\s\S]*?Give each agent up to \d+ rounds\./, "").trim();
+    Object.assign(form, {csvAbout: a, goal: a.goal + (mine ? " " + mine : ""), repo: a.repo, evalCmd: a.eval_command, budget: a.budget_usd.toFixed(2), csvTarget: a.target});
     renderComposer();
   } catch (err) {
     $("#cerr").textContent = err.message;
@@ -318,7 +376,7 @@ function saveForm() {
   if ($("#csvtarget")) form.csvTarget = $("#csvtarget").value;
   if ($("#csvsplit")) form.csvSplit = $("#csvsplit").value;
   if (ec) form.evalCmd = ec.value.trim();
-  if (b && form.worker !== "demo") form.budget = b.value;
+  if (b) form.budget = b.value;
   if ($("#parallel")) form.parallel = +$("#parallel").value;
   if ($("#auto")) form.auto = $("#auto").checked;
 }
