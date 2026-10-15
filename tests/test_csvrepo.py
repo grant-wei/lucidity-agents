@@ -117,3 +117,11 @@ def test_about_says_how_the_goal_was_set(tmp_path):
     assert f"to {a['goal_value']} or lower" in a["goal"]
     assert a["start_model"] == "LogisticRegression" and len(a["start_columns"]) == 2
     assert "10%" in a["goal_rule"] and a["lower_is_better"]
+
+
+def test_benchmark_is_plain_regression_on_every_column(tmp_path):
+    a = csvrepo.build("examples/diabetes.csv", None, tmp_path)
+    b = a["benchmark"]
+    assert b["model"] == "LinearRegression" and b["penalty"] == "none" and b["columns"] == a["numeric_columns"]
+    assert b["value"] < a["start_test"]   # all ten columns beat the two-column start
+    assert [r for r in a["references"] if r.get("benchmark")] == [{"label": b["label"], "value": b["value"], "benchmark": True}]

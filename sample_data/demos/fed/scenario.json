@@ -11,6 +11,11 @@
   {
    "label": "Always guess the usual hike rate",
    "value": 0.421
+  },
+  {
+   "label": "Plain logistic regression, all 8 columns",
+   "value": 0.3416,
+   "benchmark": true
   }
  ],
  "repo_name": "fedkit",

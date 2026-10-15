@@ -11,6 +11,11 @@
   {
    "label": "Always guess the 22% average",
    "value": 0.528
+  },
+  {
+   "label": "Plain logistic regression, all 20 allowed columns",
+   "value": 0.4666,
+   "benchmark": true
   }
  ],
  "repo_name": "creditkit",

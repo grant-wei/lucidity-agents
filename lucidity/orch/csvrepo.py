@@ -25,6 +25,7 @@ import datetime as dt
 import hashlib
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -71,7 +72,7 @@ def read_table(path):
     return path, header, [dict(zip(header, (c.strip() for c in r))) for r in body]
 
 
-LAYOUT = b"2"   # bump when the generated repo or about.json changes, so a cached repo isn't reused
+LAYOUT = b"3"   # bump when the generated repo or about.json changes, so a cached repo isn't reused
 
 DATE_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m", "%Y/%m", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%b %Y", "%B %Y", "%d %b %Y")
@@ -435,6 +436,40 @@ def _score(repo, split):
     return json.loads(r.stdout.strip().splitlines()[-1])["metrics"]
 
 
+BENCH = """import json, sys
+sys.argv = ["score.py", "--split", "heldout"]
+sys.path.insert(0, "evals")
+import score
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+cols = json.loads(sys.stdin.read())
+score.NAMES = cols
+def num(v):   # missing counts as 0, as in the starting model
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+score.features = lambda row: [num(row[c]) for c in cols]
+score.make_model = lambda: make_pipeline(StandardScaler(), LinearRegression() if score.KIND == "regression"
+                                         else LogisticRegression(penalty=None, max_iter=5000))
+score.main()
+"""
+
+
+def _benchmark(repo, cols):
+    """Ordinary linear or logistic regression (no penalty) on every usable numeric column, scored on the test
+    rows by the repo's own scorer: the textbook model any agent's work should be compared with."""
+    if not cols:
+        return None
+    r = subprocess.run([sys.executable, "-c", BENCH], cwd=repo, input=json.dumps(cols), capture_output=True,
+                       text=True, timeout=600, env={**os.environ, "PYTHONWARNINGS": "ignore"})
+    try:
+        return json.loads(r.stdout.strip().splitlines()[-1])["metrics"]
+    except (IndexError, ValueError, KeyError):
+        return None   # never block setup on the benchmark
+
+
 def _guess_score(info, rows):
     """What always guessing the training answer scores on the test rows: the floor any model must beat."""
     train = [r for r in rows if r["_split"] in ("train", "dev")]
@@ -534,11 +569,17 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
     metric = "rmse" if kind == "regression" else "log_loss"
     dev, test = _score(repo, "dev")[metric], _score(repo, "heldout")[metric]
     guess = _guess_score(info, rows)
+    usable = [h for h in info["numeric"] if h not in skip]
+    bench = _benchmark(repo, usable)
     goal_value = round(test * 0.9, 3)   # 10% better than the start: reachable on most tables, never trivial
     guess_label = ("Always guess the average" if kind == "regression" else "Always guess each answer's share")
     references = [{"label": guess_label, "value": round(guess, 4)}]   # the starting model's score is already the headline
     if kind == "binary":
         references.insert(0, {"label": "Coin flip (always 50%)", "value": 0.6931})
+    bench_label = (f"Plain {'linear' if kind == 'regression' else 'logistic'} regression, "
+                   f"all {len(usable)} columns")
+    if bench and isinstance(bench.get(metric), (int, float)):
+        references.append({"label": bench_label, "value": bench[metric], "benchmark": True})
     plain = (f"whether {t} is {classes[0]!r}" if kind == "binary"
              else f"{t} (one of {len(classes)} classes)" if kind == "multiclass" else t)
     keep = "without accuracy dropping" if kind != "regression" else "without R² dropping"
@@ -556,7 +597,9 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
              "split": split, "split_how": how, "references": references,
              # how the goal was set, shown next to it in the composer
              "goal_value": goal_value, "goal_rule": "10% better than the starting model's test score",
-             "lower_is_better": True, "start_columns": names, "start_model": cls}
+             "lower_is_better": True, "start_columns": names, "start_model": cls,
+             "benchmark": ({"label": bench_label, "value": bench[metric], "model": cls, "columns": len(usable),
+                            "penalty": "none"} if bench and isinstance(bench.get(metric), (int, float)) else None)}
     about_path.write_text(json.dumps(about, indent=1), encoding="utf-8")
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "add", "-A")

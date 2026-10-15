@@ -720,3 +720,8 @@ details.more > summary .muted { font-weight: 400; margin-left: 6px; }
 .goalhow li { margin: 2px 0; overflow-wrap: anywhere; }
 .goalhow input { width: 7em; margin-left: 4px; }
 .goalhow .muted { font-size: 13px; }
+
+/* The benchmark row: ordinary regression on every column, fit by Lucidity rather than an agent. */
+.lb-row.bench { border-top: 1px dashed var(--line, #ccc); padding-top: 7px; }
+.lb-row.bench .lb-name { font-style: italic; }
+.lb-row.bench .lb-bar, .lb-bench-key { background: repeating-linear-gradient(45deg, var(--ink-2) 0 3px, transparent 3px 6px) !important; opacity: .55; }
