@@ -71,6 +71,8 @@ def read_table(path):
     return path, header, [dict(zip(header, (c.strip() for c in r))) for r in body]
 
 
+LAYOUT = b"2"   # bump when the generated repo or about.json changes, so a cached repo isn't reused
+
 DATE_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m", "%Y/%m", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%b %Y", "%B %Y", "%d %b %Y")
 
@@ -466,7 +468,7 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
         if col == t:
             raise CsvError("the column to split by can't be the one being predicted")
     how = f"time:{split_by}" if split_by else f"group:{group_by}" if group_by else "rows"
-    digest = hashlib.sha1(src.read_bytes() + b"\0" + t.encode() + b"\0" + how.encode()).hexdigest()[:8]
+    digest = hashlib.sha1(src.read_bytes() + b"\0" + t.encode() + b"\0" + how.encode() + b"\0" + LAYOUT).hexdigest()[:8]
     name = f"{_slug(src.stem)}-{digest}"
     repo = Path(out_root or config.STATE_DIR / "csv") / name
     about_path = repo / "evals" / "about.json"
@@ -551,7 +553,10 @@ def build(csv_path, target=None, out_root=None, split_by=None, group_by=None):
              "blurb": (f"A model predicts {plain} from the other columns of {src.name} ({len(rows):,} rows). "
                        f"The starting model scores {_fmt(test)} {metric.replace('_', ' ')} on the test rows and the "
                        f"goal is {_fmt(goal_value)}."),
-             "split": split, "split_how": how, "references": references}
+             "split": split, "split_how": how, "references": references,
+             # how the goal was set, shown next to it in the composer
+             "goal_value": goal_value, "goal_rule": "10% better than the starting model's test score",
+             "lower_is_better": True, "start_columns": names, "start_model": cls}
     about_path.write_text(json.dumps(about, indent=1), encoding="utf-8")
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "add", "-A")

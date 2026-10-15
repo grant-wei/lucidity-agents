@@ -106,8 +106,9 @@ Lucidity builds a small git repo from the table under `state/csv/`:
   Lucidity scores the test rows. `evals/` and `data/` are protected, so an agent that edits them fails.
 - a test that fails if the model reads the answer column.
 
-It fills in a goal (10% better than the starting model on the test rows) and the scoring command, and
-the run page shows what guessing scores next to the numbers. Click **Plan this goal**; the run is live,
+It fills in a goal and the scoring command. Under the goal, "How this goal was set" shows the
+starting model and the columns it uses, its test score, the rule (10% better than that score) and
+what guessing would score. The bar is a box there: change the number and the goal changes with it. Click **Plan this goal**; the run is live,
 on your key, and the example costs well under its $1 budget. The same thing from a terminal:
 `python -m lucidity.orch.csvrepo examples/breast_cancer.csv --target diagnosis` (add
 `--split-by date` or `--group-by customer`), which prints the repo path, goal and scoring command to

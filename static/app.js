@@ -144,7 +144,8 @@ function renderComposer() {
       <label class="f" for="goal">${demo ? "The demo" : "Goal"}</label>
       ${demo ? `<div class="demo-card"><b>${esc(dm.title)}</b><p>${esc(dm.blurb)}</p>${dm.split ? `<p class="split">${esc(dm.split)}</p>` : ""}</div>
         <div class="hint">A replay of a real run, sped up to under a minute. The agents' edits are recorded; the scoring and the checks run for real. No API key needed.</div>`
-             : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>`}
+             : `<textarea id="goal" rows="3" placeholder="What should change? e.g. Add a --json flag to the CLI that prints results as JSON, with tests.">${esc(form.goal)}</textarea>
+        ${form.csvAbout && form.csvAbout.goal_value != null ? goalHow(form.csvAbout) : ""}`}
     </div>
     ${demo ? "" : `<div class="field">
       <label class="f" for="repo">Repository</label>
@@ -173,6 +174,15 @@ function renderComposer() {
   $$("[data-w]", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
   $$("[data-demo]", f).forEach(b => b.onclick = () => { saveForm(); form.demo = b.dataset.demo; renderComposer(); });
   if ($("#csvcols")) $("#csvcols").onclick = () => readColumns();
+  if ($("#goalval")) $("#goalval").oninput = () => {
+    const v = parseFloat($("#goalval").value), a = form.csvAbout;
+    $("#goalwarn").textContent = !(v > 0) ? "Enter a number above 0." :
+      v >= a.start_test ? `That's no better than the starting model (${+(+a.start_test).toFixed(4)}), so the run would have nothing to do.` : "";
+    if (!(v > 0)) return;
+    const g = $("#goal");
+    g.value = g.value.replace(/(to )([\d.,]+)( or lower)/, `$1${v}$3`);
+    form.goal = g.value;
+  };
   if ($("#csv")) $("#csv").onchange = () => { if (form.csvCols && $("#csv").value.trim() !== form.csvCols.path) { saveForm(); form.csvCols = null; form.csvAbout = null; renderComposer(); } };
   if ($("#csvgo")) $("#csvgo").onclick = () => setupCsv();
   if ($("#csvex")) $("#csvex").onclick = async e => { e.preventDefault(); $("#csv").value = "examples/breast_cancer.csv"; if (await readColumns("diagnosis")) setupCsv(); };
@@ -211,6 +221,22 @@ function csvPicker(c) {
       <button type="button" class="btn" id="csvgo">Set up</button>
     </div>
     <div class="hint">${c.rows.toLocaleString()} rows, ${c.columns.length} columns.${c.dates.length ? ` ${esc(c.dates.join(", "))} ${c.dates.length > 1 ? "hold" : "holds"} dates, so the test rows are the newest ones: a model can't learn from the future.` : ""}${c.ids.length ? ` ${esc(c.ids.join(", "))} ${c.ids.length > 1 ? "look" : "looks"} like row IDs, so the starting model skips ${c.ids.length > 1 ? "them" : "it"}.` : ""}</div>`;
+}
+
+// Where the CSV goal's number came from, with a box to set your own bar.
+function goalHow(a) {
+  const m = a.metric.replace("_", " "), n = v => +(+v).toFixed(4);
+  const cols = a.start_columns.length ? `${a.start_columns.length} column${a.start_columns.length > 1 ? "s" : ""} (${a.start_columns.join(", ")})` : "no columns";
+  return `<div class="goalhow">
+      <b>How this goal was set</b>
+      <ol>
+        <li>Lucidity trained a deliberately small starting model: ${esc(a.start_model)} on ${esc(cols)} of ${a.numeric_columns} numeric columns.</li>
+        <li>It scored ${n(a.start_test)} ${esc(m)} on the test rows (${n(a.start_dev)} on the tune rows). Lower is better.</li>
+        <li>The goal is ${esc(a.goal_rule)}: <label>${esc(m)} at or below <input type="number" id="goalval" step="any" value="${n(a.goal_value)}"></label></li>
+      </ol>
+      <div class="muted">For scale: ${a.references.map(r => `${esc(r.label.toLowerCase())} scores ${n(r.value)}`).join(", ")}. The 10% is a rule of thumb, reachable on most tables and never free; change the number to set your own bar. Agents only see tune scores; Lucidity checks the goal itself on the test rows.</div>
+      <div class="err-text" id="goalwarn" role="alert"></div>
+    </div>`;
 }
 
 // Bring a CSV, step 2: the server builds a repo around the table; its goal, folder and scorer fill the form.

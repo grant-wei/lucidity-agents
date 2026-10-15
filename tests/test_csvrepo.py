@@ -109,3 +109,11 @@ def test_group_split_keeps_each_group_together(tmp_path):
     assert all(len(s) == 1 for s in sides.values()) and "same customer always land together" in a["split"]
     with pytest.raises(csvrepo.CsvError, match="not both"):
         csvrepo.build(tmp_path / "visits.csv", "churn", tmp_path / "g2", split_by="customer", group_by="customer")
+
+
+def test_about_says_how_the_goal_was_set(tmp_path):
+    a = csvrepo.build("examples/breast_cancer.csv", "diagnosis", tmp_path)
+    assert a["goal_value"] == round(a["start_test"] * 0.9, 3)
+    assert f"to {a['goal_value']} or lower" in a["goal"]
+    assert a["start_model"] == "LogisticRegression" and len(a["start_columns"]) == 2
+    assert "10%" in a["goal_rule"] and a["lower_is_better"]

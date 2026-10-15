@@ -713,3 +713,10 @@ details.more > summary .muted { font-weight: 400; margin-left: 6px; }
 .csvpick { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; margin-top: 8px; }
 .csvpick .f2 { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; flex: 1 1 180px; min-width: 0; }
 .csvpick select { width: 100%; min-width: 0; }
+
+/* Bring a CSV: where the goal's number came from. */
+.goalhow { margin-top: 8px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }
+.goalhow ol { margin: 6px 0; padding-left: 20px; color: var(--ink-2); }
+.goalhow li { margin: 2px 0; overflow-wrap: anywhere; }
+.goalhow input { width: 7em; margin-left: 4px; }
+.goalhow .muted { font-size: 13px; }
