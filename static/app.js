@@ -1141,12 +1141,12 @@ function narrate(v, key, tg) {
   v.nodes.forEach(n => unitsOf(n).forEach(u => u.checks.forEach(c => {
     const val = measured(c);
     let t;
-    if (c.tampered) t = `<b>${esc(u.id)}</b> edited the scorer or its data (${esc(c.tampered.slice(0, 2).join(", "))}). Not scored; sent back.`;
-    else if (c.recheck) t = `<b>${esc(u.id)}</b> passed alone but not combined with work merged since, so it's sent back.`;
-    else if (val == null) t = c.verdict === "pass" ? `<b>${esc(u.id)}</b>'s write-up was judged by a second model and passed.`
-      : `<b>${esc(u.id)}</b>'s write-up was judged by a second model and sent back.`;
-    else t = c.verdict === "pass" ? `<b>${esc(u.id)}</b>'s fix scored <b class="okv">${P(val)}</b> on data it never saw. That clears ${bar}.`
-      : `<b>${esc(u.id)}</b>'s fix scored <b class="bad">${P(val)}</b> on data it never saw. Short of ${bar}, so it's sent back${u.round < u.max_rounds && c.round < u.max_rounds ? " to try again" : ""}.`;
+    if (c.tampered) t = `<b>${esc(u.label || u.id)}</b> edited the scorer or its data (${esc(c.tampered.slice(0, 2).join(", "))}). Not scored; sent back.`;
+    else if (c.recheck) t = `<b>${esc(u.label || u.id)}</b> passed alone but not combined with work merged since, so it's sent back.`;
+    else if (val == null) t = c.verdict === "pass" ? `<b>${esc(u.label || u.id)}</b>'s write-up was judged by a second model and passed.`
+      : `<b>${esc(u.label || u.id)}</b>'s write-up was judged by a second model and sent back.`;
+    else t = c.verdict === "pass" ? `<b>${esc(u.label || u.id)}</b>'s fix scored <b class="okv">${P(val)}</b> on data it never saw. That clears ${bar}.`
+      : `<b>${esc(u.label || u.id)}</b>'s fix scored <b class="bad">${P(val)}</b> on data it never saw. Short of ${bar}, so it's sent back${u.round < u.max_rounds && c.round < u.max_rounds ? " to try again" : ""}.`;
     out.push({s: c.s, t});
   })));
   const S = (v.scores || []).filter(s => s.metrics);
