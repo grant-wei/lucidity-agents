@@ -47,8 +47,8 @@
 <body>
 <main>
 
-<h1>Lucidity. <span class="acc">AI agents build the model. Lucidity grades it.</span></h1>
-<p class="lede">Give it a CSV and a column to predict. AI agents each try a different kind of model at the same time, and Lucidity scores every attempt on test rows the agents never see. Only work that beats the best answer without agents gets kept.</p>
+<h1>Lucidity. <span class="acc">ML workflows in minutes, that you can follow.</span></h1>
+<p class="lede">Give it a CSV and a column to predict. Lucidity plans the work, runs AI agents on several kinds of model at once, and shows every step in plain English: what ran, what scored, what won, and why. Every score comes from rows the agents never saw, so what you read is real.</p>
 <div class="links">
   <div><b>Repo</b> &nbsp;<a href="https://github.com/grant-wei/lucidity-agents">github.com/grant-wei/lucidity-agents</a> (public; <code>python start.py</code> to run)</div>
   <div><b>Live demo</b> &nbsp;<a href="https://www.grantwei.com/lucidity">grantwei.com/lucidity</a>. The real app's screens replaying recorded runs. No key needed.</div>
@@ -57,15 +57,18 @@
 
 <h2>1. Motivation</h2>
 
-<p>AI coding agents can now build a machine-learning model for you. Ask Claude Code, Codex or a notebook assistant to "predict churn from this CSV" and a few minutes later it tells you it got 94% accuracy. The problem is who checked that number. Almost always it's the same agent that built the model.</p>
+<p>Answering "can we predict this column?" well is a whole workflow, not one step. You split the data so you have honest test rows. You set a baseline, so you know what "good" means. You try several kinds of model, from plain regression to boosted trees, and tune each one. You score them all on the same test rows, pick one, and explain why. A data scientist does this in an afternoon. Most people who have the question, like a manager, an analyst or a student in this course, can't do it at all.</p>
 
-<p>On ML work that's easy to get wrong without anyone lying. The agent tunes on the test rows because they were sitting in the same dataframe. It overfits a small table. It keeps a column that quietly contains the answer. It reports the best of twenty tries without saying there were twenty. Each of these makes the number look better than the model is, and the person asking usually can't tell. That person is often a manager or analyst, not an ML engineer, which is exactly who this course is for.</p>
+<p>AI coding agents changed half of that. Ask Claude Code, Codex or a notebook assistant to "predict churn from this CSV" and it will write a model. But what comes back is hard to follow. It's a long scroll of code and logs, usually one kind of model, and a score the agent reported about its own work. If you can't read the code, you can't tell what was tried, why it won, or whether the number is real.</p>
 
-<p>Today the fix is to have an expert re-check the work by hand, or to trust it. Both are bad. Re-checking costs an expert's afternoon. Trusting it means shipping a model whose score was graded by the student who took the test.</p>
+<p>So the gap isn't building one model. It's running the whole workflow, fast, in a form a non-expert can follow and trust. That's what Lucidity does.</p>
 
-<p>There's a second, quieter problem. Even an honest agent usually tries one kind of model, the one it thought of first. A person who knows ML would try several, from simple to complex, and compare them on the same held-out data. Agents don't do that unless told to, and when they do, they compare on their own terms.</p>
-
-<p>Lucidity takes the grading away from the agents. The agents get the training and tuning rows. Lucidity keeps the test rows, runs the scorer itself, and only keeps work that clears a goal set from the best answer you'd get with no agents at all.</p>
+<ul>
+  <li><b>Orchestrated.</b> One upload turns into a full plan. Up to ten kinds of model get their own agent, run in parallel, and the best is merged. You make one choice, which models to try.</li>
+  <li><b>Fast.</b> The traced run in section 3 compared nine kinds of model in 2 minutes 37 seconds for 3 cents.</li>
+  <li><b>Easy to understand.</b> A plan you approve, a live race chart, a leaderboard, one plain sentence for every round of work, and a headline that says what won and against what.</li>
+  <li><b>Honest.</b> The agents never see the test rows. Lucidity scores every attempt itself against the best answer you'd get with no agents, so the leaderboard can be taken at face value.</li>
+</ul>
 
 <h2>2. What is new</h2>
 
@@ -74,22 +77,22 @@
 <table>
   <thead><tr><th style="width:20%">Product</th><th style="width:40%">What it does</th><th>Where Lucidity differs</th></tr></thead>
   <tbody>
-    <tr><td>Google Colab Data Science Agent</td><td>Gemini in a Colab notebook. Upload a CSV, it splits the data, trains and compares models like a random forest, and tests the best on a held-out set.</td><td>The same agent that builds the model also runs the test, in the same notebook. In Lucidity the agents can't run the test split at all.</td></tr>
-    <tr><td>Weco (built on AIDE)</td><td>A tree-search agent that edits code, runs your evaluation script and keeps the best version. AIDE's tree search won about 4x more medals than a linear agent on OpenAI's MLE-Bench.</td><td>The closest idea. Weco is one search loop on one file. Lucidity races several agents, each on a different model family in its own copy of the code, and the owner picks which families run. I couldn't confirm whether Weco hides the test score from the agent.</td></tr>
-    <tr><td>AutoGluon</td><td>Open-source AutoML. One call trains and stacks many models on a table.</td><td>No AI agent and no code to review. It's a strong fixed recipe. Lucidity's agents write readable code you can merge or reject, and the app explains the pick.</td></tr>
+    <tr><td>Google Colab Data Science Agent</td><td>Gemini in a Colab notebook. Upload a CSV, it splits the data, trains and compares models like a random forest, and tests the best on a held-out set.</td><td>One agent, one notebook. You follow its work by reading code cells, and it runs its own test. Lucidity runs many agents at once and shows the work as a plan, a race and a leaderboard.</td></tr>
+    <tr><td>Weco (built on AIDE)</td><td>A tree-search agent that edits code, runs your evaluation script and keeps the best version. AIDE's tree search won about 4x more medals than a linear agent on OpenAI's MLE-Bench.</td><td>The closest idea, aimed at engineers. Weco is one search loop on one file you set up. Lucidity starts from a CSV, races several agents on different model families, and the owner picks which ones run. I couldn't confirm whether Weco hides the test score from the agent.</td></tr>
+    <tr><td>AutoGluon</td><td>Open-source AutoML. One call trains and stacks many models on a table.</td><td>Fast, but a black box. It returns a stacked model with no story. Lucidity explains each step in words and keeps the code readable.</td></tr>
     <tr><td>DataRobot</td><td>Enterprise AutoML and agent platform, priced by quote. A third-party site cites a median contract of about $212,000 a year (not confirmed with DataRobot).</td><td>Built for companies with an ML team. A Lucidity run costs one to seven cents in model calls on your own key.</td></tr>
   </tbody>
 </table>
 
-<p><b>The gap.</b> Tools that use an AI agent to build models score the model inside the same loop that builds it. AutoML tools don't use an agent at all. Lucidity sits between them. Agents do the building, and a separate referee they can't reach does the grading. Three parts of that are new as far as I could find.</p>
+<p><b>The gap.</b> Agent tools build a model but leave you reading code. AutoML tools are fast but don't explain themselves. Enterprise platforms do both at an enterprise price. Lucidity runs the whole workflow with agents and shows it in a form anyone can follow. Three parts of that are new as far as I could find.</p>
 <ul>
-  <li><b>A locked test split.</b> The scorer refuses to show test scores to anything running as an agent. Any agent that edits the scorer or the data fails before it's scored.</li>
-  <li><b>A goal set from the no-agent answer.</b> Every table gets a benchmark Lucidity computes itself, like plain regression on every column, guessing the most common answer, or an outside forecast like FiveThirtyEight's. The goal is to beat the best of those by at least 0.2%. "Better than the starting model" isn't enough. Section 6 shows why that rule matters.</li>
-  <li><b>A race of model families, picked by a person.</b> The planner proposes up to ten families from simple to complex. The owner ticks which ones to try, and each gets its own agent working in its own git worktree. The leaderboard then compares all of them on the same test rows.</li>
+  <li><b>A race of model families, picked by a person.</b> The planner proposes up to ten kinds of model from simple to complex. The owner ticks which ones to try, and each gets its own agent in its own git worktree, all running at once.</li>
+  <li><b>The workflow is the interface.</b> The screen follows the steps as they happen. You see the plan, then agents working in parallel, then every score landing on a chart, then the best one kept, with a sentence for each round and a headline at the end.</li>
+  <li><b>Scores you can trust without reading code.</b> The scorer refuses test scores to anything running as an agent, and any agent that edits the scorer or data fails before it's scored. The goal is to beat the best no-agent answer, like plain regression on every column, by at least 0.2%. Section 6 shows why that matters.</li>
 </ul>
 
 <h3>What existed before the course</h3>
-<p>Lucidity started before this course as a personal tool for watching my own coding agents: which ones were waiting on me, which were burning money, and whether "done" was really done. That last check turned out to be the interesting part. For the course I rebuilt it in a clean repo around that idea and pointed it at ML work, where "is it really better?" has a number you can check. Everything in the repo is new for the course. That includes the CSV setup and the locked split, the benchmark goal, the planner and family picker, the parallel agents in worktrees, the referee and checker, the race chart and leaderboard, the safety layer, the replayable demos, and the hosted demo.</p>
+<p>Lucidity started before this course as a personal tool for watching my own coding agents: which ones were waiting on me, which were burning money, and whether "done" was really done. For the course I rebuilt it in a clean repo as an orchestrator for ML work, keeping the part that mattered most, which was making many agents' work easy to follow at a glance. Everything in the repo is new for the course. That includes the CSV setup and the locked split, the benchmark goal, the planner and family picker, the parallel agents in worktrees, the referee and checker, the race chart and leaderboard, the safety layer, the replayable demos, and the hosted demo.</p>
 
 <h2>3. The agents</h2>
 
@@ -269,20 +272,7 @@ test_an_agent_cannot_score_the_held_out_split PASSED [100%]
 
 <h2>6. Impact</h2>
 
-<h3>It caught models that looked better but weren't</h3>
-<p>The strongest evidence came from a mistake in my own first version. Its goal was "10% better than the starting model." On Oct 15 the agents cleared that goal on two public tables. When I added the no-agent benchmark, both winners turned out to lose to plain textbook regression on the same test rows.</p>
-<table>
-  <thead><tr><th>Table</th><th class="num">Starting model</th><th class="num">Agents' winner</th><th class="num">Plain regression</th><th>Real result</th></tr></thead>
-  <tbody>
-    <tr><td>Diabetes (442 rows, RMSE)</td><td class="num">76.84</td><td class="num">54.75</td><td class="num">53.96</td><td>Worse than the textbook model</td></tr>
-    <tr><td>Seattle weather (1,461 rows, log loss)</td><td class="num">0.5031</td><td class="num">0.4485</td><td class="num">0.4344</td><td>Worse than the textbook model</td></tr>
-    <tr><td>Breast cancer (569 rows, log loss)</td><td class="num">0.2721</td><td class="num">0.0817</td><td class="num">0.2362</td><td>Real improvement</td></tr>
-    <tr><td>Wine (178 rows, log loss)</td><td class="num">0.5434</td><td class="num">0.0705</td><td class="num">0.0953</td><td>Real improvement</td></tr>
-  </tbody>
-</table>
-<p>An agent grading itself against its own starting point would have reported a 29% and an 11% improvement and shipped both. Under the current rule both are misses, and the run says so. The Fed demo shows the same thing from the other side. The tuned models looked better on the tuning years and worse on the test years, so plain logistic regression won.</p>
-
-<h3>Me, before and after</h3>
+<h3>Faster, and easy to follow</h3>
 <p>Before Lucidity, comparing several model families on a new table meant writing the split myself, a pipeline for each family, a loop to tune each one, and a scoring step I had to be careful never to peek at. Then I'd write up which one won and why.</p>
 <table>
   <thead><tr><th>Breast-cancer table, 3+ model families</th><th>By hand (my estimate, not timed)</th><th>With Lucidity</th></tr></thead>
@@ -296,8 +286,21 @@ test_an_agent_cannot_score_the_held_out_split PASSED [100%]
 </table>
 <p class="small">The by-hand column is an estimate from what the work involves, not a timed trial. The slow part is the setup that has nothing to do with the question, like writing the same split and scoring code again for each family and keeping the test rows out of the tuning.</p>
 
+<h3>It caught models that looked better but weren't</h3>
+<p>The strongest evidence came from a mistake in my own first version. Its goal was "10% better than the starting model." On Oct 15 the agents cleared that goal on two public tables. When I added the no-agent benchmark, both winners turned out to lose to plain textbook regression on the same test rows.</p>
+<table>
+  <thead><tr><th>Table</th><th class="num">Starting model</th><th class="num">Agents' winner</th><th class="num">Plain regression</th><th>Real result</th></tr></thead>
+  <tbody>
+    <tr><td>Diabetes (442 rows, RMSE)</td><td class="num">76.84</td><td class="num">54.75</td><td class="num">53.96</td><td>Worse than the textbook model</td></tr>
+    <tr><td>Seattle weather (1,461 rows, log loss)</td><td class="num">0.5031</td><td class="num">0.4485</td><td class="num">0.4344</td><td>Worse than the textbook model</td></tr>
+    <tr><td>Breast cancer (569 rows, log loss)</td><td class="num">0.2721</td><td class="num">0.0817</td><td class="num">0.2362</td><td>Real improvement</td></tr>
+    <tr><td>Wine (178 rows, log loss)</td><td class="num">0.5434</td><td class="num">0.0705</td><td class="num">0.0953</td><td>Real improvement</td></tr>
+  </tbody>
+</table>
+<p>An agent grading itself against its own starting point would have reported a 29% and an 11% improvement and shipped both. Under the current rule both are misses, and the run says so. The Fed demo shows the same thing from the other side. The tuned models looked better on the tuning years and worse on the test years, so plain logistic regression won.</p>
+
 <h3>Who it's for</h3>
-<p>The clearest user is someone in my seat in this course: a manager or analyst who can get an AI agent to build a model but can't easily judge whether its score is real. Lucidity gives that person three things they can trust without reading the code. The test score comes from rows the agents never saw. The goal compares against the answer they'd get with no agents. And a near-tie is labeled as one. For an ML engineer it's a fast, honest first pass at "which family fits this table" that costs a few cents.</p>
+<p>The clearest user is someone in my seat in this course. A manager or analyst who has a table and a question, and wants a real answer in minutes without writing a pipeline or reading one. Lucidity gives them the whole workflow as something they can watch and explain to someone else. That covers what was tried, what won, by how much, and whether it beat the simple answer. For an ML engineer it's a fast first pass at "which kind of model fits this table" that costs a few cents.</p>
 
 <h2>7. Limits and next steps</h2>
 
