@@ -285,16 +285,16 @@ test_an_agent_cannot_score_the_held_out_split PASSED [100%]
 <h3>Me, before and after</h3>
 <p>Before Lucidity, comparing several model families on a new table meant writing the split myself, a pipeline for each family, a loop to tune each one, and a scoring step I had to be careful never to peek at. Then I'd write up which one won and why.</p>
 <table>
-  <thead><tr><th>Breast-cancer table, 3+ model families</th><th>By hand</th><th>With Lucidity</th></tr></thead>
+  <thead><tr><th>Breast-cancer table, 3+ model families</th><th>By hand (my estimate, not timed)</th><th>With Lucidity</th></tr></thead>
   <tbody>
-    <tr><td>Time to a compared, scored answer</td><td><span class="fill">[GRANT: minutes it took you]</span></td><td>2 min 37 s of agent time for 9 families, plus about a minute to upload and pick</td></tr>
-    <tr><td>Families compared</td><td><span class="fill">[GRANT: how many]</span></td><td>9, on the same 117 test rows</td></tr>
+    <tr><td>Time to a compared, scored answer</td><td>About an hour for 3 families: the split, a pipeline and tuning loop for each, scoring, and a write-up</td><td>2 min 37 s of agent time for 9 families, plus about a minute to upload and pick</td></tr>
+    <tr><td>Families compared</td><td>3, because each extra family is more code to write</td><td>9, on the same 117 test rows</td></tr>
     <tr><td>Compared against a no-agent benchmark</td><td>Only if I remembered to</td><td>Always, and it sets the goal</td></tr>
     <tr><td>Who saw the test score while tuning</td><td>Me. Nothing stopped me from looking.</td><td>Nobody but the referee</td></tr>
     <tr><td>Cost</td><td>My time</td><td>$0.03</td></tr>
   </tbody>
 </table>
-<p class="small"><span class="fill">[GRANT: one sentence on what was annoying or slow by hand]</span></p>
+<p class="small">The by-hand column is an estimate from what the work involves, not a timed trial. The slow part is the setup that has nothing to do with the question, like writing the same split and scoring code again for each family and keeping the test rows out of the tuning.</p>
 
 <h3>Who it's for</h3>
 <p>The clearest user is someone in my seat in this course: a manager or analyst who can get an AI agent to build a model but can't easily judge whether its score is real. Lucidity gives that person three things they can trust without reading the code. The test score comes from rows the agents never saw. The goal compares against the answer they'd get with no agents. And a near-tie is labeled as one. For an ML engineer it's a fast, honest first pass at "which family fits this table" that costs a few cents.</p>
