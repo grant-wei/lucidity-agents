@@ -1,9 +1,9 @@
 # Lucidity
 
-**AI agents build the model. Lucidity grades it.**
+**ML workflows in minutes, that you can follow.**
 
-Give Lucidity a CSV and a column to predict. AI agents try different models at once, and Lucidity
-scores each one on test data the agents never see.
+Give Lucidity a CSV and a column to predict. It plans the work, runs AI agents on several models at
+once, and shows every step in plain English. Every score comes from test data the agents never see.
 
 When an AI agent says its model got better, usually nobody checks. Agents grade their own work, and on
 ML tasks that's easy to get wrong by accident: tuning on the test rows, overfitting, a model that quietly

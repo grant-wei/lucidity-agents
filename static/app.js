@@ -77,8 +77,8 @@ async function showHome() {
     el.innerHTML = `
       <div class="hero">
         <div class="hero-copy">
-          <h1>AI agents build the model. <em>Lucidity grades it.</em></h1>
-          <p class="lead">Give it a CSV and a column to predict. AI agents try different models at once, and Lucidity scores each one on test data the agents never see. An agent can say its model got better; only the score Lucidity measures decides what is kept.</p>
+          <h1>ML workflows in minutes, <em>that you can follow.</em></h1>
+          <p class="lead">Give it a CSV and a column to predict. Lucidity plans the work, runs AI agents on several models at once, and shows every step in plain English. Every score comes from test data the agents never see.</p>
         </div>
         <form class="card composer" id="composer" autocomplete="off">
           <div class="skel" style="height:300px"></div>
