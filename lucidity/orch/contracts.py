@@ -17,6 +17,11 @@ from ..agents.checker import run_allowlisted_command, run_eval_command
 
 SCORED = ("metric", "no_regression")
 OPS = {">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b}
+LOWER_BETTER = ("loss", "error", "mse", "mae", "brier")   # for these, getting worse means going up
+
+
+def lower_better(metric):
+    return any(w in metric.lower() for w in LOWER_BETTER)
 
 
 def _num(x):
@@ -35,7 +40,7 @@ def label(c):
     if c["kind"] == "metric":
         return f"{c['metric']} {'≥' if c.get('op', '>=') == '>=' else '≤'} {_num(c['value'])}"
     if c["kind"] == "no_regression":
-        return f"no {c['metric']} drops more than {_num(c['value'])}"
+        return f"no {c['metric']} {'rises' if lower_better(c['metric']) else 'drops'} more than {_num(c['value'])}"
     return f"reviewer: {c['text']}"
 
 
@@ -185,7 +190,8 @@ def _no_regression(c, now, was):
         names = sorted(k for k in was if fnmatchcase(k, c["metric"][2:]))
     if not names:
         return {"met": False, "evidence": f"no metric matches {c['metric']}"}
-    dropped = [(k, was[k], now.get(k)) for k in names if now.get(k) is None or now[k] < was[k] - c["value"] - 1e-9]
+    worse = lambda k: now[k] - was[k] if lower_better(k) else was[k] - now[k]
+    dropped = [(k, was[k], now.get(k)) for k in names if now.get(k) is None or worse(k) > c["value"] + 1e-9]
     if not dropped:
         return {"met": True, "evidence": f"none of {len(names)} dropped"}
     return {"met": False, "drops": [{"metric": k, "before": a, "after": b} for k, a, b in dropped],

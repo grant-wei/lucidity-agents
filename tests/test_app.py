@@ -135,3 +135,24 @@ def test_no_key_shows_the_recorded_sample_triage(server, monkeypatch):
     assert "OPENAI_API_KEY" in snap["error"] and "Refresh failed" not in snap["error"]
     assert len(snap["sessions"]) == 8 and all(r["claims"] for r in snap["sessions"] if r["state"] != "unknown")
     assert sum(r["state"] == "needs_you" for r in snap["sessions"]) >= 2
+
+
+def test_hosted_mode_serves_under_the_prefix_and_refuses_paths(server, sandbox, monkeypatch):
+    # On grantwei.com/lucidity: every address carries the prefix, and visitors only get demos and uploads.
+    monkeypatch.setattr(config, "HOSTED", True)
+    monkeypatch.setattr(config, "BASE", "/lucidity")
+    code, html, _ = get(server + "/lucidity", raw=True)
+    assert code == 200 and b'"/lucidity/static/app.js"' in html and b"window.LUCIDITY_BASE" in html
+    code, meta, _ = get(server + "/lucidity/api/runs")
+    assert meta["hosted"] is True
+    assert get(server + "/lucidity/static/style.css", raw=True)[0] == 200
+    # a folder or file on the machine is refused; a demo is not
+    assert status_of(server + "/lucidity/api/runs", {"worker": "builtin", "goal": "x", "repo": str(config.ROOT)}) == 403
+    assert status_of(server + "/lucidity/api/runs", {"worker": "claude", "goal": "x", "repo": str(config.ROOT)}) == 403
+    assert status_of(server + "/lucidity/api/csv/columns", {"path": str(config.ROOT / "README.md")}) == 403
+    assert status_of(server + "/lucidity/api/csv/columns", {"path": "../../etc/passwd"}) == 403
+    assert status_of(server + "/lucidity/api/refresh", {}) == 404
+    code, up = post(server + "/lucidity/api/csv/upload?name=t.csv", b"a,b\n1,2\n3,4\n5,6\n")
+    assert status_of(server + "/lucidity/api/csv/columns", {"path": up["path"]}) != 403
+    assert app.hosted_refusal_for_run({"worker": "builtin", "repo": str(sandbox / "state" / "csv" / "t")}) is None
+    assert app.hosted_refusal_for_run({"worker": "demo"}) is None

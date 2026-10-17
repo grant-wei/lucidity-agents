@@ -158,6 +158,9 @@ def validate_plan(plan, total_budget, eval_command=None):
         if q["drives"] and (q["drives"] not in known or not q["multi"]):
             problems.append(f"question {q['id']}: drives must name a task and allow several picks; unlinked")
             q["drives"] = ""
+        races = [n["id"] for n in nodes if n.get("attempts", 1) > 1]
+        if not q["drives"] and q["multi"] and len(races) == 1 and all(o["approach"].strip() for o in q["options"])                 and not any(x["drives"] == races[0] for x in questions):
+            q["drives"] = races[0]   # a pick-the-approaches question with one race to feed: the model forgot to link it
         if not any(o["recommended"] for o in q["options"]):
             q["options"][0]["recommended"] = True
         questions.append(q)

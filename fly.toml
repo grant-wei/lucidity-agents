@@ -1,0 +1,21 @@
+# Fly.io settings for the hosted Lucidity. Deploy: fly launch --copy-config --no-deploy, then
+# fly volumes create lucidity_state --size 1, fly secrets set OPENAI_API_KEY=..., fly deploy.
+app = "lucidity-grantwei"
+primary_region = "ewr"
+
+[build]
+
+[mounts]
+  source = "lucidity_state"
+  destination = "/app/state"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"   # a race keeps going after the visitor's browser goes quiet
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

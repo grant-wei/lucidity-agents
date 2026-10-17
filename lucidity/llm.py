@@ -26,12 +26,18 @@ def model():
     m = getattr(_local, "model", None)
     if m is None:
         if not config.has_key():
-            raise UserError("no OPENAI_API_KEY in .env")
-        m = _local.model = OpenAIResponsesModel(config.MODEL, provider=OpenAIProvider())
+            raise UserError(f"no {config.KEY_NAME} in .env")
+        if config.CLAUDE:   # optional: pip install "pydantic-ai-slim[anthropic]"
+            from pydantic_ai.models.anthropic import AnthropicModel
+            from pydantic_ai.providers.anthropic import AnthropicProvider
+            m = _local.model = AnthropicModel(config.MODEL, provider=AnthropicProvider(api_key=config.api_key()))
+        else:
+            m = _local.model = OpenAIResponsesModel(config.MODEL, provider=OpenAIProvider(api_key=config.api_key()))
     return m
 
 
-SETTINGS = OpenAIResponsesModelSettings(openai_reasoning_effort="low", max_tokens=4000)
+# max_tokens matters on Claude: pydantic-ai otherwise caps it at 4096 and long tool calls truncate
+SETTINGS = {"max_tokens": 8000} if config.CLAUDE else OpenAIResponsesModelSettings(openai_reasoning_effort="low", max_tokens=4000)
 
 
 def log_usage(row):
@@ -75,8 +81,8 @@ def run_agent(agent, prompt, *, name, deps=None, refresh_id=None, request_limit=
         m = model()
     except UserError as e:   # no key: fail like a bad model call, so callers keep their last result
         row = _row(name, refresh_id, started, 0, 0, 0, 0, 0)
-        row["failed"] = "no OPENAI_API_KEY"
-        raise ModelCallFailed("no OPENAI_API_KEY in .env, so no model was called", row) from e
+        row["failed"] = f"no {config.KEY_NAME}"
+        raise ModelCallFailed(f"no {config.KEY_NAME} in .env, so no model was called", row) from e
     with capture_run_messages() as messages:
         try:
             result = agent.run_sync(prompt, deps=deps, model=m, model_settings=SETTINGS,

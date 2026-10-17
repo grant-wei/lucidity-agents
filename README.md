@@ -203,7 +203,7 @@ Text from workers and sessions is wrapped as data and the models are told never 
 - **Per task:** each task gets a share of the run budget from the plan. Claude Code enforces it with
   `--max-budget-usd`; for the others Lucidity stops at the end of the round that crosses it.
 - **Eval spend:** an eval that reports its own model cost (above) is charged to the run and its task.
-- **Lucidity's own calls** (planner, checker, built-in worker, monitor): $0.50 a day and 120 requests
+- **Lucidity's own calls** (planner, checker, built-in worker, monitor): $0.50 a day and 600 requests
   an hour by default (`LUCIDITY_DAILY_USD_CAP`, `LUCIDITY_CALLS_PER_HOUR_CAP`). When that trips, no
   further call is made and the page says so. Raise it for real live runs.
 - Every model call is logged with its token counts and cost to `logs/usage.jsonl`.
@@ -218,6 +218,19 @@ Text from workers and sessions is wrapped as data and the models are told never 
   and the task goes to you instead of passing.
 - In the monitor, Pause / Stop / Let it run are recorded to `logs/actions.jsonl`; Lucidity never
   stops your hand-started agents itself.
+
+## Hosted version
+
+`LUCIDITY_HOSTED=1` runs Lucidity as a public site (it is meant for grantwei.com/lucidity). Visitors can
+watch the demos and run the built-in agent on a table they upload. They can't point it at a folder or file
+on the server, use the Claude or Codex CLIs, delete runs, or reach the session monitor.
+`LUCIDITY_BASE=/lucidity` serves every page and request under that prefix.
+
+The `Dockerfile`, `hosted.sh` and `fly.toml` deploy it to Fly.io. Runs and uploads live on a volume. The API
+key is a Fly secret; `hosted.sh` hands it to Lucidity in a file that is read once and deleted, so it is not
+in the environment of the code agents run. Use a key from its own OpenAI project with a monthly budget
+limit, because code the agents write still runs on that machine. The site forwards `/lucidity` to the
+server when `LUCIDITY_ORIGIN` is set on the website.
 
 ## Tests and evals
 

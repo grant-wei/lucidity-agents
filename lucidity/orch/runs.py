@@ -125,7 +125,15 @@ class Run:
             self.dir.mkdir(parents=True, exist_ok=True)
             tmp = self.dir / f"{self.id}.json.tmp"
             tmp.write_text(json.dumps(self.d, default=str), encoding="utf-8")
-            tmp.replace(self.dir / f"{self.id}.json")
+            for wait in (0.02, 0.05, 0.1, 0.2, None):
+                try:
+                    tmp.replace(self.dir / f"{self.id}.json")
+                    break
+                except PermissionError:   # Windows: someone is reading the file right now. Retry, else the next save catches up
+                    if wait is None:
+                        self._last_save = 0
+                        break
+                    time.sleep(wait)
 
     def set_state(self, state, reason=""):
         with self.lock:
@@ -402,7 +410,10 @@ class Run:
                 return self._fan_out(n)
             self._work_inner(n)
         except Exception as e:
-            traceback.print_exc()
+            try:
+                traceback.print_exc()
+            except Exception:   # a broken log pipe must not leave the task stuck as "running"
+                pass
             with self.lock:
                 n["state"], n["phase"], n["reason"], n["needs_kind"] = "needs_you", "", f"{type(e).__name__}: {e}", "error"
             self.event("error", f"{n['id']}: {type(e).__name__}: {e}", node=n["id"], level="error")
@@ -578,14 +589,16 @@ class Run:
         strategies += [""] * (k - len(strategies))
         letters = n.get("agent_letters") or [chr(97 + i) for i in range(k)]
         labels = n.get("agent_labels") or [""] * k
+        # no picked label: name the agent by its approach ("Random forest, tune trees" -> "Random forest")
+        names = [lab or s.split(",")[0].split(" (")[0].strip()[:40] for lab, s in zip(labels + [""] * k, strategies)]
         keep = ("title", "deps", "done_when", "max_rounds")
         agents = [{**_new_node({key: n[key] for key in keep}), "id": f"{n['id']}{letters[i]}", "parent": n["id"],
-                   "strategy": s, "label": labels[i], "attempt": n["attempt"], "budget_usd": round(n["budget_usd"] / k, 4),
+                   "strategy": s, "label": names[i], "picked_label": bool(labels[i]), "attempt": n["attempt"], "budget_usd": round(n["budget_usd"] / k, 4),
                    "prompt": n["prompt"] + (f"\n\nYour approach: {s}" + (" Other agents are trying other approaches to "
                                             "this same task in parallel; only the best one that passes is merged." if k > 1 else "") if s else "")}
                   for i, s in enumerate(strategies)]
         for a in agents:
-            if a["label"]:   # an approach the owner picked: what merges has to be that approach, not a swap that scored better
+            if a.pop("picked_label"):   # an approach the owner picked: what merges has to be that approach, not a swap that scored better
                 a["done_when"] = a["done_when"] + [{
                     "kind": "rubric", "command": "", "path": "", "metric": "", "op": ">=", "value": 0.0,
                     "text": f"The model that makes the predictions is a {a['label']}. Changing features or tuning is "
@@ -1044,8 +1057,11 @@ def create(goal, repo=None, budget_usd=None, worker="demo", max_parallel=3, auto
     if worker == "demo":
         repo = demo.prepare_repo(config.STATE_DIR / "demo" / rid, w.scenario)
     else:
-        repo = Path(str(repo or "").strip().strip('"')).expanduser()
-        if not str(repo) or not repo.is_dir():
+        raw = str(repo or "").strip().strip('"')
+        if not raw:   # Path("") is the current folder, which would quietly point agents at Lucidity itself
+            raise RunError("no data yet: upload a table and press Set up, or pick a repo folder")
+        repo = Path(raw).expanduser()
+        if not repo.is_dir():
             raise RunError("pick a folder that exists")
         if not worktrees.is_repo(repo):
             raise RunError(f"{repo} is not a git repository")

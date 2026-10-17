@@ -158,6 +158,19 @@ def test_planner_validates_metric_conditions():
     assert any("eval command refused" in p for p in problems) and any("needs a metric" in p for p in problems)
 
 
+def test_a_model_question_left_unlinked_feeds_the_only_race():
+    # seen live on Haiku: the plan asked which families to try but left drives empty, so the picks did nothing
+    from lucidity.agents import planner
+    opt = lambda label: {"label": label, "note": "", "approach": f"use {label}"}
+    plan = planner.Plan.model_validate({"summary": "s", "nodes": [
+        {"id": "t1", "title": "a", "prompt": "p", "budget_usd": 0.2, "done_when": []},
+        {"id": "t2", "title": "race", "prompt": "p", "budget_usd": 0.5, "deps": ["t1"], "attempts": 2,
+         "strategies": ["Random forest, tune trees", "Naive Bayes (Gaussian)"], "done_when": []}],
+        "questions": [{"id": "q1", "question": "which?", "multi": True, "options": [opt("Random forest"), opt("Naive Bayes")]}]})
+    clean, _ = planner.validate_plan(plan, 1.0)
+    assert clean["questions"][0]["drives"] == "t2"
+
+
 def test_the_owners_eval_command_is_the_referee():
     from lucidity.agents import planner
     held = "python evals/score.py --split heldout"
@@ -290,6 +303,13 @@ def test_gate_matches_a_paraphrased_rubric_label_by_number(orch, monkeypatch):
     monkeypatch.setattr(llm, "model", lambda: FunctionModel(silent))
     v = gate.grade(n, conds, "done", "diff")
     assert v["verdict"] == "fail" and "did not confirm" in v["reasons"][0]
+
+    def unsure(messages, info):   # confirms everything, then asks for a person anyway (seen live on Haiku)
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {
+            "verdict": "needs_you", "reasons": ["a person should confirm the held-out scores"],
+            "conditions": [{"number": 2, "label": "x", "met": True, "evidence": "BASELINE.md"}]})])
+    monkeypatch.setattr(llm, "model", lambda: FunctionModel(unsure))
+    assert gate.grade(n, conds, "done", "diff")["verdict"] == "pass"
 
 
 def test_worker_prompt_shows_the_scores_a_task_started_from(orch):
@@ -497,6 +517,11 @@ def test_a_split_prefixed_metric_reads_flat_scores():
     r = contracts._metric(c, {"rmse": 55.1, "r2": 0.45}, {"rmse": 76.84, "r2": 0.01})
     assert r["met"] is True and r["evidence"] == "76.84 → 55.10"
     assert contracts._no_regression({"metric": "*.r2", "value": 0}, {"r2": 0.45}, {"r2": 0.01})["met"] is True
+    # log loss going down is the goal, not a drop (a live Haiku plan wrote this rule and failed its own fix)
+    c = {"kind": "no_regression", "metric": "*.log_loss", "value": 0.01}
+    assert contracts._no_regression(c, {"log_loss": 0.4434}, {"log_loss": 0.5121})["met"] is True
+    assert contracts._no_regression(c, {"log_loss": 0.53}, {"log_loss": 0.5121})["met"] is False
+    assert contracts.label(c) == "no *.log_loss rises more than 0.01"
     assert contracts.metric_key({"currency.f1": 0.9, "f1": 0.5}, "currency.f1") == "currency.f1"
     assert contracts.metric_key({"f1": 0.5}, "currency.f1") == "currency.f1"   # not a split name: no guessing
 

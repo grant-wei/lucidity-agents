@@ -14,6 +14,7 @@ import time
 import traceback
 import webbrowser
 from datetime import datetime, timezone
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -120,6 +121,45 @@ SAMPLE = {"download": "/api/sample.csv", "filename": "credit_customers.csv",
                      "Try all ten model families and keep the one that scores best on the test rows.")}
 
 
+def _inside(path, folder):
+    try:
+        p = Path(str(path or "").strip().strip('"'))
+        p = (p if p.is_absolute() else config.ROOT / p).resolve()
+        return p == folder.resolve() or folder.resolve() in p.parents
+    except (OSError, ValueError):
+        return False
+
+
+def hosted_table_ok(path):
+    """Hosted: a table must be one a visitor uploaded, or the bundled sample."""
+    return _inside(path, config.STATE_DIR / "uploads") or _inside(path, SAMPLE_CSV)
+
+
+def hosted_refusal_for_run(body):
+    """Hosted: a run is a demo, or the built-in agent on a repo Lucidity built from an uploaded table."""
+    if not config.HOSTED:
+        return None
+    worker = body.get("worker") or "demo"
+    if worker == "demo":
+        return None
+    if worker != "builtin":
+        return "only the built-in agent runs on the hosted version"
+    if not _inside(body.get("repo"), config.STATE_DIR / "csv"):
+        return "upload a table and press Set up first"
+    return None
+
+
+def index_html():
+    """The page, with its links and requests pointed under the site prefix when there is one."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    if config.BASE:
+        b = json.dumps(config.BASE)
+        html = html.replace('"/static/', f'"{config.BASE}/static/').replace(
+            "<head>", "<head>\n<script>window.LUCIDITY_BASE=" + b + ";(function(f){window.fetch=function(u,o){"
+            "return f(typeof u===\"string\"&&u.charAt(0)===\"/\"?" + b + "+u:u,o)}})(window.fetch);</script>", 1)
+    return html.encode("utf-8")
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -147,7 +187,16 @@ class Handler(BaseHTTPRequestHandler):
         run = runs.get(parts[0]) if parts and parts[0] else None
         return run, (parts[1] if len(parts) > 1 else "")
 
+    def _unbase(self):
+        """Drop the site prefix (grantwei.com/lucidity/api/runs -> /api/runs)."""
+        if config.BASE and (self.path == config.BASE or self.path.startswith(config.BASE + "/")
+                            or self.path.startswith(config.BASE + "?")):
+            self.path = self.path[len(config.BASE):] or "/"
+            if self.path.startswith("?"):
+                self.path = "/" + self.path
+
     def do_GET(self):
+        self._unbase()
         u = urlparse(self.path)
         q = parse_qs(u.query)
         if u.path == "/api/runs":
@@ -155,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                                     "model": config.MODEL, "max_run_usd": config.MAX_RUN_USD,
                                     "demos": runs.demo.cards(),
                                     "sample": {**SAMPLE, "mb": round(SAMPLE_CSV.stat().st_size / 1e6, 1)} if SAMPLE_CSV.is_file() else None,
-                                    "self_cost": breaker.status()})
+                                    "self_cost": breaker.status(), "hosted": config.HOSTED})
         if u.path.startswith("/api/runs/"):
             run, what = self._run_route(u.path)
             if not run:
@@ -190,7 +239,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         if u.path in ("/", "/index.html"):
-            return self._send(200, (STATIC / "index.html").read_bytes(), "text/html")
+            return self._send(200, index_html(), "text/html")
         if u.path.startswith("/static/"):
             p = (STATIC / u.path[len("/static/"):]).resolve()
             if STATIC.resolve() in p.parents and p.is_file():
@@ -222,11 +271,15 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        self._unbase()
         u = urlparse(self.path)
         if u.path == "/api/runs":
             body = self._body()
             if body is None:
                 return self._send(400, {"error": "bad json"})
+            refused = hosted_refusal_for_run(body)
+            if refused:
+                return self._send(403, {"error": refused})
             try:
                 run = runs.create(body.get("goal"), repo=body.get("repo"), budget_usd=body.get("budget_usd"),
                                   worker=body.get("worker") or "demo", max_parallel=body.get("max_parallel") or 3,
@@ -251,6 +304,8 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             if body is None:
                 return self._send(400, {"error": "bad json"})
+            if config.HOSTED and not hosted_table_ok(body.get("path")):
+                return self._send(403, {"error": "upload the table with the Upload button"})
             try:
                 if u.path == "/api/csv/columns":
                     return self._send(200, csvrepo.columns(body.get("path") or ""))
@@ -274,10 +329,14 @@ class Handler(BaseHTTPRequestHandler):
                             answers=body.get("answers") if isinstance(body.get("answers"), dict) else None)
                     return self._send(200, run.view())
                 if what == "delete":
+                    if config.HOSTED:
+                        return self._send(403, {"error": "runs can't be deleted on the hosted version"})
                     runs.delete(run.id)
                     return self._send(200, {"ok": True})
             except (runs.RunError, runs.worktrees.GitError) as e:
                 return self._send(400, {"error": str(e)})
+            return self._send(404, {"error": "not found"})
+        if config.HOSTED and u.path in ("/api/refresh", "/api/action"):   # the session monitor is local-only
             return self._send(404, {"error": "not found"})
         if u.path == "/api/refresh":
             threading.Thread(target=do_refresh, daemon=True).start()
@@ -308,15 +367,17 @@ class Server(ThreadingHTTPServer):
 
 def main():
     try:
-        srv = Server(("127.0.0.1", config.PORT), Handler)
+        srv = Server(("0.0.0.0" if config.HOSTED else "127.0.0.1", config.PORT), Handler)
     except OSError:
         sys.exit(f"Port {config.PORT} is already in use. Pick another one, for example:\n"
                  f"  LUCIDITY_PORT=8800 python app.py        (Windows PowerShell: $env:LUCIDITY_PORT=\"8800\"; python app.py)")
-    threading.Thread(target=loop, daemon=True).start()
-    threading.Thread(target=map_loop, daemon=True).start()
+    if not config.HOSTED:   # the session monitor reads this computer's agent sessions; a server has none
+        threading.Thread(target=loop, daemon=True).start()
+        threading.Thread(target=map_loop, daemon=True).start()
     url = f"http://127.0.0.1:{config.PORT}"
-    print(f"Lucidity on {url}  (data: {config.DATA_MODE}, model: {config.MODEL}, env: {config.ENV_PATH})")
-    if not os.environ.get("LUCIDITY_NO_BROWSER"):
+    print(f"Lucidity on {url}  (data: {config.DATA_MODE}, model: {config.MODEL}, env: {config.ENV_PATH}"
+          f"{', hosted' if config.HOSTED else ''})", flush=True)
+    if not os.environ.get("LUCIDITY_NO_BROWSER") and not config.HOSTED:
         try:
             webbrowser.open(url)
         except Exception:

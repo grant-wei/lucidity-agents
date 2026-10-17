@@ -102,7 +102,7 @@ async function showHome() {
 
 function workerOptions() {
   const sub = {demo: "no key needed", builtin: "edits via the API", claude: "claude CLI", codex: "codex CLI"};
-  return meta.workers.map(w => {
+  return meta.workers.filter(w => !meta.hosted || ["demo", "builtin"].includes(w.name)).map(w => {
     let ok = w.ok, why = w.why;
     if (w.name !== "demo" && !meta.has_key) { ok = false; why = "needs OPENAI_API_KEY"; }
     return {...w, ok, why, short: w.name === "demo" ? "Demo" : w.name === "builtin" ? "Built-in" : w.label.replace(" CLI", ""), sub: ok ? sub[w.name] : why};
@@ -148,6 +148,10 @@ function renderComposer() {
   bindComposer(f);
 }
 
+// Spinners over the sample buttons the first time they show, for 2 seconds, so it's clear to click them.
+let cueAt = 0;
+const cueOnce = () => { if (!cueAt) cueAt = Date.now(); return Date.now() - cueAt < 1000; };
+
 // "Use your own data": four numbered steps, from getting a table to picking who does the work.
 function ownSteps(live) {
   const sm = meta.sample, c = form.csvCols, name = (form.csv || "").split(/[\\/]/).pop().replace(/-[0-9a-f]{8}(\.csv)$/i, "$1");   // uploads get a suffix on disk
@@ -157,8 +161,9 @@ function ownSteps(live) {
       ${sm ? `<div class="sample">
         <b>No table handy? Use the sample.</b>
         <p>${esc(sm.about)} ${sm.rows.toLocaleString()} rows, ${esc(String(sm.mb))} MB.</p>
+        ${cueOnce() ? `<div class="cue-row" aria-hidden="true"><span><i class="cue-spin"></i></span><span><i class="cue-spin"></i></span></div>` : ""}
         <div class="sample-btns">
-          <a class="btn" href="${esc(sm.download)}" download="${esc(sm.filename)}"><span aria-hidden="true">↓</span> Download sample CSV</a>
+          <a class="btn" href="${esc((window.LUCIDITY_BASE || "") + sm.download)}" download="${esc(sm.filename)}"><span aria-hidden="true">↓</span> Download sample CSV</a>
           <button type="button" class="btn" id="copyprompt">Copy sample prompt</button>
         </div>
         <details class="peek"><summary>See the sample prompt</summary><p>${esc(sm.prompt)}</p></details>
@@ -170,13 +175,13 @@ function ownSteps(live) {
         <span>${c ? "Click or drop to use a different file." : "Up to 50 MB."}</span>
       </label>
       ${c ? csvPicker(c) : ""}
-      <details class="adv"${form.csv && !c ? " open" : ""}><summary>Or type a path to a file on this computer</summary>
+      ${meta.hosted ? `<input type="hidden" id="csv" value="${esc(form.csv)}">` : `<details class="adv"${form.csv && !c ? " open" : ""}><summary>Or type a path to a file on this computer</summary>
         <div class="csvrow">
           <input type="text" id="csv" placeholder="C:\\data\\table.csv" value="${esc(form.csv)}">
           <button type="button" class="btn" id="csvcols">Read columns</button>
         </div>
         ${sm ? `<div class="hint"><a href="#" id="csvex">Load the sample without downloading it</a>.</div>` : ""}
-      </details>
+      </details>`}
       ${form.csvAbout ? caseCard(form.csvAbout.title, csvCard(form.csvAbout), form.csvAbout.blurb, form.csvAbout.split) : ""}`)
     + step(3, `<label for="goal">Say what you want</label>`, `
       <textarea id="goal" rows="4" placeholder="Say what to predict and anything the model must not use. Or paste the sample prompt.">${esc(form.goal)}</textarea>
@@ -194,7 +199,7 @@ function ownSteps(live) {
           <select id="parallel">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === form.parallel ? "selected" : ""}>${n}</option>`).join("")}</select></div>
       </div>
       <label class="check" style="margin-top:12px"><input type="checkbox" id="auto" ${form.auto ? "checked" : ""}> Start as soon as the plan is ready (untick to review the plan first)</label>`)
-    + `<details class="adv field"${form.repo && !form.csvAbout ? " open" : ""}><summary>Advanced: point at a git repo instead</summary>
+    + (meta.hosted ? `<input type="hidden" id="repo" value="${esc(form.repo)}">` : `<details class="adv field"${form.repo && !form.csvAbout ? " open" : ""}><summary>Advanced: point at a git repo instead</summary>
       <div class="field" style="margin-top:10px">
         <label class="f" for="repo">Repository</label>
         <input type="text" id="repo" placeholder="C:\\path\\to\\your\\repo or ~/code/repo" value="${esc(form.repo)}">
@@ -205,11 +210,11 @@ function ownSteps(live) {
         <input type="text" id="evalcmd" class="mono" placeholder="python evals/score.py" value="${esc(form.evalCmd)}">
         <div class="hint">A script under <code>evals/</code> that prints scores like accuracy as JSON. A task then counts as done only when its score clears the bar.</div>
       </div>
-    </details>`;
+    </details>`);
 }
 
 function bindComposer(f) {
-  $$("[data-mode]", f).forEach(b => b.onclick = () => { saveForm(); form.mode = b.dataset.mode; renderComposer(); });
+  $$("[data-mode]", f).forEach(b => b.onclick = () => { saveForm(); if (form.mode !== b.dataset.mode) cueAt = 0; form.mode = b.dataset.mode; renderComposer(); });
   $$("[data-w]", f).forEach(b => b.onclick = () => { saveForm(); form.worker = b.dataset.w; renderComposer(); });
   $$("[data-demo]", f).forEach(b => b.onclick = () => { saveForm(); form.demo = b.dataset.demo; renderComposer(); });
   if ($("#csvcols")) $("#csvcols").onclick = () => readColumns();
@@ -390,6 +395,11 @@ async function submit(e) {
   const dm = (meta.demos || []).find(d => d.name === form.demo);
   const body = form.worker === "demo" ? {worker: "demo", budget_usd: dm.budget_usd, max_parallel: 3, auto_run: true}
     : {worker: form.worker, budget_usd: +$("#budget").value, max_parallel: form.parallel, auto_run: form.auto};
+  if (form.worker !== "demo" && !(form.repo || "").trim()) {
+    $("#cerr").textContent = form.csv ? "Press Set up in step 2 first, so Lucidity can build the test." : "Upload a table in step 2 first.";
+    btn.disabled = false;
+    return;
+  }
   if (form.worker !== "demo") Object.assign(body, {goal: form.goal, repo: form.repo}, form.evalCmd ? {eval_command: form.evalCmd} : {});
   else body.demo = form.demo;
   try {
@@ -489,7 +499,8 @@ async function showRun(id) {
     if (/fetch/i.test(e.message)) $("#offline").hidden = false;
   }
   if (route.view === "run" && route.id === id) {
-    const live = cur && ["planning", "running"].includes(cur.state);
+    // plan_ready polls fast too, so the run view shows up as soon as Start takes effect.
+    const live = cur && ["planning", "plan_ready", "running"].includes(cur.state);
     pollTimer = setTimeout(() => showRun(id), live ? 700 : 4000);
   }
 }
@@ -499,6 +510,11 @@ function renderRun(v) {
   const nodes = v.nodes;
   part("head", [v.state, v.goal, v.budget_usd, v.reason], renderHead);
   part("callout", [v.state, v.reason, v.needs, v.plan_summary, v.files_changed], renderCallout);
+  // Until the owner makes their picks there is nothing to watch: the picks are the whole page.
+  const waiting = v.state === "plan_ready";
+  $("#p-story").hidden = waiting;
+  $("#more").hidden = waiting;
+  if (waiting) return;
   part("story", [v.state, (v.scores || []).length, v.events.length, nodes.map(n => [n.state, n.phase, n.round, n.checks.length, unitsOf(n).map(u => [u.state, u.phase, u.round, u.checks.length, u.picked])]),
                  v.spent_usd.toFixed(4), Math.floor(v.elapsed_s), Math.round(($("#p-story").clientWidth || 0) / 40)], renderStory);
   if (!moreOpen) return;
@@ -550,19 +566,20 @@ window.lucidityAct = act;
 
 /* ---------- head, callouts, stats ---------- */
 
+const firstSentence = t => (String(t).match(/^.*?[.!?](?=\s|$)/) || [t])[0];
 function renderHead(el) {
   const v = cur;
   const acts = [];
   if (v.state === "plan_ready" && !v.auto_run) acts.push(`<button class="btn primary" data-act="approve">Approve plan and run</button>`);
   if (["planning", "running", "needs_you", "plan_ready"].includes(v.state)) acts.push(`<button class="btn danger" data-act="stop">Stop</button>`);
   if (v.state === "stopped" && v.nodes.length && v.integration) acts.push(`<button class="btn" data-act="resume">Resume</button>`);
-  if (!["planning", "running"].includes(v.state)) acts.push(`<button class="btn ghost" data-del="1" title="Delete this run's record and worktrees">Delete</button>`);
+  if (!(meta && meta.hosted) && !["planning", "running"].includes(v.state)) acts.push(`<button class="btn ghost" data-del="1" title="Delete this run's record and worktrees">Delete</button>`);
   acts.push(`<a class="btn" href="#runs">New run</a>`);
   el.innerHTML = `<div class="runhead">
       <div style="min-width:0;flex:1 1 480px">
         <h1>${esc(v.title || v.goal)}</h1>
-        ${v.blurb ? `<p class="blurb">${esc(v.blurb)}</p>` : ""}
-        ${v.split ? `<p class="blurb split">${esc(v.split)}</p>` : ""}
+        <div id="p-take"></div>
+        ${v.blurb ? `<p class="blurb" title="${esc(v.blurb)}">${esc(firstSentence(v.blurb))}${v.split ? ` <span class="muted">${esc(firstSentence(v.split))}</span>` : ""}</p>` : v.split ? `<p class="blurb split">${esc(firstSentence(v.split))}</p>` : ""}
         <div class="meta">${badge(v.state)}
           <span class="chip" title="${esc(v.repo)}">${v.mode === "demo" ? "Demo replay" : esc(v.worker_label)} · ${esc(v.repo_name)}</span>
         </div>
@@ -676,7 +693,47 @@ const metricHelp = k => (METRIC_HELP.find(([re]) => re.test(k || "")) || [, ""])
 function scaleNote(key, refs) {
   const help = metricHelp(key), r = (refs || []).filter(x => typeof x.value === "number");
   if (!help && !r.length) return "";
-  return `<div class="scale">${help ? `<p>${esc(help)}</p>` : ""}${r.length ? `<p class="muted">For scale, answers you could get without agents:</p><ul class="refs">${r.map(x => `<li${x.benchmark ? ' class="best"' : ""}>${esc(x.label)} <b>${asPct(x.value)}</b>${x.benchmark ? " · the benchmark" : ""}${x.why ? `<br><span>${esc(x.why)}</span>` : ""}</li>`).join("")}</ul>` : ""}</div>`;
+  const name = x => x.short || x.label.replace(/\s*\(.*?\)/g, "");
+  return `<div class="scale">${help ? `<p title="${esc(help)}">${esc(help.split(" = ")[0])}: ${esc((help.match(/(Lower|Higher) is better/) || [""])[0].toLowerCase() || help)}.</p>` : ""}${r.length ? `<p class="refs">Without agents: ${r.map(x => `<span${x.benchmark ? ' class="best"' : ""} title="${esc(x.why || "")}">${esc(name(x))} <b>${asPct(x.value)}</b></span>`).join("")}</p>` : ""}</div>`;
+}
+
+// The one-sentence answer at the top of a run: who won, against what, and whether the margin is real.
+function takeaway(v, key, tg) {
+  if (v.state === "done" && !key) return `<div class="takeaway tie"><b>Finished, but nothing was measured.</b><p>This run had no score to hit, so "passed" means a second AI read the work and approved it. No model was trained and scored here.</p></div>`;
+  if (!key || !tg || !["running", "done"].includes(v.state)) return "";
+  const P = asPct, metric = plainMetric(key), dir = tg.op === "<=" ? "lower is better" : "higher is better";
+  const bench = (v.references || []).find(r => r.benchmark && typeof r.value === "number");
+  const benchName = bench ? (bench.short ? `${bench.short}` : bench.label) : null;
+  const race = v.nodes.find(n => n.comparison) || v.nodes.find(n => n.agents && n.agents.length > 1);
+  const box = (cls, h, p) => `<div class="takeaway ${cls}"><b>${h}</b>${p ? `<p>${p}</p>` : ""}</div>`;
+  if (v.state === "running") {
+    if (!race) return box("live", "Running.", `Agents are working. The answer shows up here when scoring is done.`);
+    const us = unitsOf(race), scored = us.map(u => ({u, val: bestOf(u, tg)})).filter(x => x.val != null);
+    if (!scored.length) return box("live", `Running: ${us.length} models are being built.`, "No scores yet. The leader shows up here as models are scored.");
+    const lead = scored.reduce((a, b) => better(tg, b.val, a.val) ? b : a);
+    return box("live", `Running. Leading so far: ${esc(lead.u.label || lead.u.id)} at ${P(lead.val)}.`,
+      `${scored.length} of ${us.length} models scored · goal ${tg.op === "<=" ? "≤" : "≥"} ${P(tg.value)} ${metric} (${dir}).`);
+  }
+  const c = race && race.comparison;
+  if (c && c.rows.length) {
+    const top = c.rows[0], passed = c.rows.filter(r => r.passed).length;
+    if (!top.passed) return box("miss", "No model beat the goal, so nothing was kept.",
+      `Closest: ${esc(top.label)} at ${P(top.value)} ${metric}, against a goal of ${tg.op === "<=" ? "≤" : "≥"} ${P(tg.value)} (${dir}).`);
+    const u = unitsOf(race).find(x => x.id === top.agent), se = seOf(u, c.metric || key);
+    const beats = bench && better(tg, top.value, bench.value), luck = bench && se != null && Math.abs(top.value - bench.value) < 2 * se;
+    const head = !bench ? `${esc(top.label)} wins.`
+      : !beats ? `${esc(top.label)} wins, but doesn't beat ${esc(benchName)}.`
+      : luck ? `${esc(top.label)} wins, but it's a near-tie with ${esc(benchName)}.`
+      : `${esc(top.label)} wins, and it beats ${esc(benchName)}.`;
+    return box(luck || !beats ? "tie" : "ok", head,
+      `${P(top.value)}${bench ? ` vs ${esc(benchName)}'s ${P(bench.value)}` : ""} ${metric} (${dir}).`
+      + (luck ? ` The gap is within noise, so it could be luck.` : ""));
+  }
+  const S = (v.scores || []).filter(s => s.metrics && typeof s.metrics[key] === "number");
+  if (!S.length) return "";
+  const a = S[0].metrics[key], b = S[S.length - 1].metrics[key], met = tg.op === "<=" ? b <= tg.value : b >= tg.value;
+  return box(met ? "ok" : "miss", met ? `Goal met: ${metric} went from ${P(a)} to ${P(b)}.` : `Goal missed: ${metric} ended at ${P(b)}.`,
+    `The goal was ${tg.op === "<=" ? "≤" : "≥"} ${P(tg.value)} (${dir}), on test data no agent saw. Only work that passed is kept.`);
 }
 
 // Every unit that does rounds: a task's agents when it fanned out, else the task itself.
@@ -720,7 +777,7 @@ function renderStory(el) {
   let head;
   if (key && S.length) {
     const a = S[0].metrics[key], b = S[S.length - 1].metrics[key];
-    head = `<div class="big"><span class="lbl">${esc(plainMetric(key))} of the kept code, on test data no agent saw</span>
+    head = `<div class="big"><span class="lbl">${esc(plainMetric(key))}, start → kept model</span>
       <span class="from">${asPct(a)}</span><span class="arrow">→</span><b class="${meets(b) ? "okv" : ""}">${asPct(b)}</b>
       <span class="goal">goal ${tg.op === "<=" ? "≤" : "≥"} ${asPct(tg.value)}${meets(b) ? " ✓" : ""}</span></div>`;
   } else {
@@ -730,10 +787,10 @@ function renderStory(el) {
   const units = v.nodes.flatMap(unitsOf);
   const evals = v.nodes.flatMap(n => unitsOf(n).flatMap(u => u.checks.map(c => ({...c, who: u.id})))).sort((x, y) => x.s - y.s);
   const count = st => units.filter(u => u.state === st).length;
+  const live = v.state === "running";
   const stats = `<div class="crstats">
-    <span><b>${units.length}</b> agents</span><span><b class="run">${count("running")}</b> running</span>
-    <span><b>${evals.length}</b> scored</span><span><b class="okv">${evals.filter(c => c.verdict === "pass").length}</b> passed</span>
-    <span><b class="bad">${evals.filter(c => c.verdict === "fail").length}</b> sent back</span><span><b>${money(v.spent_usd)}</b> of ${money(v.budget_usd)}</span></div>`;
+    <span><b>${units.length}</b> agents</span>${live ? `<span><b class="run">${count("running")}</b> running</span>` : ""}
+    <span><b>${evals.length}</b> scores checked</span><span><b>${money(v.spent_usd)}</b> of ${money(v.budget_usd)}</span></div>`;
   const ph = phaseOf(v);
   const steps = ["Plan the goal into tasks", "Agents work in parallel", "Lucidity scores every attempt", "Best passing attempt is kept"]
     .map((s, i) => `<li class="${ph === 4 || i < ph ? "past" : i === ph ? "now" : ""}"><span>${i + 1}</span>${s}</li>`).join("");
@@ -784,14 +841,16 @@ function renderStory(el) {
   el.innerHTML = `<div class="card story"><div class="card-b">
     <div class="crtop">${head}${stats}</div>
     ${key ? scaleNote(key, v.references) : ""}
-    <ol class="crsteps">${steps}</ol>
-    <div class="narr"><p class="latest"><span class="t">${latest ? dur(latest.s) : "0s"}</span><span>${latest ? latest.t : v.state === "plan_ready" ? "Waiting for your picks above." : "Agents are starting."}</span></p></div>
+    ${live ? `<ol class="crsteps">${steps}</ol>
+    <div class="narr"><p class="latest"><span class="t">${latest ? dur(latest.s) : "0s"}</span><span>${latest ? latest.t : v.state === "plan_ready" ? "Waiting for your picks above." : "Agents are starting."}</span></p></div>` : ""}
     <div class="crtasks">${tasks}</div>
     ${raced ? "" : `<div class="kicker">Every score Lucidity checked</div>
     <div class="crevals"><div id="ev-chart"></div>
       <div class="evlog"><div class="evrow hd"><span>time</span><span>agent</span><span></span><span class="m">${esc(plainMetric(key || "score"))}</span><span></span></div>${log || `<div class="muted small" style="padding:8px 10px">No scores yet.</div>`}</div></div>`}
-    <p class="small muted foot">${dur(v.elapsed_s)} · ${money(v.spent_usd)} on AI calls · only work that hits the goal is kept</p>
+    <p class="small muted foot">${dur(v.elapsed_s)} · ${money(v.spent_usd)} on AI calls</p>
   </div></div>`;
+  const tk = $("#p-take");
+  if (tk) tk.innerHTML = takeaway(v, key, tg);
   const ch = $("#ev-chart", el);
   if (ch) { CW = chartWidth(ch); ch.innerHTML = evalChart(v, evals, key, tg); }
   el.querySelectorAll("[data-race]").forEach(rc => {
@@ -847,7 +906,7 @@ function raceChart(us, tg, base, refs) {
   const off = val => lower ? val > floor : val < floor;
   const shown = vals.filter(val => !off(val));
   if (vals.length !== shown.length) shown.push(floor);
-  const onChart = (refs || []).filter(r => typeof r.value === "number" && !off(r.value));   // e.g. FiveThirtyEight's score
+  const onChart = (refs || []).filter(r => typeof r.value === "number" && !off(r.value) && !(base != null && Math.abs(r.value - base) < 0.002));   // the starting model already has its own line   // e.g. FiveThirtyEight's score
   onChart.forEach(r => shown.push(r.value));
   let lo = Math.min(...shown), hi = Math.max(...shown);
   const pad = (hi - lo) * 0.1 || 0.01;
@@ -863,7 +922,7 @@ function raceChart(us, tg, base, refs) {
   for (let r = 1; r <= R; r++) g += `<text x="${x(r)}" y="${H - 6}" text-anchor="middle">round ${r}</text>`;
   g += `<text class="better" x="${PL}" y="${PT + 2}">better ↑</text>`;
   if (base != null) g += `<line class="base-line" x1="${PL}" x2="${CW - PR}" y1="${y(base)}" y2="${y(base)}"/><text class="base-label" x="${CW - PR}" y="${y(base) - 5}" text-anchor="end">starting model</text>`;
-  onChart.forEach(r => { g += `<line class="ref-line" x1="${PL}" x2="${CW - PR}" y1="${y(r.value)}" y2="${y(r.value)}"/><text class="ref-label" x="${PL + 6}" y="${y(r.value) - 5}">${esc(r.label)} ${asPct(r.value)}</text>`; });
+  onChart.forEach(r => { g += `<line class="ref-line" x1="${PL}" x2="${CW - PR}" y1="${y(r.value)}" y2="${y(r.value)}"/><text class="ref-label" x="${PL + 6}" y="${y(r.value) - 5}">${esc(r.short || r.label)} ${asPct(r.value)}</text>`; });
   g += `<line class="target-line" x1="${PL}" x2="${CW - PR}" y1="${y(tg.value)}" y2="${y(tg.value)}"/><text class="target-label" x="${CW - PR}" y="${y(tg.value) - 5}" text-anchor="end">goal</text>`;
   const lines = series.map(s => {
     if (!s.pts.length) return "";
@@ -908,8 +967,8 @@ function leaderboard(n, us, tg, base, refs) {
       <span class="lb-name" title="${esc(r.label)}">${esc(short(r.label))}</span>
       <span class="lb-track"><i class="lb-bar" style="width:${w}%;--col:${col}"></i><i class="lb-goal" style="left:${P(tg.value)}%"></i></span>
       <span class="lb-val" title="held-out ${esc(plainMetric(mkey || "score"))}${seOf(r.u, mkey) != null ? ` ± ${asPct(2 * seOf(r.u, mkey))} (rough noise range)` : ""}">${r.value == null ? "–" : asPct(r.value)}</span>
-      <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}</span>
-      ${luck(r) != null ? `<span class="lb-luck">gap to the benchmark is within noise (± ${asPct(2 * luck(r))}), so it could be luck</span>` : ""}</div>`;
+      <span class="lb-mark">${r.agent && r.agent === won ? "★" : r.passed ? "✓" : r.value == null ? "" : "✗"}${r.passed && luck(r) != null ? `<i class="lb-noise" title="Within noise of the benchmark (± ${asPct(2 * luck(r))}), so the gap could be luck">≈</i>` : ""}</span>
+      </div>`;
   }).join("");
   // The best answer without agents (plain regression, an outside forecast, or a coin flip), scored by Lucidity.
   const bench = (refs || []).filter(r => r.benchmark && typeof r.value === "number").map(r => {
@@ -919,7 +978,7 @@ function leaderboard(n, us, tg, base, refs) {
       <span class="lb-track"><i class="lb-bar" style="width:${P(r.value)}%"></i><i class="lb-goal" style="left:${P(tg.value)}%"></i></span>
       <span class="lb-val">${asPct(r.value)}</span><span class="lb-mark"></span></div>`;
   }).join("");
-  return `<div class="lb">${bars}${bench}</div><div class="legend">${bench ? `<span><i class="lb-bench-key"></i>benchmark: the best answer without agents</span>` : ""}<span><i class="lb-goal-key"></i>goal</span><span class="muted">longer bar = bigger improvement over the starting model, on test data no agent saw</span></div>`;
+  return `<div class="lb">${bars}${bench}</div><div class="legend">${bench ? `<span><i class="lb-bench-key"></i>benchmark</span>` : ""}<span><i class="lb-goal-key"></i>goal</span><span class="muted">longer = bigger gain</span>${rows.some(r => r.passed && luck(r) != null) ? `<span class="muted">≈ within noise of the benchmark</span>` : ""}</div>`;
 }
 
 // Why the winner won: where it ranked, what it beat, and which inputs it leans on.
@@ -938,10 +997,9 @@ function whyPanel(n, tg) {
   const bars = imp ? imp.slice(0, 8).map(([k, val]) => `<div class="imp-row" title="${esc(k)}"><span>${esc(human(k))}</span>
       <span class="imp-track"><i style="width:${Math.max(1.5, 100 * Math.max(0, val) / mx)}%"></i></span></div>`).join("") : "";
   return `<div class="why"><div class="why-h">Why ${esc(top.label)}</div>
-    <div class="chips"><span class="chip ok">best of ${c.rows.length}</span><span class="chip ok">passed every check</span>
-      <span class="chip">${passed} of ${c.rows.length} cleared the goal</span>${next ? `<span class="chip">ahead of ${esc(next.label)}</span>` : ""}</div>
+    <div class="chips"><span class="chip ok">best of ${c.rows.length}</span><span class="chip">${passed} of ${c.rows.length} hit the goal</span></div>
     ${imp ? `<div class="kicker">What it leans on</div><div class="imp">${bars}</div>
-      <p class="muted small">Longer bar = the model does worse by more when that input is scrambled, so it matters more.</p>` : ""}</div>`;
+      <p class="muted small" title="Longer bar = the model does worse by more when that input is scrambled.">Longer = matters more.</p>` : ""}</div>`;
 }
 
 function sparkline(u, tg, base) {
@@ -971,7 +1029,7 @@ function raceBlock(v, n, us, key, tg) {
   return `<div class="race">
     <div class="race-grid">
       <div class="panel"><div class="ph">Each model, round by round</div><div class="race-chart" data-race="${esc(n.id)}"></div>
-        <div class="tiles">${tiles}</div></div>
+        ${v.state === "running" ? `<div class="tiles">${tiles}</div>` : ""}</div>
       <div class="panel"><div class="ph">Leaderboard · test data</div>${leaderboard(n, us, tg, base, v.references)}${whyPanel(n, tg)}</div>
     </div>${roundsPanel(us, tg, base)}</div>`;
 }
@@ -1001,19 +1059,18 @@ function roundsPanel(us, tg, base) {
       if (p) prev = p.val;
       items.push(`<li class="rc-r"><div class="rc-h"><span class="rc-n">Round ${r}</span><span class="rc-s">${score}</span></div>
         ${c ? `<div class="rc-l"><span class="lbl">Code change</span><p>${esc(c.changed)} <span class="muted small">${c.files.length ? `+${c.added} −${c.removed} lines` : ""}</span></p></div>` : ""}
-        ${rep && rep.text ? `<div class="rc-l"><span class="lbl">Agent said</span><p>${esc(trunc(rep.text, 360))}</p></div>` : ""}
+        ${rep && rep.text ? `<div class="rc-l"><span class="lbl">Agent said (unchecked)</span><p>${esc(trunc(rep.text, 360))}</p></div>` : ""}
         ${c && c.files.length ? `<button class="linkish" data-diff="${esc(k)}" data-node="${esc(u.id)}" data-round="${r}">${roundOpen.has("d:" + k) ? "Hide" : "Show"} the exact code change</button>
           ${diffCache[k] != null && roundOpen.has("d:" + k) ? diffView(diffCache[k]) : ""}` : ""}</li>`);
     }
     const stop = u.reason && /^Stopped early/.test(u.reason) ? `<li class="rc-r rc-stop muted small">${esc(u.reason)}</li>` : "";
     const b = bestOf(u, tg);
     return `<details class="rc-agent" data-ag="${esc(u.id)}" style="--col:${FAM[i % FAM.length]}"${roundOpen.has(u.id) ? " open" : ""}>
-      <summary><i class="sw"></i><span class="rc-name">${esc(u.label || u.id)}</span><span class="muted small">${plural(n, "round")}${b != null ? " · best " + asPct(b) : ""}</span></summary>
+      <summary><i class="sw"></i><span class="rc-name">${esc(u.label || u.id)}</span><span class="muted small">${plural(n, "round")}${b != null ? " · best " + asPct(b) : ""}</span><span class="rc-hint"><span class="rc-hint-t"></span><i aria-hidden="true">›</i></span></summary>
       <ol class="rc-list">${items.join("")}${stop}</ol></details>`;
   }).join("");
   if (!rows) return "";
-  return `<div class="panel rc"><div class="ph">What changed each round</div>
-    <p class="muted small">Score is on test data no agent sees. "Code change" is read from the code itself; "Agent said" is the agent's own report, unchecked.</p>${rows}</div>`;
+  return `<div class="panel rc"><div class="ph">What changed each round</div>${rows}</div>`;
 }
 
 function diffView(text) {
@@ -1099,7 +1156,8 @@ function narrate(v, key, tg) {
     else if (e.kind === "recheck") t = `Other work merged while <b>${esc(e.node)}</b> ran, so Lucidity scores it again on top of that.`;
     else if (e.kind === "merge") {
       const sc = S.filter(s => s.s >= e.s - 0.5)[0];
-      t = `<b>${esc(e.node)}</b> merged.${sc && key && typeof sc.metrics[key] === "number" ? ` ${esc(plainMetric(key)).replace(/^./, s => s.toUpperCase())} is now <b>${P(sc.metrics[key])}</b>.` : ""}`;
+      const mn = v.nodes.find(x => x.id === e.node);
+      t = `<b>${esc(mn ? mn.title : e.node)}</b> kept.${sc && key && typeof sc.metrics[key] === "number" ? ` ${esc(plainMetric(key)).replace(/^./, s => s.toUpperCase())} is now <b>${P(sc.metrics[key])}</b>.` : ""}`;
     }
     else if (e.kind === "you" && /^you chose: /.test(e.text)) t = `You chose: ${esc(e.text.slice(11))}.`;
     else if (e.kind === "you" && /replaying/.test(e.text)) t = `Skipped <b>${esc(e.node)}</b>, as the owner did in the live run: ${esc((e.text.match(/\((.*)\)$/) || [, ""])[1])}.`;
