@@ -424,7 +424,7 @@ function renderRecent() {
     <div class="runlist" style="margin-top:12px">${rs.map(r => `
       <a class="runrow" href="#run/${esc(r.id)}">
         <span>${badge(r.state)}</span>
-        <span style="min-width:0"><div class="goal">${esc(r.goal)}</div><div class="repo">${esc(r.repo_name)} · ${r.mode === "demo" ? "demo" : esc(r.worker)}</div></span>
+        <span class="gcell" style="min-width:0"><div class="goal">${esc(r.goal)}</div><div class="repo">${esc(r.repo_name)} · ${r.mode === "demo" ? "demo" : esc(r.worker)}</div></span>
         <span class="num">${r.done}/${r.tasks} tasks</span>
         <span class="num">${money(r.spent_usd)} of ${money(r.budget_usd)}</span>
         <span class="num when">${ago(r.created)}</span>
@@ -714,6 +714,8 @@ function takeaway(v, key, tg) {
     return box("live", `Running. Leading so far: ${esc(lead.u.label || lead.u.id)} at ${P(lead.val)}.`,
       `${scored.length} of ${us.length} models scored · goal ${tg.op === "<=" ? "≤" : "≥"} ${P(tg.value)} ${metric} (${dir}).`);
   }
+  // The winner and the benchmark can be the same kind of model ("Plain logistic regression" vs "Plain regression").
+  const sameFamily = (a, b) => String(a).toLowerCase().split(" ")[0] === String(b).toLowerCase().split(" ")[0];
   const c = race && race.comparison;
   if (c && c.rows.length) {
     const top = c.rows[0], passed = c.rows.filter(r => r.passed).length;
@@ -724,6 +726,7 @@ function takeaway(v, key, tg) {
     const head = !bench ? `${esc(top.label)} wins.`
       : !beats ? `${esc(top.label)} wins, but doesn't beat ${esc(benchName)}.`
       : luck ? `${esc(top.label)} wins, but it's a near-tie with ${esc(benchName)}.`
+      : sameFamily(top.label, benchName) ? `${esc(top.label)} wins. Tuned, it beats the untuned ${esc(benchName)}.`
       : `${esc(top.label)} wins, and it beats ${esc(benchName)}.`;
     return box(luck || !beats ? "tie" : "ok", head,
       `${P(top.value)}${bench ? ` vs ${esc(benchName)}'s ${P(bench.value)}` : ""} ${metric} (${dir}).`
